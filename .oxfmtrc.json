@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": false,
+  "singleQuote": true,
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "convex/_generated/**",
+    ".output/**",
+    "dist/**",
+    "pnpm-lock.yaml",
+    "playwright-report/**",
+    "test-results/**"
+  ]
+}

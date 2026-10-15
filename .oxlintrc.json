@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["react", "typescript", "import", "unicorn"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-console": "warn",
+    "react/react-in-jsx-scope": "off",
+    "import/no-named-as-default": "off"
+  },
+  "overrides": [
+    {
+      "files": ["convex/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "convex/_generated/**",
+    ".output/**",
+    "dist/**",
+    "playwright-report/**",
+    "test-results/**"
+  ]
+}
