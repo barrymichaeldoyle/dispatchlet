@@ -4,4 +4,8 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  "routes": [
+    { "pattern": "dispatchlet.com", "custom_domain": true },
+    { "pattern": "www.dispatchlet.com", "custom_domain": true },
+  ],
 }
