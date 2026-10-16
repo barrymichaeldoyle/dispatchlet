@@ -47,6 +47,20 @@ URI `https://<your-deployment>.convex.site/oauth/buffer/callback`.
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright smoke test.
 
+### Pre-commit checks
+
+`pnpm install` installs the Husky Git hooks automatically. Every commit runs
+`pnpm precommit`, which checks staged JavaScript/TypeScript files with oxlint,
+checks formatting on staged supported files with oxfmt, runs `pnpm audit`
+(including development and optional dependencies, at low severity and above),
+and runs the full unit test suite. Lint and formatting checks do not rewrite
+files; fix failures and stage the changes before retrying.
+
+Any failed check blocks the commit. The audit requires access to the package
+registry; a failed audit request also blocks the commit. A clean audit means
+no known dependency vulnerabilities were reported at the time of the check.
+Typechecking, Knip and browser tests remain in CI through the existing checks.
+
 ## Deployment
 
 Pushes to `main` deploy production through Cloudflare Workers Builds for
