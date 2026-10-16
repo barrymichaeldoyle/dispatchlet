@@ -8,6 +8,15 @@ The landing page leads with one explanation of the product: an agent researches
 and writes posts, skips repeats, and sends drafts or scheduled posts to Buffer.
 The desktop hero pairs this explanation with signup; mobile stacks the same
 content. One compact demo launcher replaces repeated introductions and controls.
+The hero's Watch the demo link opens playback directly, preserves progress on
+return and restores focus to that link when closed. Without JavaScript, it remains
+a native link to the example section. Redundant demo introductions and the second
+launch-date reminder are removed. Keyboard focus outlines the full clickable
+launcher surface.
+
+Visible brand references use the Dispatchlet wordmark and the bold letterforms
+from [Buffer’s official wordmark](https://buffer.com/press). Both scale with their
+surrounding text; accessible names and metadata retain readable brand names.
 Review controls and data handling sit in two optional, native disclosure rows.
 Read instead closes the dialog, unlocks page scrolling, opens the transcript and
 scrolls its heading to the top of the viewport. The six sample posts are available
@@ -147,7 +156,7 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 44 browser tests against the production preview: playback and replay, pause,
+- 46 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,

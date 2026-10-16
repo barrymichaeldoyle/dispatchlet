@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+  type Ref,
+} from 'react'
 import { Wordmark } from './wordmark'
+import { BrandText } from './brand-text'
 
 const DURATION = 54000
 const TOTAL_SECONDS = DURATION / 1000
@@ -176,7 +185,9 @@ function FlowPanel({
       data-active={stage === index}
       data-pending={stage < index}
     >
-      <h3 className="flow-panel-title">{title}</h3>
+      <h3 className="flow-panel-title">
+        <BrandText>{title}</BrandText>
+      </h3>
       {visible ? (
         <div className="flow-panel-content">{children}</div>
       ) : overview ? (
@@ -195,7 +206,9 @@ const subscribeLayout = (onChange: () => void) => {
 }
 const getOverview = () => window.matchMedia(OVERVIEW_QUERY).matches
 
-export function ExampleRun() {
+export type ExampleRunHandle = { play: (opener: HTMLElement) => void }
+
+export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   const ready = useSyncExternalStore(
     subscribe,
     () => true,
@@ -208,7 +221,7 @@ export function ExampleRun() {
   const previews = useRef<HTMLDivElement>(null)
   const duplicateDetail = useRef<HTMLDivElement>(null)
   const focusPreview = useRef(false)
-  const opener = useRef<HTMLButtonElement | null>(null)
+  const opener = useRef<HTMLElement | null>(null)
   const transcript = useRef<HTMLDetailsElement>(null)
   const readAfterClose = useRef(false)
   const joinAfterClose = useRef(false)
@@ -304,7 +317,7 @@ export function ExampleRun() {
     setElapsed((value) => Math.max(value, 42000))
   }
 
-  const launch = (button: HTMLButtonElement) => {
+  const launch = (button: HTMLElement) => {
     opener.current = button
     setSelectedStory(null)
     if (complete) setElapsed(0)
@@ -313,6 +326,8 @@ export function ExampleRun() {
     dialog.current?.showModal()
     setFocused(true)
   }
+  useImperativeHandle(ref, () => ({ play: launch }))
+
   const close = () => {
     dismissDetail()
     setPlaying(false)
@@ -347,7 +362,6 @@ export function ExampleRun() {
       <div className="flow-heading">
         <div>
           <h2>See how it works.</h2>
-          <p>A brief becomes research, posts and a Buffer schedule.</p>
         </div>
       </div>
       <div className="flow-launch">
@@ -434,7 +448,9 @@ export function ExampleRun() {
                   <span className="flow-stage-number" aria-hidden="true">
                     {started && index < viewStage ? <Icon kind="check" /> : index + 1}
                   </span>
-                  <span>{name}</span>
+                  <span>
+                    <BrandText>{name}</BrandText>
+                  </span>
                 </button>
               </li>
             ))}
@@ -454,7 +470,9 @@ export function ExampleRun() {
                   className={index === viewStage ? 'is-active' : ''}
                   aria-hidden={index !== viewStage || undefined}
                 >
-                  <h3>{title}</h3>
+                  <h3>
+                    <BrandText>{title}</BrandText>
+                  </h3>
                   <p>{NOTES[index]}</p>
                 </div>
               ))}
@@ -541,7 +559,9 @@ export function ExampleRun() {
                         data-revealed={elapsed >= 9400 + index * 1700}
                         aria-hidden={elapsed < 9400 + index * 1700 || undefined}
                       >
-                        <span>{name}</span>
+                        <span>
+                          <BrandText>{name}</BrandText>
+                        </span>
                         <p>
                           <StreamText
                             text={value}
@@ -794,13 +814,13 @@ export function ExampleRun() {
                       className={elapsed < 46500 ? 'is-active' : ''}
                       aria-hidden={elapsed >= 46500 || undefined}
                     >
-                      Scheduling in Buffer · X + LinkedIn
+                      <BrandText>Scheduling in Buffer · X + LinkedIn</BrandText>
                     </span>
                     <span
                       className={elapsed >= 46500 ? 'is-active' : ''}
                       aria-hidden={elapsed < 46500 || undefined}
                     >
-                      6 posts scheduled in Buffer · X + LinkedIn
+                      <BrandText>6 posts scheduled in Buffer · X + LinkedIn</BrandText>
                     </span>
                   </p>
                   <ol className="flow-schedule" aria-label="Scheduled stories">
@@ -853,11 +873,13 @@ export function ExampleRun() {
               aria-atomic="true"
               className={complete ? 'sr-only' : undefined}
             >
-              {!started
-                ? 'Ready when you are'
-                : complete
-                  ? 'Walkthrough complete'
-                  : `${playing ? 'Playing' : 'Paused'} · ${STAGES[viewStage]}`}
+              {!started ? (
+                'Ready when you are'
+              ) : complete ? (
+                'Walkthrough complete'
+              ) : (
+                <BrandText>{`${playing ? 'Playing' : 'Paused'} · ${STAGES[viewStage]}`}</BrandText>
+              )}
             </span>
             {complete ? (
               <button
@@ -936,7 +958,7 @@ export function ExampleRun() {
           The animation needs JavaScript. You can read the full walkthrough below.
         </p>
       </noscript>
-      <p className="flow-disclaimer">Illustrative example. Live runs start 28 October.</p>
+      <p className="flow-disclaimer">Illustrative example.</p>
       <details
         ref={transcript}
         className="flow-transcript"
@@ -987,7 +1009,9 @@ export function ExampleRun() {
             </details>
           </li>
           <li>
-            <h3>See the schedule in Buffer</h3>
+            <h3>
+              <BrandText>See the schedule in Buffer</BrandText>
+            </h3>
             <p>
               The three stories are scheduled at 09:00, 12:00 and 15:00 for X and LinkedIn. Six
               posts, three hours apart. The repeated story is left out, and the agent runs again

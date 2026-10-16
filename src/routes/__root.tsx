@@ -1,3 +1,4 @@
+import { BrandText } from '../components/brand-text'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -29,8 +30,14 @@ export const Route = createRootRoute({
     <main className="not-found" id="main-content">
       <p>404</p>
       <h1>This page isn’t here.</h1>
-      <p>Head back to Dispatchlet to see how a brief becomes a fresh Buffer queue.</p>
-      <a href="/">Back to Dispatchlet</a>
+      <p>
+        <BrandText>
+          Head back to Dispatchlet to see how a brief becomes a fresh Buffer queue.
+        </BrandText>
+      </p>
+      <a href="/">
+        <BrandText>Back to Dispatchlet</BrandText>
+      </a>
     </main>
   ),
 })

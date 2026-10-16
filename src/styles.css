@@ -2108,3 +2108,35 @@ header nav button {
 .landing-questions summary::marker {
   color: var(--color-pine);
 }
+
+/* Inline brands follow the surrounding text size and keep words together. */
+.inline-wordmark {
+  display: inline-block;
+  white-space: nowrap;
+}
+.inline-wordmark > span {
+  font-size: 1em !important;
+}
+.inline-wordmark svg {
+  width: 0.8em;
+  height: 0.771em;
+}
+.buffer-wordmark {
+  display: inline-block;
+  width: 2.8em;
+  height: 0.8em;
+  vertical-align: -0.025em;
+  white-space: nowrap;
+}
+.buffer-wordmark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.flow-launch:has(.flow-launch-action:focus-visible) {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 3px;
+}
+.flow-launch-action:focus-visible {
+  outline: none;
+}

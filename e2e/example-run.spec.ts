@@ -590,3 +590,27 @@ for (const viewport of [
     await expect(page.getByRole('heading', { name: 'Give the agent a brief' })).toBeInViewport()
   })
 }
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1440, height: 900 },
+]) {
+  test(`hero demo link opens directly and restores focus at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.clock.install()
+    await page.goto('/')
+    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+    const watch = page.getByRole('link', { name: 'Watch the demo' })
+    await watch.click()
+    const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+    await expect(demo).toBeVisible()
+    await page.clock.runFor(11000)
+    await demo.getByRole('button', { name: 'Close walkthrough' }).click()
+    await expect(watch).toBeFocused()
+    await watch.click()
+    await expect(demo.locator('.flow-stages li[aria-current="step"]')).toContainText('The playbook')
+    await expect(page).not.toHaveURL(/#run$/)
+  })
+}

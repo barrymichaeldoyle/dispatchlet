@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react'
-import { ExampleRun } from '../components/example-run'
+import { lazy, Suspense, useEffect, useRef, useSyncExternalStore } from 'react'
+import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
+import { BrandText } from '../components/brand-text'
 import { ThemeToggle } from '../components/theme-toggle'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
@@ -99,6 +100,7 @@ function useNotice(): { notice: Notice; mounted: boolean } {
 
 function Home() {
   const { notice, mounted } = useNotice()
+  const demo = useRef<ExampleRunHandle>(null)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -125,14 +127,22 @@ function Home() {
           <div className="landing-message">
             <h1 id="product-title">An agent that researches and writes your posts.</h1>
             <p className="landing-description">
-              Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared before,
-              and sends posts to Buffer.
+              <BrandText>
+                Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared
+                before, and sends posts to Buffer.
+              </BrandText>
             </p>
             <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
           </div>
           <div className="landing-signup">
             <h2>Get the launch email.</h2>
-            <WaitlistForm />
+            <WaitlistForm
+              onWatchDemo={(event) => {
+                if (!demo.current) return
+                event.preventDefault()
+                demo.current.play(event.currentTarget)
+              }}
+            />
             <p className="landing-notice" aria-live="polite">
               {notice === 'confirmed'
                 ? 'Thanks, you are on the list.'
@@ -148,7 +158,7 @@ function Home() {
           </div>
         </section>
 
-        <ExampleRun />
+        <ExampleRun ref={demo} />
 
         <section className="landing-questions" aria-labelledby="questions-title">
           <h2 id="questions-title">Before you join</h2>
@@ -156,16 +166,20 @@ function Home() {
             <details>
               <summary>Can I review posts before they go out?</summary>
               <p>
-                Yes. Save drafts in Buffer for review, or choose automatic scheduling. You set the
-                sources, voice and rules, and can see what the agent researched and why it kept or
-                skipped a story.
+                <BrandText>
+                  Yes. Save drafts in Buffer for review, or choose automatic scheduling. You set the
+                  sources, voice and rules, and can see what the agent researched and why it kept or
+                  skipped a story.
+                </BrandText>
               </p>
             </details>
             <details>
               <summary>How is my data handled?</summary>
               <p>
-                Posts are labeled AI-assisted in Buffer. Your Buffer tokens are encrypted and
-                deleted when you disconnect.
+                <BrandText>
+                  Posts are labeled AI-assisted in Buffer. Your Buffer tokens are encrypted and
+                  deleted when you disconnect.
+                </BrandText>
               </p>
               <p>
                 Your email is used for one confirmation and one launch email. Both include an
@@ -176,7 +190,9 @@ function Home() {
         </section>
       </main>
       <footer className="landing-footer">
-        <span>Built with the Buffer API. Not a Buffer product.</span>
+        <span>
+          <BrandText>Built with the Buffer API. Not a Buffer product.</BrandText>
+        </span>
         <span>
           <a href={BARRY_URL}>Barry Doyle</a>
           <span aria-hidden="true"> · </span>
