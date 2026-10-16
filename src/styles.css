@@ -1527,9 +1527,14 @@ header nav button {
     min-height: 44px;
     padding-block: 10px;
     font-size: 12px;
+    font-weight: 500;
   }
   .flow-dialog .flow-stage-number {
-    display: none;
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+    border: 0;
+    visibility: hidden;
   }
   .flow-dialog .flow-player {
     padding-inline: 24px;
@@ -1660,13 +1665,7 @@ header nav button {
     background: transparent;
   }
   .flow-stages li.is-current:not([aria-current]) .flow-stage-number {
-    display: inline-flex;
-    width: 14px;
-    height: 14px;
-    border: 0;
-  }
-  .flow-stages li[aria-current='step'] button {
-    font-weight: 500;
+    visibility: visible;
   }
 }
 @media (max-width: 480px) {
