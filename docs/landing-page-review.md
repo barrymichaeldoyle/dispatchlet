@@ -19,7 +19,19 @@ The completed candidate list holds for seven seconds before the next chapter.
 The writing chapter keeps one short X/LinkedIn comparison on screen. Its channels
 stream in sequence, then the other two stories appear as compact completed items.
 There is no automatic story switching. All six example posts remain available in
-the transcript. The final Buffer schedule places stories at 09:00, 12:00 and
+the transcript. Viewers can select a fresh story in research, completed-story
+links or the Buffer schedule to pause and preview both of its posts. Matching
+research and schedule entries are highlighted. Selecting during research
+advances to the completed writing preview. Automatic playback never cycles
+between stories; resuming restores the original example. On phones, inspection
+opens the writing chapter and focuses the selected preview, preserving run
+progress. All preview variants reserve one shared area to avoid layout shifts;
+inactive variants are hidden from assistive technology and keyboard focus.
+
+The skipped urban garden finding opens a native, light-dismiss popover showing a
+clearly labeled illustrative prior post and the match explanation. Opening it
+pauses playback. Escape closes only the explanation and restores the trigger,
+leaving the walkthrough paused. The final Buffer schedule places stories at 09:00, 12:00 and
 15:00 using Spread mode, with over seven seconds to read the completed schedule.
 
 Pause/resume, restart at any point, replay, chapter selection and hidden-tab
@@ -126,13 +138,15 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 39 browser tests against the production preview: playback and replay, pause,
+- 42 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
   reading holds, sequential channel writing, persistent desktop columns, retained
   content, laptop fit, responsive layout switching, accurate completion feedback,
-  keyboard return to signup without submission, axe scans, signup
+  keyboard return to signup without submission, story selection and linked
+  highlights, stable preview geometry, duplicate evidence and Escape/focus
+  restoration, axe scans including optional detail/inspection states, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
 - Chromium covers both layouts, including short landscape. Additional WebKit

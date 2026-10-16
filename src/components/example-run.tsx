@@ -53,11 +53,11 @@ const STORIES = [
     posts: [
       [
         'X',
-        'Broken toaster? Meet your neighbours. A community repair café keeps everyday things in use and brings people together. [Source link]',
+        'A community repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. [Source link]',
       ],
       [
         'LinkedIn',
-        'A neighbourhood repair café is turning everyday repairs into community connections. Less waste, more shared skills. [Source link]',
+        'A neighbourhood repair café turns everyday repairs into community connections. Volunteers share their skills, keeping useful things out of landfill. [Source link]',
       ],
     ],
   },
@@ -67,11 +67,11 @@ const STORIES = [
     posts: [
       [
         'X',
-        'Clean energy with a local return: a community solar project puts its proceeds back into neighbourhood projects. [Source link]',
+        'A community solar project puts its proceeds back into neighbourhood projects. Clean energy, with a local return. [Source link]',
       ],
       [
         'LinkedIn',
-        'Community-owned solar can do more than generate electricity. This project reinvests its proceeds in local priorities. [Source link]',
+        'Community-owned solar can do more than generate electricity. By reinvesting proceeds locally, this project helps fund the neighbourhood’s own priorities. [Source link]',
       ],
     ],
   },
@@ -205,6 +205,9 @@ export function ExampleRun() {
   const closeControl = useRef<HTMLButtonElement>(null)
   const readControl = useRef<HTMLButtonElement>(null)
   const workspace = useRef<HTMLDivElement>(null)
+  const previews = useRef<HTMLDivElement>(null)
+  const duplicateDetail = useRef<HTMLDivElement>(null)
+  const focusPreview = useRef(false)
   const opener = useRef<HTMLButtonElement | null>(null)
   const transcript = useRef<HTMLDetailsElement>(null)
   const readAfterClose = useRef(false)
@@ -213,12 +216,14 @@ export function ExampleRun() {
   const overview = useSyncExternalStore(subscribeLayout, getOverview, () => false)
   const [elapsed, setElapsed] = useState(0)
   const [runId, setRunId] = useState(0)
+  const [selectedStory, setSelectedStory] = useState<number | null>(null)
   const [running, setPlaying] = useState(false)
   const [started, setStarted] = useState(false)
   const [reduced, setReduced] = useState(false)
   const complete = elapsed >= DURATION
   const playing = focused && running && !complete
   const stage = STARTS.reduce((current, start, index) => (elapsed >= start ? index : current), 0)
+  const viewStage = !overview && selectedStory !== null ? 3 : stage
 
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -261,11 +266,38 @@ export function ExampleRun() {
 
   useEffect(() => {
     if (focused && !overview) workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each chapter starts at the top of the stage.
-  }, [stage, focused, overview])
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each visible chapter starts at the top of the workspace.
+  }, [viewStage, focused, overview])
+
+  useEffect(() => {
+    if (!focusPreview.current) return
+    focusPreview.current = false
+    previews.current
+      ?.querySelector<HTMLElement>('[data-selected="true"]')
+      ?.focus({ preventScroll: true })
+    workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Selection commits the preview before moving keyboard focus.
+  }, [selectedStory])
+
+  const dismissDetail = () => {
+    if (duplicateDetail.current?.matches(':popover-open')) duplicateDetail.current.hidePopover()
+  }
+  const inspectStory = (index: number, moveFocus = false) => {
+    setPlaying(false)
+    const focus = moveFocus || !overview
+    if (index === selectedStory && elapsed >= 52000) {
+      if (focus)
+        previews.current
+          ?.querySelector<HTMLElement>('[data-selected="true"]')
+          ?.focus({ preventScroll: true })
+    } else focusPreview.current = focus
+    setSelectedStory(index)
+    setElapsed((value) => Math.max(value, 52000))
+  }
 
   const launch = (button: HTMLButtonElement) => {
     opener.current = button
+    setSelectedStory(null)
     if (complete) setElapsed(0)
     setStarted(true)
     setPlaying(true)
@@ -273,10 +305,13 @@ export function ExampleRun() {
     setFocused(true)
   }
   const close = () => {
+    dismissDetail()
     setPlaying(false)
     dialog.current?.close()
   }
   const restart = () => {
+    dismissDetail()
+    setSelectedStory(null)
     setElapsed(0)
     setRunId((value) => value + 1)
     setStarted(true)
@@ -284,10 +319,14 @@ export function ExampleRun() {
     workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
   }
   const play = () => {
+    dismissDetail()
+    setSelectedStory(null)
     if (complete) restart()
     else setPlaying((value) => !value)
   }
   const seek = (index: number) => {
+    dismissDetail()
+    setSelectedStory(null)
     setStarted(true)
     setPlaying(false)
     setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
@@ -394,8 +433,8 @@ export function ExampleRun() {
             {STAGES.map((name, index) => (
               <li
                 key={name}
-                className={started && index <= stage ? 'is-current' : ''}
-                aria-current={started && index === stage ? 'step' : undefined}
+                className={started && index <= viewStage ? 'is-current' : ''}
+                aria-current={started && index === viewStage ? 'step' : undefined}
               >
                 <button
                   type="button"
@@ -405,7 +444,7 @@ export function ExampleRun() {
                   aria-controls="flow-workspace"
                 >
                   <span className="flow-stage-number" aria-hidden="true">
-                    {started && index < stage ? <Icon kind="check" /> : index + 1}
+                    {started && index < viewStage ? <Icon kind="check" /> : index + 1}
                   </span>
                   <span>{name}</span>
                 </button>
@@ -424,15 +463,15 @@ export function ExampleRun() {
               {TITLES.map((title, index) => (
                 <div
                   key={title}
-                  className={index === stage ? 'is-active' : ''}
-                  aria-hidden={index !== stage || undefined}
+                  className={index === viewStage ? 'is-active' : ''}
+                  aria-hidden={index !== viewStage || undefined}
                 >
                   <h3>{title}</h3>
                   <p>{NOTES[index]}</p>
                 </div>
               ))}
             </div>
-            <div key={overview ? runId : `${runId}-${stage}`} className="flow-scene">
+            <div key={overview ? runId : `${runId}-${viewStage}`} className="flow-scene">
               <div
                 className="flow-context"
                 tabIndex={overview ? 0 : undefined}
@@ -441,7 +480,7 @@ export function ExampleRun() {
               >
                 <FlowPanel
                   index={0}
-                  stage={stage}
+                  stage={viewStage}
                   overview={overview}
                   title="Your brief"
                   waiting=""
@@ -497,7 +536,7 @@ export function ExampleRun() {
                 </FlowPanel>
                 <FlowPanel
                   index={1}
-                  stage={stage}
+                  stage={viewStage}
                   overview={overview}
                   title="The playbook"
                   waiting="Your brief will become an editable playbook."
@@ -538,7 +577,7 @@ export function ExampleRun() {
               </div>
               <FlowPanel
                 index={2}
-                stage={stage}
+                stage={viewStage}
                 overview={overview}
                 title="Research"
                 waiting="The agent will search and check previous posts."
@@ -576,13 +615,74 @@ export function ExampleRun() {
                       {CANDIDATES.map(([title, status], index) => (
                         <li
                           key={title}
+                          data-highlighted={selectedStory === index}
                           className={index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : ''}
                         >
-                          <span>{title}</span>
+                          {index < 3 ? (
+                            <button
+                              type="button"
+                              className="flow-story-link"
+                              aria-pressed={selectedStory === index}
+                              onClick={() => inspectStory(index)}
+                            >
+                              {title}
+                            </button>
+                          ) : index === 3 ? (
+                            <button
+                              type="button"
+                              className="flow-story-link"
+                              popoverTarget="flow-duplicate-detail"
+                              onClick={(event) =>
+                                event.currentTarget.focus({ preventScroll: true })
+                              }
+                              aria-label="The urban garden story: why it was skipped"
+                            >
+                              {title}
+                            </button>
+                          ) : (
+                            <span>{title}</span>
+                          )}
                           <span>{status}</span>
                         </li>
                       ))}
                     </ul>
+                    <div
+                      ref={duplicateDetail}
+                      id="flow-duplicate-detail"
+                      className="flow-duplicate-detail"
+                      popover="auto"
+                      role="dialog"
+                      aria-labelledby="flow-duplicate-title"
+                      onToggle={(event) => {
+                        if (event.newState === 'open') {
+                          setPlaying(false)
+                          duplicateDetail.current
+                            ?.querySelector('button')
+                            ?.focus({ preventScroll: true })
+                        }
+                      }}
+                    >
+                      <div className="flow-detail-heading">
+                        <h4 id="flow-duplicate-title">Already shared. Skipped this time.</h4>
+                        <button
+                          type="button"
+                          popoverTarget="flow-duplicate-detail"
+                          popoverTargetAction="hide"
+                          aria-label="Close duplicate explanation"
+                        >
+                          <Icon kind="close" />
+                        </button>
+                      </div>
+                      <p>Previous post · illustrative example</p>
+                      <blockquote>
+                        A neighbourhood garden is turning an unused plot into a place for neighbours
+                        to grow food together.
+                      </blockquote>
+                      <p>
+                        The agent matched this finding to the urban garden story in its posting
+                        history. It keeps the three fresh stories and leaves this repeat out.
+                      </p>
+                    </div>
                     <p>
                       The urban garden story matches a previous post. It won’t enter the queue
                       again.
@@ -592,42 +692,79 @@ export function ExampleRun() {
               </FlowPanel>
               <FlowPanel
                 index={3}
-                stage={stage}
+                stage={viewStage}
                 overview={overview}
                 title="Channel posts"
                 waiting="Fresh stories will become posts for each channel."
               >
                 <div className="flow-writing">
-                  <article className="flow-post">
-                    <div className="flow-post-heading">
-                      <strong>{STORIES[0].title}</strong>
-                      <span className={`flow-tag ${elapsed >= 47000 ? 'is-ready' : ''}`}>
-                        {elapsed >= 47000 ? '2 posts ready' : 'Writing'}
-                      </span>
-                    </div>
-                    <div className="flow-channel-posts">
-                      {STORIES[0].posts.map(([channel, text], index) => (
-                        <div
-                          className="flow-reveal"
-                          key={channel}
-                          data-revealed={elapsed >= (index === 0 ? 41700 : 44500)}
-                          aria-hidden={elapsed < (index === 0 ? 41700 : 44500) || undefined}
-                        >
-                          <span className="flow-channel">{channel}</span>
-                          <p>
-                            <StreamText
-                              text={text}
-                              elapsed={elapsed}
-                              start={index === 0 ? 41700 : 44500}
-                              duration={index === 0 ? 1600 : 2300}
-                              reduced={reduced}
-                            />
-                          </p>
+                  <div ref={previews} className="flow-post-previews">
+                    {STORIES.map((story, storyIndex) => (
+                      <article
+                        className="flow-post"
+                        key={story.title}
+                        tabIndex={-1}
+                        aria-label={`${story.title} posts`}
+                        data-selected={(selectedStory ?? 0) === storyIndex}
+                        aria-hidden={(selectedStory ?? 0) !== storyIndex}
+                        inert={(selectedStory ?? 0) !== storyIndex}
+                      >
+                        <div className="flow-post-heading">
+                          <strong>{story.title}</strong>
+                          {selectedStory !== null && storyIndex !== 0 ? (
+                            <button
+                              type="button"
+                              className="flow-tag flow-preview-reset"
+                              onClick={() => inspectStory(0, true)}
+                            >
+                              First story
+                            </button>
+                          ) : (
+                            <span
+                              className={`flow-tag ${selectedStory !== null || elapsed >= 47000 ? 'is-ready' : ''}`}
+                            >
+                              {selectedStory !== null || elapsed >= 47000
+                                ? '2 posts ready'
+                                : 'Writing'}
+                            </span>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </article>
-                  <ul className="flow-story-results" aria-label="Other completed stories">
+                        <div className="flow-channel-posts">
+                          {story.posts.map(([channel, text], index) => (
+                            <div
+                              className="flow-reveal"
+                              key={channel}
+                              data-revealed={
+                                selectedStory !== null || elapsed >= (index === 0 ? 41700 : 44500)
+                              }
+                              aria-hidden={
+                                (selectedStory === null &&
+                                  elapsed < (index === 0 ? 41700 : 44500)) ||
+                                undefined
+                              }
+                            >
+                              <span className="flow-channel">{channel}</span>
+                              <p>
+                                <StreamText
+                                  text={text}
+                                  elapsed={selectedStory !== null ? DURATION : elapsed}
+                                  start={index === 0 ? 41700 : 44500}
+                                  duration={index === 0 ? 1600 : 2300}
+                                  reduced={reduced}
+                                />
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <span className="sr-only" aria-live="polite">
+                    {selectedStory !== null
+                      ? `Inspecting ${STORIES[selectedStory].title}. Playback paused.`
+                      : ''}
+                  </span>
+                  <ul className="flow-story-results" aria-label="More story previews">
                     {STORIES.slice(1).map((story, index) => (
                       <li
                         className="flow-reveal"
@@ -637,7 +774,14 @@ export function ExampleRun() {
                       >
                         <Icon kind="check" />
                         <div>
-                          <strong>{story.title}</strong>
+                          <button
+                            type="button"
+                            className="flow-story-link"
+                            aria-pressed={selectedStory === index + 1}
+                            onClick={() => inspectStory(index + 1, true)}
+                          >
+                            <strong>{story.title}</strong>
+                          </button>
                           <span>2 posts ready · X + LinkedIn</span>
                         </div>
                       </li>
@@ -647,7 +791,7 @@ export function ExampleRun() {
               </FlowPanel>
               <FlowPanel
                 index={4}
-                stage={stage}
+                stage={viewStage}
                 overview={overview}
                 title="Buffer schedule"
                 waiting="Posts will be spaced through the day."
@@ -675,13 +819,21 @@ export function ExampleRun() {
                     {STORIES.map((story, index) => (
                       <li
                         key={story.title}
+                        data-highlighted={selectedStory === index}
                         className="flow-reveal"
                         data-revealed={elapsed >= 54600 + index * 1400}
                         aria-hidden={elapsed < 54600 + index * 1400 || undefined}
                       >
                         <time>{story.time}</time>
                         <div>
-                          <strong>{story.title}</strong>
+                          <button
+                            type="button"
+                            className="flow-story-link"
+                            aria-pressed={selectedStory === index}
+                            onClick={() => inspectStory(index)}
+                          >
+                            <strong>{story.title}</strong>
+                          </button>
                           <span>X + LinkedIn · Scheduled</span>
                         </div>
                         <Icon kind="check" />
@@ -717,7 +869,7 @@ export function ExampleRun() {
                 ? 'Ready when you are'
                 : complete
                   ? 'Walkthrough complete'
-                  : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
+                  : `${playing ? 'Playing' : 'Paused'} · ${STAGES[viewStage]}`}
             </span>
             {complete ? (
               <button

@@ -32,8 +32,10 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
       .filter({ hasText: '7 searches · 11 pages read. Original reporting verified.' }),
   ).toBeVisible()
   await page.clock.runFor(20000)
-  await expect(demo.locator('.flow-post')).toHaveCount(1)
-  await expect(demo.locator('.flow-post').getByText('2 posts ready', { exact: true })).toBeVisible()
+  await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
+  await expect(
+    demo.locator('.flow-post[data-selected="true"]').getByText('2 posts ready', { exact: true }),
+  ).toBeVisible()
   await page.clock.runFor(7000)
   await expect(demo.locator('.flow-schedule li[data-revealed="true"]')).toHaveCount(3)
   await page.clock.runFor(5000)
@@ -199,11 +201,15 @@ for (const viewport of [
       ).toBeLessThan(1)
       const items = await demo
         .locator(
-          '.flow-input, .flow-document-title, .flow-post, .flow-reveal[data-revealed="true"]',
+          '.flow-input, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
         )
         .evaluateAll((elements) =>
           elements
-            .filter((element) => element.getClientRects().length > 0)
+            .filter(
+              (element) =>
+                element.getClientRects().length > 0 &&
+                getComputedStyle(element).visibility !== 'hidden',
+            )
             .map((element) => {
               const rect = element.getBoundingClientRect()
               const key = element.classList.contains('flow-input')
@@ -255,13 +261,20 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await page.clock.runFor(5000)
   await expect(candidates).toBeVisible()
   await page.clock.runFor(12000)
-  await expect(demo.locator('.flow-post')).toHaveCount(1)
-  await expect(demo.locator('.flow-post')).toContainText('Wildlife makes a comeback')
-  await expect(demo.locator('.flow-post .flow-channel')).toHaveText(['X', 'LinkedIn'])
+  await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
+  await expect(demo.locator('.flow-post[data-selected="true"]')).toContainText(
+    'Wildlife makes a comeback',
+  )
+  await expect(demo.locator('.flow-post[data-selected="true"] .flow-channel')).toHaveText([
+    'X',
+    'LinkedIn',
+  ])
   await expect(demo.locator('.flow-story-results li[data-revealed="true"]')).toHaveCount(2)
-  const example = await demo.locator('.flow-post .flow-stream').allTextContents()
+  const example = await demo
+    .locator('.flow-post[data-selected="true"] .flow-stream')
+    .allTextContents()
   await page.clock.runFor(1000)
-  await expect(demo.locator('.flow-post .flow-stream')).toHaveText(example)
+  await expect(demo.locator('.flow-post[data-selected="true"] .flow-stream')).toHaveText(example)
   await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
   await expect(demo.locator('.flow-schedule time')).toHaveText(['09:00', '12:00', '15:00'])
   await expect(demo.locator('.flow-schedule li')).toHaveCount(3)
@@ -333,7 +346,7 @@ for (const viewport of [
     )
     expect(initialColumns).toHaveLength(4)
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
-    await expect(demo.locator('.flow-post')).toHaveCount(0)
+    await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
     let previous = 0
     for (const time of [8000, 22000, 39000, 52000, 65000]) {
       await page.clock.fastForward(time - previous)
@@ -354,7 +367,7 @@ for (const viewport of [
       '.flow-input',
       '.flow-playbook',
       '.is-duplicate',
-      '.flow-post',
+      '.flow-post[data-selected="true"]',
       '.flow-schedule',
     ]) {
       await expect(demo.locator(selector)).toBeVisible()
@@ -368,7 +381,7 @@ for (const viewport of [
     }
     await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
-    await expect(demo.locator('.flow-post')).toHaveCount(0)
+    await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
   })
 }
@@ -394,7 +407,7 @@ test('resizing preserves progress while switching between overview and focused c
   await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await expect(demo.locator('.flow-candidates')).toBeVisible()
-  await expect(demo.locator('.flow-post')).toBeVisible()
+  await expect(demo.locator('.flow-post[data-selected="true"]')).toBeVisible()
   await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '52')
 })
 
@@ -451,3 +464,103 @@ for (const viewport of [
     await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 }
+
+test('desktop story inspection pauses, links the workspace and keeps every preview in place', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await page.clock.fastForward(35000)
+  await demo
+    .locator('.flow-candidates')
+    .getByRole('button', { name: 'Community solar funds local projects' })
+    .click()
+  const active = demo.locator('.flow-post[data-selected="true"]')
+  await expect(active).toContainText('Community-owned solar')
+  await expect(demo.locator('.flow-player')).toContainText('Paused')
+  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  await page.clock.fastForward(5000)
+  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
+  await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
+  const previews = demo.locator('.flow-post-previews')
+  const original = await previews.boundingBox()
+  for (const name of [
+    'Wildlife makes a comeback',
+    'A repair café brings neighbours together',
+    'Community solar funds local projects',
+  ]) {
+    await demo.locator('.flow-schedule').getByRole('button', { name, exact: true }).click()
+    await expect(active).toHaveAttribute('aria-label', `${name} posts`)
+    await expect(demo.locator('.flow-candidates li[data-highlighted="true"]')).toContainText(name)
+    await expect(demo.locator('.flow-schedule li[data-highlighted="true"]')).toContainText(name)
+    expect(await previews.boundingBox()).toEqual(original)
+    for (const column of await demo.locator('.flow-context, .flow-scene > .flow-panel').all()) {
+      expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+    }
+  }
+  await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
+  await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+  await expect(demo.locator('[data-highlighted="true"]')).toHaveCount(0)
+})
+
+test('phone story previews are keyboard accessible and resume the original example', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
+  const story = demo
+    .locator('.flow-schedule')
+    .getByRole('button', { name: 'Community solar funds local projects' })
+  await story.focus()
+  await story.press('Enter')
+  const active = demo.locator('.flow-post[data-selected="true"]')
+  await expect(active).toBeFocused()
+  await expect(active).toContainText('Community-owned solar')
+  await expect(
+    demo.getByRole('heading', { name: 'One story, written for each channel.' }),
+  ).toBeVisible()
+  await active.getByRole('button', { name: 'First story' }).click()
+  await expect(active).toBeFocused()
+  await expect(active).toContainText('Wildlife makes a comeback')
+  await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
+  await demo
+    .locator('.flow-story-results')
+    .getByRole('button', { name: 'A repair café brings neighbours together' })
+    .click()
+  await expect(active).toContainText('Volunteers share their skills')
+  await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
+  await expect(active).toContainText('Wildlife makes a comeback')
+  await expect(demo.locator('.flow-player')).toContainText('Playing')
+})
+
+test('duplicate evidence pauses playback and Escape returns to the same run', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await page.clock.fastForward(35000)
+  const trigger = demo.getByRole('button', { name: 'The urban garden story: why it was skipped' })
+  await trigger.click()
+  const detail = page.getByRole('dialog', { name: 'Already shared. Skipped this time.' })
+  await expect(detail).toBeVisible()
+  await expect(detail).toContainText('Previous post · illustrative example')
+  await expect(detail).toContainText('A neighbourhood garden')
+  await expect(detail.getByRole('button', { name: 'Close duplicate explanation' })).toBeFocused()
+  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  await page.clock.runFor(5000)
+  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
+  await page.keyboard.press('Escape')
+  await expect(detail).not.toBeVisible()
+  await expect(demo).toBeVisible()
+  await expect(trigger).toBeFocused()
+  await expect(demo.locator('.flow-player')).toContainText('Paused')
+})
