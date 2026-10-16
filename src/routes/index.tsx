@@ -110,15 +110,7 @@ function Home() {
       <header className="landing-header">
         <div className="landing-header-inner">
           <Wordmark size="sm" />
-          <nav
-            aria-label="Main"
-            className="flex items-center gap-2 text-[13px] whitespace-nowrap sm:gap-6 sm:text-sm"
-          >
-            <a href="#run" className="text-ink no-underline hover:underline">
-              How it works
-            </a>
-            <ThemeToggle />
-          </nav>
+          <ThemeToggle />
         </div>
       </header>
 
