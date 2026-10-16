@@ -177,6 +177,7 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     await expect(demo).toBeVisible()
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
     const scene = demo.locator('.flow-scene')
     const origin = (await scene.boundingBox())!.y
     const recorded = new Map<string, { y: number; height: number }>()
@@ -396,3 +397,57 @@ test('resizing preserves progress while switching between overview and focused c
   await expect(demo.locator('.flow-post')).toBeVisible()
   await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '52')
 })
+
+test('feedback confirms completed work without an elapsed-seconds counter', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await expect(demo.locator('.flow-player')).not.toContainText(/\d+.*sec/)
+  await page.clock.fastForward(8000)
+  await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Create playbook')
+  await page.clock.fastForward(4000)
+  await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Playbook created')
+  await page.clock.fastForward(43000)
+  await expect(demo.locator('.flow-finish-status .is-active')).toContainText('Scheduling in Buffer')
+  await expect(demo.locator('.flow-receipt')).not.toBeVisible()
+  await expect(demo.getByRole('button', { name: 'Join the waiting list' })).toHaveCount(0)
+  await page.clock.fastForward(4000)
+  await expect(demo.locator('.flow-finish-status .is-active')).toContainText('6 posts scheduled')
+  await expect(demo.locator('.flow-receipt')).toBeVisible()
+  await expect(demo.locator('.flow-player')).not.toContainText(/\d+.*sec/)
+})
+
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 1440, height: 900 },
+]) {
+  test(`completed demo returns to signup without submitting at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.clock.install()
+    let submissions = 0
+    await page.route('**/waitlist', async (route) => {
+      submissions += 1
+      await route.abort()
+    })
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+    const demo = page.getByRole('dialog')
+    await page.clock.fastForward(65000)
+    const join = demo.getByRole('button', { name: 'Join the waiting list' })
+    await expect(join).toBeInViewport()
+    await join.focus()
+    await page.keyboard.press('Enter')
+    await expect(demo).not.toBeVisible()
+    await expect(page.getByLabel('Email', { exact: true })).toBeFocused()
+    await expect(page.getByLabel('Email', { exact: true })).toBeInViewport()
+    expect(submissions).toBe(0)
+    await page.getByRole('button', { name: 'Replay demo', exact: true }).click()
+    await expect(demo).toBeVisible()
+    await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+  })
+}

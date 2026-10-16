@@ -208,6 +208,7 @@ export function ExampleRun() {
   const opener = useRef<HTMLButtonElement | null>(null)
   const transcript = useRef<HTMLDetailsElement>(null)
   const readAfterClose = useRef(false)
+  const joinAfterClose = useRef(false)
   const [focused, setFocused] = useState(false)
   const overview = useSyncExternalStore(subscribeLayout, getOverview, () => false)
   const [elapsed, setElapsed] = useState(0)
@@ -334,9 +335,7 @@ export function ExampleRun() {
           <p>
             Watch a brief become a playbook, research, duplicate checks and six scheduled posts.
           </p>
-          <span className="flow-duration">
-            {TOTAL_SECONDS}-second walkthrough · Opens full screen
-          </span>
+          <span className="flow-duration">About a minute · Opens full screen</span>
         </div>
       </div>
 
@@ -359,7 +358,14 @@ export function ExampleRun() {
         onClose={() => {
           setFocused(false)
           setPlaying(false)
-          if (readAfterClose.current) {
+          if (joinAfterClose.current) {
+            joinAfterClose.current = false
+            const target =
+              document.getElementById('waitlist-email') ??
+              document.querySelector<HTMLElement>('.waitlist-confirmation')
+            target?.focus({ preventScroll: true })
+            target?.scrollIntoView({ block: 'center', behavior: reduced ? 'instant' : 'smooth' })
+          } else if (readAfterClose.current) {
             readAfterClose.current = false
             if (transcript.current) {
               transcript.current.open = true
@@ -455,7 +461,21 @@ export function ExampleRun() {
                     <div className="flow-submit-row">
                       <span>Good News Today</span>
                       <span className={`flow-submit ${elapsed >= 10000 ? 'is-clicked' : ''}`}>
-                        Create playbook <Icon kind="arrow" />
+                        <span className="flow-submit-label">
+                          <span
+                            aria-hidden={elapsed >= 11000 || undefined}
+                            className={elapsed < 11000 ? 'is-active' : ''}
+                          >
+                            Create playbook
+                          </span>
+                          <span
+                            aria-hidden={elapsed < 11000 || undefined}
+                            className={elapsed >= 11000 ? 'is-active' : ''}
+                          >
+                            Playbook created
+                          </span>
+                        </span>
+                        <Icon kind={elapsed >= 11000 ? 'check' : 'arrow'} />
                       </span>
                     </div>
                     {elapsed > 9000 && elapsed < 11000 ? (
@@ -637,7 +657,20 @@ export function ExampleRun() {
                     <Icon kind="check" />
                   </div>
                   <h4>Three stories. A full day covered.</h4>
-                  <p>6 posts scheduled in Buffer · X + LinkedIn</p>
+                  <p className="flow-finish-status">
+                    <span
+                      className={elapsed < 57400 ? 'is-active' : ''}
+                      aria-hidden={elapsed >= 57400 || undefined}
+                    >
+                      Scheduling in Buffer · X + LinkedIn
+                    </span>
+                    <span
+                      className={elapsed >= 57400 ? 'is-active' : ''}
+                      aria-hidden={elapsed < 57400 || undefined}
+                    >
+                      6 posts scheduled in Buffer · X + LinkedIn
+                    </span>
+                  </p>
                   <ol className="flow-schedule" aria-label="Scheduled stories">
                     {STORIES.map((story, index) => (
                       <li
@@ -655,11 +688,19 @@ export function ExampleRun() {
                       </li>
                     ))}
                   </ol>
-                  <div className="flow-receipt">
+                  <div
+                    className="flow-receipt flow-reveal"
+                    data-revealed={elapsed >= 57400}
+                    aria-hidden={elapsed < 57400 || undefined}
+                  >
                     <span>3-hour gaps · No repeated stories</span>
                     <span className="flow-tag">6 posts scheduled</span>
                   </div>
-                  <div className="flow-next">
+                  <div
+                    className="flow-next flow-reveal"
+                    data-revealed={elapsed >= 57400}
+                    aria-hidden={elapsed < 57400 || undefined}
+                  >
                     <Icon kind="check" /> Tomorrow, the playbook runs again.
                   </div>
                 </div>
@@ -667,13 +708,29 @@ export function ExampleRun() {
             </div>
           </div>
           <div className="flow-player">
-            <span aria-live="polite" aria-atomic="true">
+            <span
+              aria-live="polite"
+              aria-atomic="true"
+              className={complete ? 'sr-only' : undefined}
+            >
               {!started
                 ? 'Ready when you are'
                 : complete
                   ? 'Walkthrough complete'
                   : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
             </span>
+            {complete ? (
+              <button
+                type="button"
+                className="flow-join"
+                onClick={() => {
+                  joinAfterClose.current = true
+                  close()
+                }}
+              >
+                Join the waiting list <Icon kind="arrow" />
+              </button>
+            ) : null}
             <div className="flow-player-actions">
               {!complete ? (
                 <button
@@ -707,9 +764,6 @@ export function ExampleRun() {
                   {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
                 </button>
               ) : null}
-              <span className="flow-time" aria-hidden="true">
-                {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / {TOTAL_SECONDS} sec
-              </span>
             </div>
           </div>
           <div

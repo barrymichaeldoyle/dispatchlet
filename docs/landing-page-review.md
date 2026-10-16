@@ -38,7 +38,12 @@ Playback opens a native full-screen dialog sized
 to the dynamic viewport. The landing page remains inactive and scroll-locked
 behind it. The close button, chapters and playback controls stay visible while
 longer stage content scrolls inside the player. Read instead closes the player
-and opens/focuses the transcript.
+and opens/focuses the transcript. Playback shows no elapsed-seconds counter;
+the preview describes the duration as about a minute. Only the current desktop
+phase is highlighted, with quiet checks on completed phases. The brief confirms
+playbook creation, and the Buffer receipt appears after all three slots arrive.
+On completion, Join the waiting list closes the player and focuses the email
+field without submitting the form. The completed run remains available to replay.
 
 Streaming text reserves its complete wrapped height, results occupy reserved
 slots, and chapters share a fixed top anchor. Motion is limited to chapter
@@ -121,12 +126,13 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 36 browser tests against the production preview: playback and replay, pause,
+- 39 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
   reading holds, sequential channel writing, persistent desktop columns, retained
-  content, laptop fit, responsive layout switching, axe scans, signup
+  content, laptop fit, responsive layout switching, accurate completion feedback,
+  keyboard return to signup without submission, axe scans, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
 - Chromium covers both layouts, including short landscape. Additional WebKit
