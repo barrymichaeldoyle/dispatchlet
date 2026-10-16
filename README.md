@@ -66,7 +66,9 @@ Typechecking, Knip and browser tests remain in CI through the existing checks.
 The landing page is prerendered, with a self-hosted Schibsted Grotesk font
 (SIL Open Font License in `src/assets/fonts/OFL.txt`). The interactive demo is
 user-started and opens a responsive, full-screen native dialog with persistent
-playback controls. Closing it preserves progress and returns focus to the
+playback controls. Desktop builds a persistent workspace across the available
+width: brief and playbook, research, channel posts and Buffer schedule. Smaller
+screens keep the focused chapter layout. Closing it preserves progress and returns focus to the
 launcher. It supports pause/replay and chapter selection, and has a native HTML
 transcript that also works without JavaScript. The 65-second example finds three
 fresh stories, skips previous coverage, writes six channel-specific posts and

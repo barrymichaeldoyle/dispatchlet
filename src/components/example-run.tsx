@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { Wordmark } from './wordmark'
 
 const DURATION = 65000
@@ -151,7 +151,49 @@ function StreamText({
   )
 }
 
+function FlowPanel({
+  index,
+  stage,
+  overview,
+  title,
+  waiting,
+  children,
+}: {
+  index: number
+  stage: number
+  overview: boolean
+  title: string
+  waiting: string
+  children: ReactNode
+}) {
+  const visible = overview ? stage >= index : stage === index
+  return (
+    <section
+      className={`flow-panel flow-panel-${index}`}
+      hidden={!overview && !visible}
+      aria-label={title}
+      tabIndex={overview && index > 1 ? 0 : undefined}
+      data-active={stage === index}
+      data-pending={stage < index}
+    >
+      <h3 className="flow-panel-title">{title}</h3>
+      {visible ? (
+        <div className="flow-panel-content">{children}</div>
+      ) : overview ? (
+        <p className="flow-panel-waiting">{waiting}</p>
+      ) : null}
+    </section>
+  )
+}
+
 const subscribe = () => () => {}
+const OVERVIEW_QUERY = '(min-width: 1100px) and (min-height: 650px)'
+const subscribeLayout = (onChange: () => void) => {
+  const layout = window.matchMedia(OVERVIEW_QUERY)
+  layout.addEventListener('change', onChange)
+  return () => layout.removeEventListener('change', onChange)
+}
+const getOverview = () => window.matchMedia(OVERVIEW_QUERY).matches
 
 export function ExampleRun() {
   const ready = useSyncExternalStore(
@@ -167,6 +209,7 @@ export function ExampleRun() {
   const transcript = useRef<HTMLDetailsElement>(null)
   const readAfterClose = useRef(false)
   const [focused, setFocused] = useState(false)
+  const overview = useSyncExternalStore(subscribeLayout, getOverview, () => false)
   const [elapsed, setElapsed] = useState(0)
   const [runId, setRunId] = useState(0)
   const [running, setPlaying] = useState(false)
@@ -216,9 +259,9 @@ export function ExampleRun() {
   }, [focused])
 
   useEffect(() => {
-    if (focused) workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
+    if (focused && !overview) workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each chapter starts at the top of the stage.
-  }, [stage, focused])
+  }, [stage, focused, overview])
 
   const launch = (button: HTMLButtonElement) => {
     opener.current = button
@@ -366,12 +409,12 @@ export function ExampleRun() {
           <div
             ref={workspace}
             id="flow-workspace"
-            className="flow-workspace"
+            className={`flow-workspace ${overview ? 'is-overview' : ''}`}
             tabIndex={0}
             role="region"
-            aria-label="Current walkthrough step"
+            aria-label={overview ? 'Live walkthrough workspace' : 'Current walkthrough step'}
           >
-            <div className="flow-caption">
+            <div className="flow-caption" hidden={overview}>
               {TITLES.map((title, index) => (
                 <div
                   key={title}
@@ -383,78 +426,103 @@ export function ExampleRun() {
                 </div>
               ))}
             </div>
-            <div key={`${runId}-${stage}`} className="flow-scene">
-              {stage === 0 ? (
-                <div className="flow-prompt">
-                  <div className="flow-field-label">What would you like to post about?</div>
-                  <div className="flow-input" role="group" aria-label="Example brief">
-                    <StreamText
-                      text={PROMPT}
-                      elapsed={elapsed}
-                      start={800}
-                      duration={6000}
-                      reduced={reduced}
-                      caret={elapsed < 7000}
-                    />
-                  </div>
-                  <div className="flow-submit-row">
-                    <span>Good News Today</span>
-                    <span className={`flow-submit ${elapsed >= 10000 ? 'is-clicked' : ''}`}>
-                      Create playbook <Icon kind="arrow" />
-                    </span>
-                  </div>
-                  {elapsed > 9000 ? (
-                    <div
-                      className={`flow-cursor ${elapsed >= 10000 ? 'is-clicking' : ''}`}
-                      aria-hidden="true"
-                    >
-                      <svg width="26" height="30" viewBox="0 0 26 30">
-                        <path
-                          d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
-                          fill="var(--color-ink)"
-                          stroke="var(--color-paper)"
-                          strokeWidth="2"
-                        />
-                      </svg>
+            <div key={overview ? runId : `${runId}-${stage}`} className="flow-scene">
+              <div
+                className="flow-context"
+                tabIndex={overview ? 0 : undefined}
+                role={overview ? 'region' : undefined}
+                aria-label={overview ? 'Brief and playbook' : undefined}
+              >
+                <FlowPanel
+                  index={0}
+                  stage={stage}
+                  overview={overview}
+                  title="Your brief"
+                  waiting=""
+                >
+                  <div className="flow-prompt">
+                    <div className="flow-field-label">What would you like to post about?</div>
+                    <div className="flow-input" role="group" aria-label="Example brief">
+                      <StreamText
+                        text={PROMPT}
+                        elapsed={elapsed}
+                        start={800}
+                        duration={6000}
+                        reduced={reduced}
+                        caret={elapsed < 7000}
+                      />
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {stage === 1 ? (
-                <div className="flow-playbook">
-                  <div className="flow-document-title">
-                    <span>Good News Today</span>
-                    <span className="flow-tag">Playbook</span>
-                  </div>
-                  {RULES.map(([name, value], index) => (
-                    <div
-                      className="flow-rule flow-reveal"
-                      key={name}
-                      data-revealed={elapsed >= 11600 + index * 2200}
-                      aria-hidden={elapsed < 11600 + index * 2200 || undefined}
-                    >
-                      <span>{name}</span>
-                      <p>
-                        <StreamText
-                          text={value}
-                          elapsed={elapsed}
-                          start={11600 + index * 2200}
-                          duration={1400}
-                          reduced={reduced}
-                        />
-                      </p>
+                    <div className="flow-submit-row">
+                      <span>Good News Today</span>
+                      <span className={`flow-submit ${elapsed >= 10000 ? 'is-clicked' : ''}`}>
+                        Create playbook <Icon kind="arrow" />
+                      </span>
                     </div>
-                  ))}
-                  <div
-                    className="flow-ready flow-reveal"
-                    data-revealed={elapsed >= 21400}
-                    aria-hidden={elapsed < 21400 || undefined}
-                  >
-                    <Icon kind="check" /> Playbook ready. Starting the first run.
+                    {elapsed > 9000 && elapsed < 11000 ? (
+                      <div
+                        className={`flow-cursor ${elapsed >= 10000 ? 'is-clicking' : ''}`}
+                        aria-hidden="true"
+                      >
+                        <svg width="26" height="30" viewBox="0 0 26 30">
+                          <path
+                            d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
+                            fill="var(--color-ink)"
+                            stroke="var(--color-paper)"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-              ) : null}
-              {stage === 2 ? (
+                </FlowPanel>
+                <FlowPanel
+                  index={1}
+                  stage={stage}
+                  overview={overview}
+                  title="The playbook"
+                  waiting="Your brief will become an editable playbook."
+                >
+                  <div className="flow-playbook">
+                    <div className="flow-document-title">
+                      <span>Good News Today</span>
+                      <span className="flow-tag">Playbook</span>
+                    </div>
+                    {RULES.map(([name, value], index) => (
+                      <div
+                        className="flow-rule flow-reveal"
+                        key={name}
+                        data-revealed={elapsed >= 11600 + index * 2200}
+                        aria-hidden={elapsed < 11600 + index * 2200 || undefined}
+                      >
+                        <span>{name}</span>
+                        <p>
+                          <StreamText
+                            text={value}
+                            elapsed={elapsed}
+                            start={11600 + index * 2200}
+                            duration={1400}
+                            reduced={reduced}
+                          />
+                        </p>
+                      </div>
+                    ))}
+                    <div
+                      className="flow-ready flow-reveal"
+                      data-revealed={elapsed >= 21400}
+                      aria-hidden={elapsed < 21400 || undefined}
+                    >
+                      <Icon kind="check" /> Playbook ready. Starting the first run.
+                    </div>
+                  </div>
+                </FlowPanel>
+              </div>
+              <FlowPanel
+                index={2}
+                stage={stage}
+                overview={overview}
+                title="Research"
+                waiting="The agent will search and check previous posts."
+              >
                 <div className="flow-research">
                   {EVENTS.map(([start, title, detail], index) => (
                     <div
@@ -501,8 +569,14 @@ export function ExampleRun() {
                     </p>
                   </div>
                 </div>
-              ) : null}
-              {stage === 3 ? (
+              </FlowPanel>
+              <FlowPanel
+                index={3}
+                stage={stage}
+                overview={overview}
+                title="Channel posts"
+                waiting="Fresh stories will become posts for each channel."
+              >
                 <div className="flow-writing">
                   <article className="flow-post">
                     <div className="flow-post-heading">
@@ -550,8 +624,14 @@ export function ExampleRun() {
                     ))}
                   </ul>
                 </div>
-              ) : null}
-              {stage === 4 ? (
+              </FlowPanel>
+              <FlowPanel
+                index={4}
+                stage={stage}
+                overview={overview}
+                title="Buffer schedule"
+                waiting="Posts will be spaced through the day."
+              >
                 <div className="flow-finish">
                   <div className="flow-success">
                     <Icon kind="check" />
@@ -583,7 +663,7 @@ export function ExampleRun() {
                     <Icon kind="check" /> Tomorrow, the playbook runs again.
                   </div>
                 </div>
-              ) : null}
+              </FlowPanel>
             </div>
           </div>
           <div className="flow-player">

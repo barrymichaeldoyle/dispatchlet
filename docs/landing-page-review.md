@@ -25,7 +25,16 @@ the transcript. The final Buffer schedule places stories at 09:00, 12:00 and
 Pause/resume, restart at any point, replay, chapter selection and hidden-tab
 pausing are supported. Escape closes and pauses the player, restoring focus to
 the launcher and preserving progress. Chapter selection shows the complete
-chosen step in a paused state. Playback opens a native full-screen dialog sized
+chosen phase in a paused state. At widths of at least 1100px and heights of at
+least 650px, playback builds a persistent four-column workspace: brief/playbook,
+research, channel posts and Buffer schedule. Completed content remains mounted
+and readable as the next area fills in. Future areas show brief waiting states.
+Columns and the brief remain anchored throughout the complete run. Desktop
+removes redundant labels and adapts spacing to shorter laptop viewports; panel
+scrolling is available for enlarged text. Smaller screens retain one focused
+chapter at a time. Resizing preserves progress and the playback state.
+
+Playback opens a native full-screen dialog sized
 to the dynamic viewport. The landing page remains inactive and scroll-locked
 behind it. The close button, chapters and playback controls stay visible while
 longer stage content scrolls inside the player. Read instead closes the player
@@ -112,15 +121,17 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 32 browser tests against the production preview: playback and replay, pause,
+- 36 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
-  reading holds, sequential channel writing, axe scans, signup
+  reading holds, sequential channel writing, persistent desktop columns, retained
+  content, laptop fit, responsive layout switching, axe scans, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
-- Current Chromium, WebKit and Firefox checks cover all five chapters at four
-  viewport sizes, including short landscape.
+- Chromium covers both layouts, including short landscape. Additional WebKit
+  and Firefox checks verify retained content, stable columns and full-picture
+  fit at 1280×720, 1440×900 and 1920×1080, plus switching back to mobile.
 - Earlier WebKit 27.2 and Firefox 157 smoke checks: mobile dark layout,
   playback, focus, chapters, transcript and mocked signup, with no page errors.
 - Mechanical design scan and `git diff --check`: clean.

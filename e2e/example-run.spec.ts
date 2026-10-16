@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test'
 test('full-screen walkthrough plays from brief to scheduled posts, pauses, and replays', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.clock.install()
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
@@ -200,17 +201,23 @@ for (const viewport of [
           '.flow-input, .flow-document-title, .flow-post, .flow-reveal[data-revealed="true"]',
         )
         .evaluateAll((elements) =>
-          elements.map((element) => {
-            const rect = element.getBoundingClientRect()
-            const key = element.classList.contains('flow-input')
-              ? 'brief'
-              : element.classList.contains('flow-document-title')
-                ? 'document'
-                : (element.querySelector('strong')?.textContent ??
-                  element.querySelector(':scope > span')?.textContent ??
-                  element.className)
-            return { key: `${element.className}:${key}`, y: rect.y, height: rect.height }
-          }),
+          elements
+            .filter((element) => element.getClientRects().length > 0)
+            .map((element) => {
+              const rect = element.getBoundingClientRect()
+              const key = element.classList.contains('flow-input')
+                ? 'brief'
+                : element.classList.contains('flow-document-title')
+                  ? 'document'
+                  : (element.querySelector('strong')?.textContent ??
+                    element.querySelector(':scope > span')?.textContent ??
+                    element.className)
+              return {
+                key: `${element.closest('.flow-panel')?.getAttribute('aria-label')}:${element.className}:${key}`,
+                y: rect.y,
+                height: rect.height,
+              }
+            }),
         )
       const chapter = await demo.locator('.flow-stages [aria-current="step"]').textContent()
       for (const item of items) {
@@ -265,6 +272,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
 test('restart begins a fresh run from playing, paused and partially typed states', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.clock.install()
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
@@ -296,4 +304,95 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await expect(
     demo.getByRole('heading', { name: 'A playbook built around your brief.' }),
   ).toBeVisible()
+})
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 1440, height: 900 },
+  { width: 1920, height: 1080 },
+]) {
+  test(`desktop builds one persistent workspace at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.clock.install()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+    const demo = page.getByRole('dialog')
+    await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
+    const brief = demo.getByLabel('Example brief')
+    const original = await brief.elementHandle()
+    const bounds = await brief.boundingBox()
+    const columns = demo.locator('.flow-context, .flow-scene > .flow-panel')
+    const initialColumns = await columns.evaluateAll((elements) =>
+      elements.map((el) => {
+        const rect = el.getBoundingClientRect()
+        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+      }),
+    )
+    expect(initialColumns).toHaveLength(4)
+    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+    await expect(demo.locator('.flow-post')).toHaveCount(0)
+    let previous = 0
+    for (const time of [8000, 22000, 39000, 52000, 65000]) {
+      await page.clock.fastForward(time - previous)
+      previous = time
+      expect(await original!.evaluate((el) => el.isConnected)).toBe(true)
+      expect(await brief.boundingBox()).toEqual(bounds)
+      expect(
+        await columns.evaluateAll((elements) =>
+          elements.map((el) => {
+            const rect = el.getBoundingClientRect()
+            return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+          }),
+        ),
+      ).toEqual(initialColumns)
+    }
+    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(0)
+    for (const selector of [
+      '.flow-input',
+      '.flow-playbook',
+      '.is-duplicate',
+      '.flow-post',
+      '.flow-schedule',
+    ]) {
+      await expect(demo.locator(selector)).toBeVisible()
+    }
+    // All four columns stay within the viewport. Scroll remains available for enlarged text.
+    for (const column of await columns.all()) {
+      const rect = (await column.boundingBox())!
+      expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width)
+      expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height)
+      expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+    }
+    await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
+    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+    await expect(demo.locator('.flow-post')).toHaveCount(0)
+    await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
+  })
+}
+
+test('resizing preserves progress while switching between overview and focused chapters', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await page.clock.fastForward(52000)
+  await demo.getByRole('button', { name: 'Pause walkthrough' }).click()
+  await expect(demo.locator('.flow-playbook')).toBeVisible()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-overview/)
+  await expect(
+    demo.getByRole('heading', { name: 'One story, written for each channel.' }),
+  ).toBeVisible()
+  await expect(demo.locator('.flow-playbook')).toHaveCount(0)
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
+  await expect(demo.locator('.flow-playbook')).toBeVisible()
+  await expect(demo.locator('.flow-candidates')).toBeVisible()
+  await expect(demo.locator('.flow-post')).toBeVisible()
+  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '52')
 })
