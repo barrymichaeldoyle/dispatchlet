@@ -913,9 +913,6 @@ header nav button {
   min-height: 0;
   border: 0;
 }
-.flow-dialog .flow-stages {
-  padding-inline: max(24px, calc((100% - 1080px) / 2));
-}
 .flow-dialog .flow-stages button {
   justify-content: center;
 }
@@ -1001,9 +998,6 @@ header nav button {
   }
   .flow-focus-brand h2 {
     font-size: 12px;
-  }
-  .flow-dialog .flow-stages {
-    padding-inline: 8px;
   }
   .flow-dialog .flow-stages button {
     min-height: 68px;
@@ -1520,9 +1514,6 @@ header nav button {
   line-height: 1.5;
 }
 @media (min-width: 1100px) and (min-height: 650px) {
-  .flow-dialog .flow-stages {
-    padding-inline: 24px;
-  }
   .flow-dialog .flow-stages button {
     min-height: 44px;
     padding-block: 10px;
