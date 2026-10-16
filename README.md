@@ -47,6 +47,44 @@ URI `https://<your-deployment>.convex.site/oauth/buffer/callback`.
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright smoke test.
 
+## Deployment
+
+Pushes to `main` deploy production through Cloudflare Workers Builds for
+`barrymichaeldoyle/dispatchlet`. The repository connection and production
+Convex build secret are configured on the `dispatchlet` Worker.
+
+Use these settings under the `dispatchlet` Worker's Settings > Builds:
+
+| Setting                      | Value                                                             |
+| ---------------------------- | ----------------------------------------------------------------- |
+| Repository                   | `barrymichaeldoyle/dispatchlet`                                   |
+| Production branch            | `main`                                                            |
+| Root directory               | `/`                                                               |
+| Build command                | `pnpm build:deploy`                                               |
+| Deploy command               | `pnpm exec wrangler deploy`                                       |
+| Non-production branch builds | Disabled until a separate Convex preview deploy key is configured |
+
+Set `CONVEX_DEPLOY_KEY` as a **build secret**, using a production deploy key
+for the Dispatchlet Convex project. Build variables pin `NODE_VERSION=24` and
+`PNPM_VERSION=11.17.0`; the pnpm version also matches `package.json`.
+For analytics, also set `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` as build
+variables with the project's valid token and ingestion host.
+
+`pnpm build:deploy` uses Convex's deploy command to run the Vite build with the
+production deployment URL injected as `VITE_CONVEX_URL`, then deploys the
+Convex functions and schema. Only after that succeeds does Cloudflare run the
+Worker deploy command. Do not set `VITE_CONVEX_SITE_URL` to a development
+deployment in production; it is derived from the injected URL by default.
+
+`pnpm build` remains a frontend-only build for local checks.
+`pnpm deploy` performs the combined production build, Convex deployment and
+Worker deployment manually. It changes production and requires credentials.
+The GitHub deployment workflow is a manual fallback; it does not deploy on
+push. GitHub Actions continues to run the code checks and browser tests.
+
+References: [Cloudflare build settings](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+and [Convex deployment command](https://docs.convex.dev/cli/reference/deploy).
+
 ## Licence
 
 Elastic License 2.0. Read it, learn from it, run it for yourself. Don't sell it

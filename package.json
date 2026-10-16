@@ -8,8 +8,9 @@
   "scripts": {
     "dev": "vite dev --port 3131",
     "build": "vite build",
+    "build:deploy": "convex deploy --cmd 'pnpm build' --cmd-url-env-var-name VITE_CONVEX_URL",
     "preview": "vite preview",
-    "deploy": "pnpm run build && wrangler deploy",
+    "deploy": "pnpm build:deploy && wrangler deploy",
     "generate-routes": "tsr generate",
     "lint": "oxlint",
     "format": "oxfmt",
