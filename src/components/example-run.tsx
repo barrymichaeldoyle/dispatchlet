@@ -923,7 +923,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                     key={complete ? 'replay' : playing ? 'pause' : 'play'}
                     kind={complete ? 'replay' : playing ? 'pause' : 'play'}
                   />
-                  {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
+                  <span className="flow-transport-label">
+                    <span aria-hidden="true">Resume</span>
+                    <span>{complete ? 'Replay' : playing ? 'Pause' : 'Resume'}</span>
+                  </span>
                 </button>
               ) : null}
             </div>

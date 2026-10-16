@@ -499,6 +499,15 @@ html {
   color: var(--color-ink);
   font-size: 12px;
 }
+.flow-transport-label {
+  display: grid;
+}
+.flow-transport-label > span {
+  grid-area: 1 / 1;
+}
+.flow-transport-label > span:first-child {
+  visibility: hidden;
+}
 .flow-transport:hover {
   background: var(--color-tint);
   color: var(--color-pine);
