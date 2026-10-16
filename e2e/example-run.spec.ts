@@ -75,3 +75,44 @@ for (const width of [320, 390, 1360]) {
     await expect(demo.getByText('2 drafts saved')).toBeVisible()
   })
 }
+
+for (const scenario of [
+  { width: 1360, height: 900, reduced: false, button: 'Play the demo' },
+  { width: 390, height: 900, reduced: false, button: 'Play the full walkthrough' },
+  { width: 390, height: 640, reduced: true, button: 'Play the demo' },
+]) {
+  test(`play frames the scenario at ${scenario.width}×${scenario.height}`, async ({ page }) => {
+    await page.setViewportSize({ width: scenario.width, height: scenario.height })
+    await page.emulateMedia({ reducedMotion: scenario.reduced ? 'reduce' : 'no-preference' })
+    await page.goto('/')
+    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+    const demo = page.getByRole('region', { name: 'Example run' })
+    const frame = demo.locator('.flow-demo')
+    const assertFraming = async () => {
+      await expect
+        .poll(async () =>
+          frame.evaluate((element) => {
+            const rect = element.getBoundingClientRect()
+            const height = window.visualViewport?.height ?? window.innerHeight
+            return Math.abs(
+              rect.height + 32 <= height ? rect.top + rect.height / 2 - height / 2 : rect.top - 16,
+            )
+          }),
+        )
+        .toBeLessThan(2)
+    }
+    await demo.getByRole('button', { name: scenario.button, exact: true }).click()
+    await assertFraming()
+    // Pausing is stationary; resuming brings the scenario back into view.
+    await demo.getByRole('button', { name: 'Pause walkthrough', exact: true }).click()
+    const pausedScroll = await page.evaluate(() => window.scrollY)
+    await page.waitForTimeout(150)
+    expect(await page.evaluate(() => window.scrollY)).toBe(pausedScroll)
+    await demo.getByRole('button', { name: 'Resume demo', exact: true }).click()
+    await assertFraming()
+    await expect(demo.getByRole('button', { name: 'Pause demo', exact: true })).toBeAttached()
+    await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
+    await demo.getByRole('button', { name: 'Replay demo', exact: true }).click()
+    await assertFraming()
+  })
+}

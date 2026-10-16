@@ -125,6 +125,7 @@ export function ExampleRun() {
     () => false,
   )
   const control = useRef<HTMLButtonElement>(null)
+  const scenario = useRef<HTMLDivElement>(null)
   const [elapsed, setElapsed] = useState(0)
   const [running, setPlaying] = useState(false)
   const [started, setStarted] = useState(false)
@@ -170,6 +171,17 @@ export function ExampleRun() {
   }, [])
 
   const play = () => {
+    if (!playing) {
+      requestAnimationFrame(() => {
+        const frame = scenario.current
+        if (!frame) return
+        const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+        frame.scrollIntoView({
+          behavior: reduced ? 'instant' : 'smooth',
+          block: frame.offsetHeight + 32 <= viewportHeight ? 'center' : 'start',
+        })
+      })
+    }
     if (complete) setElapsed(0)
     setStarted(true)
     setPlaying((value) => (complete ? true : !value))
@@ -215,7 +227,7 @@ export function ExampleRun() {
         </button>
       </div>
 
-      <div className={`flow-demo ${playing ? 'is-playing' : ''}`}>
+      <div ref={scenario} className={`flow-demo ${playing ? 'is-playing' : ''}`}>
         <ol className="flow-stages" aria-label="Demo progress">
           {STAGES.map((name, index) => (
             <li

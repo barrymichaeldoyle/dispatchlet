@@ -148,6 +148,7 @@ html {
   color: var(--color-on-pine);
 }
 .flow-demo {
+  scroll-margin-block: 16px;
   border: 1px solid var(--color-rule);
 }
 .flow-stages {
