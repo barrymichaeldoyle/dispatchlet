@@ -8,13 +8,25 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
+import type * as email from "../email.js";
+import type * as http from "../http.js";
+import type * as lib_email from "../lib/email.js";
+import type * as waitlist from "../waitlist.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
+  email: typeof email;
+  http: typeof http;
+  "lib/email": typeof lib_email;
+  waitlist: typeof waitlist;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.

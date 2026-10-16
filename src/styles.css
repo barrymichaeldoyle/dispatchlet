@@ -13,14 +13,29 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']) {
     --color-paper: #161616;
     --color-ink: #ededea;
     --color-muted: #9a9a94;
     --color-rule: #2b2b29;
     --color-pine: #5cc9a8;
     --color-tint: #1a2a25;
+    color-scheme: dark;
   }
+}
+
+:root {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --color-paper: #161616;
+  --color-ink: #ededea;
+  --color-muted: #9a9a94;
+  --color-rule: #2b2b29;
+  --color-pine: #5cc9a8;
+  --color-tint: #1a2a25;
+  color-scheme: dark;
 }
 
 * {
@@ -40,12 +55,40 @@ body {
   font-feature-settings: 'tnum';
 }
 
-a {
-  color: var(--color-pine);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+@layer base {
+  a {
+    color: var(--color-pine);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  a:hover {
+    text-decoration-thickness: 2px;
+  }
 }
 
-a:hover {
-  text-decoration-thickness: 2px;
+:focus-visible {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
+}
+
+button,
+input {
+  font: inherit;
+  border-radius: 0;
+}
+
+button {
+  border: 0;
+  cursor: pointer;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

@@ -3,5 +3,5 @@
   "entry": ["src/router.tsx", "src/routes/**/*.tsx", "convex/**/*.ts", "e2e/**/*.ts"],
   "project": ["src/**/*.{ts,tsx}", "convex/**/*.ts", "e2e/**/*.ts"],
   "ignore": ["convex/_generated/**"],
-  "ignoreDependencies": ["tailwindcss", "convex-test"]
+  "ignoreDependencies": ["tailwindcss"]
 }

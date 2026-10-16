@@ -1,7 +1,7 @@
 const SIZES = {
-  sm: { font: 17, mark: 12.5, tracking: '-0.035em', gap: -0.5 },
-  md: { font: 22, mark: 16, tracking: '-0.035em', gap: -0.5 },
-  lg: { font: 48, mark: 35, tracking: '-0.04em', gap: -1 },
+  sm: { font: 17, mark: 12.5, tracking: '-0.035em', gap: 0.5 },
+  md: { font: 22, mark: 16, tracking: '-0.035em', gap: 0.5 },
+  lg: { font: 48, mark: 35, tracking: '-0.04em', gap: 0 },
 } as const
 
 export function Wordmark({ size = 'sm' }: { size?: keyof typeof SIZES }) {
@@ -21,8 +21,11 @@ export function Wordmark({ size = 'sm' }: { size?: keyof typeof SIZES }) {
         style={{ marginRight: s.gap }}
       >
         <path d="M3 3h11l7 9-7 9H3z" fill="currentColor" className="text-pine" />
+        <path d="M6.5 6.5h5.8l4.3 5.5-4.3 5.5H6.5z" fill="#fff" />
       </svg>
-      ispatchlet
+      <span>
+        ispatch<span className="text-pine">let</span>
+      </span>
     </span>
   )
 }
