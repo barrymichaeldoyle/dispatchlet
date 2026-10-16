@@ -10,9 +10,11 @@ secondary demo link, a pending state and recoverable errors. Successful signup
 moves keyboard focus to confirmation and keeps the demo link available. Network
 errors preserve the address without marking the address itself invalid.
 
-The demo starts only on request. Its 36-second sequence types the brief, animates
-submission, builds the playbook, streams research decisions and channel-specific
-drafts, then confirms the illustrative Buffer handoff. Pause/resume, replay,
+The demo starts only on request. Its 48-second sequence types the brief, animates
+submission, builds the playbook, and turns five research candidates into three
+fresh stories. It explicitly skips a previously posted story and company PR,
+streams six channel-specific posts, then shows a Buffer schedule at 09:00, 12:00
+and 15:00 using Spread mode. Story previews are selectable and pause playback. Pause/resume, replay,
 chapter selection and hidden-tab pausing are supported. Escape closes and pauses
 the player, restoring focus to the launcher and preserving progress.
 Chapter selection shows the complete chosen step in a paused state. Playback
@@ -21,11 +23,17 @@ page remains inactive and scroll-locked behind it. The close button, chapters
 and playback controls stay visible while longer stage content scrolls inside
 the player. Read instead closes the player and opens/focuses the transcript.
 
+Streaming text reserves its complete wrapped height, results occupy reserved
+slots, and chapters share a fixed top anchor. The writing scene crossfades
+between three story previews in one reserved area. Content no longer recenters
+as text arrives. Position and size regressions are checked throughout playback
+at desktop and two phone sizes.
+
 Reduced motion removes cursor movement and animated transitions and shows each
 text block without typewriter motion. Screen readers receive complete text
 blocks and short stage announcements rather than character-by-character output.
 A native details disclosure contains the complete walkthrough, including the
-example brief and drafts, without requiring JavaScript or timed playback.
+example brief, all six posts and the spaced schedule, without requiring JavaScript or timed playback.
 
 The page also has skip navigation, section headings, main/footer landmarks,
 visible keyboard focus, matching visible/accessibility labels and sufficient
@@ -93,13 +101,16 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 27 browser tests against the production preview: playback and replay, pause,
+- 31 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
-  Read instead, axe scans, signup
+  Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
+  story preview selection, axe scans, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
-- Additional WebKit 27.2 and Firefox 157 smoke checks: mobile dark layout,
+- Current Chromium, WebKit and Firefox checks cover all five chapters at four
+  viewport sizes, including short landscape.
+- Earlier WebKit 27.2 and Firefox 157 smoke checks: mobile dark layout,
   playback, focus, chapters, transcript and mocked signup, with no page errors.
 - Mechanical design scan and `git diff --check`: clean.
 

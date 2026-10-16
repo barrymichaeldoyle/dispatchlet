@@ -27,9 +27,9 @@ test('chapters allow inspection without waiting, and the transcript pauses playb
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await demo.getByRole('button', { name: 'Your drafts', exact: true }).click()
-  await expect(demo.locator('.flow-post')).toHaveCount(2)
-  await expect(demo.locator('.flow-player')).toContainText('Paused · Your drafts')
+  await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
+  await expect(demo.locator('.flow-post')).toHaveCount(3)
+  await expect(demo.locator('.flow-player')).toContainText('Paused · Your posts')
   await demo.getByRole('button', { name: 'The playbook', exact: true }).click()
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await demo.getByRole('button', { name: 'Read instead' }).click()
@@ -49,7 +49,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect((await audit()).violations).toEqual([])
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
-    for (const step of ['Your brief', 'The playbook', 'Research', 'Your drafts', 'In Buffer']) {
+    for (const step of ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
       await demo.getByRole('button', { name: step, exact: true }).click()
       expect((await audit()).violations, `${step} in ${colorScheme} mode`).toEqual([])
       expect(
@@ -173,7 +173,7 @@ test('layout reflows with enlarged text on a narrow viewport', async ({ page }) 
   await expect(page.getByRole('button', { name: 'Join the waiting list' })).toBeVisible()
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await demo.getByRole('button', { name: 'Your drafts', exact: true }).click()
+  await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
@@ -195,8 +195,8 @@ test('optional analytics and count downloads cannot block the main experience', 
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Your research agent')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Your drafts', exact: true }).click()
-  await expect(page.locator('.flow-post')).toHaveCount(2)
+  await page.getByRole('dialog').getByRole('button', { name: 'Your posts', exact: true }).click()
+  await expect(page.locator('.flow-post')).toHaveCount(3)
   await page.getByRole('button', { name: 'Close walkthrough' }).click()
   await page.getByLabel('Email', { exact: true }).fill('optional@example.com')
   await page.getByRole('button', { name: 'Join the waiting list' }).click()

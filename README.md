@@ -68,7 +68,10 @@ The landing page is prerendered, with a self-hosted Schibsted Grotesk font
 user-started and opens a responsive, full-screen native dialog with persistent
 playback controls. Closing it preserves progress and returns focus to the
 launcher. It supports pause/replay and chapter selection, and has a native HTML
-transcript that also works without JavaScript.
+transcript that also works without JavaScript. The 48-second example finds three
+fresh stories, skips previous coverage, writes six channel-specific posts and
+spaces them three hours apart in Buffer. Reserved text and result slots keep
+streaming content steady, with selectable story previews.
 
 Analytics and the optional live waiting-list count load separately from the
 initial page. Analytics uses the slim PostHog SDK for explicit funnel events;

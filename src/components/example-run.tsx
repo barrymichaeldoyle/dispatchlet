@@ -1,62 +1,85 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Wordmark } from './wordmark'
 
-const DURATION = 36000
+const DURATION = 48000
+const TOTAL_SECONDS = DURATION / 1000
 const PROMPT =
-  'Find positive news about conservation and communities. Use trusted sources, skip company PR, and never repeat a story. Write one post for X and LinkedIn every morning. Save drafts for me to review.'
-const STAGES = ['Your brief', 'The playbook', 'Research', 'Your drafts', 'In Buffer']
-const STARTS = [0, 6500, 14000, 24000, 33000]
+  'Find positive news about conservation and communities. Use trusted sources, skip company PR, and never repeat a story. Find three fresh stories each morning. Write for X and LinkedIn, then schedule the stories three hours apart.'
+const STAGES = ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']
+const STARTS = [0, 6500, 14000, 28000, 43000]
 const TITLES = [
   'Start with what you care about.',
   'A playbook built around your brief.',
   'Follow the work as it happens.',
-  'One story. Written for each channel.',
-  'Ready for your review in Buffer.',
+  'Three fresh stories. Six tailored posts.',
+  'A day of posts, thoughtfully spaced.',
 ]
 const NOTES = [
   'A paragraph is all it takes to give your agent direction.',
   'You can edit the sources, voice and rules before the first run.',
   'See the searches, sources and decisions behind every post.',
-  'The same research, with copy adapted for X and LinkedIn.',
-  'Review your drafts, then let the same playbook run tomorrow.',
+  'Each story gets its own copy for X and LinkedIn.',
+  'Spread mode leaves three hours between stories. Tomorrow, the agent runs again.',
 ]
 const RULES = [
   ['Sources', 'Positive News, Good News Network, BBC and The Guardian.'],
   ['Voice', 'Warm and factual. Specific details, no hype.'],
   ['Rules', 'Verify the source. Skip company PR and stories already covered.'],
-  ['Delivery', 'Every morning · X + LinkedIn · Save as drafts'],
+  ['Delivery', '3 stories each morning · X + LinkedIn · Spread 3 hours apart'],
 ]
 const EVENTS = [
-  [
-    14500,
-    'Searching trusted sources',
-    'Looking for conservation and community stories from the last 48 hours.',
-  ],
-  [
-    17000,
-    'Reading the sources',
-    '7 searches · 11 pages read. Checking dates and original reporting.',
-  ],
-  [
-    19500,
-    'Checking what you’ve already covered',
-    'Comparing candidates with previous runs. No repeat stories.',
-  ],
-  [
-    21500,
-    'Choosing a story',
-    'Kept: a conservation recovery. Skipped: company PR. Saved a repair café story for a later run.',
-  ],
+  [14500, 'Searching trusted sources', 'Finding fresh conservation and community reporting.'],
+  [17000, 'Reading the sources', '7 searches · 11 pages read. Original reporting verified.'],
+  [19500, 'Checking what you’ve already covered', 'Matching candidates against previous posts.'],
 ] as const
-const POSTS = [
-  [
-    'X',
-    '[Species] numbers in [region] have doubled since a reserve was set up ten years ago, according to [conservation body]. Slow work, but it works. theguardian.com/…',
-  ],
-  [
-    'LinkedIn',
-    'Ten years ago [region] set aside a reserve for [species]. This week [conservation body] reported the population has doubled.\n\nIt took patience, local rangers and not much money. The full story is in the link.',
-  ],
+const STORIES = [
+  {
+    title: 'Wildlife makes a comeback',
+    time: '09:00',
+    posts: [
+      [
+        'X',
+        'A decade of habitat restoration. A wildlife population on the rise. Patient conservation is paying off. [Source link]',
+      ],
+      [
+        'LinkedIn',
+        'What does a decade of habitat restoration make possible? A wildlife recovery built on years of local conservation work. [Source link]',
+      ],
+    ],
+  },
+  {
+    title: 'A repair café brings neighbours together',
+    time: '12:00',
+    posts: [
+      [
+        'X',
+        'Broken toaster? Meet your neighbours. A community repair café keeps everyday things in use and brings people together. [Source link]',
+      ],
+      [
+        'LinkedIn',
+        'A neighbourhood repair café is turning everyday repairs into community connections. Less waste, more shared skills. [Source link]',
+      ],
+    ],
+  },
+  {
+    title: 'Community solar funds local projects',
+    time: '15:00',
+    posts: [
+      [
+        'X',
+        'Clean energy with a local return: a community solar project puts its proceeds back into neighbourhood projects. [Source link]',
+      ],
+      [
+        'LinkedIn',
+        'Community-owned solar can do more than generate electricity. This project reinvests its proceeds in local priorities. [Source link]',
+      ],
+    ],
+  },
+]
+const CANDIDATES = [
+  ...STORIES.map(({ title }) => [title, 'Fresh · selected']),
+  ['The urban garden story', 'Already posted · skipped'],
+  ['A company’s new product launch', 'Company PR · skipped'],
 ]
 
 function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close' }) {
@@ -101,17 +124,26 @@ function StreamText({
   start,
   duration,
   reduced,
+  caret = false,
 }: {
   text: string
   elapsed: number
   start: number
   duration: number
   reduced: boolean
+  caret?: boolean
 }) {
   return (
     <>
-      <span className="flow-stream" aria-hidden="true">
-        {stream(text, elapsed, start, duration, reduced)}
+      <span className="flow-text" aria-hidden="true">
+        <span className="flow-measure">
+          {text}
+          <span className="flow-caret-space" />
+        </span>
+        <span className="flow-stream">
+          {stream(text, elapsed, start, duration, reduced)}
+          {caret ? <span className="flow-caret" /> : null}
+        </span>
       </span>
       <span className="sr-only">{text}</span>
     </>
@@ -207,6 +239,7 @@ export function ExampleRun() {
     setPlaying(false)
     setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
   }
+  const activeStory = Math.min(2, Math.max(0, Math.floor((elapsed - 28200) / 4000)))
   const label = complete ? 'Replay demo' : started ? 'Resume demo' : 'Play the demo'
 
   return (
@@ -247,8 +280,12 @@ export function ExampleRun() {
             <br />
             Dispatchlet takes it from there.
           </h3>
-          <p>Watch a brief become a playbook, research and two drafts ready to review.</p>
-          <span className="flow-duration">36-second walkthrough · Opens full screen</span>
+          <p>
+            Watch a brief become a playbook, research, duplicate checks and six scheduled posts.
+          </p>
+          <span className="flow-duration">
+            {TOTAL_SECONDS}-second walkthrough · Opens full screen
+          </span>
         </div>
       </div>
 
@@ -327,8 +364,16 @@ export function ExampleRun() {
             aria-label="Current walkthrough step"
           >
             <div className="flow-caption">
-              <h3>{TITLES[stage]}</h3>
-              <p>{NOTES[stage]}</p>
+              {TITLES.map((title, index) => (
+                <div
+                  key={title}
+                  className={index === stage ? 'is-active' : ''}
+                  aria-hidden={index !== stage || undefined}
+                >
+                  <h3>{title}</h3>
+                  <p>{NOTES[index]}</p>
+                </div>
+              ))}
             </div>
             <div key={stage} className="flow-scene">
               {stage === 0 ? (
@@ -341,8 +386,8 @@ export function ExampleRun() {
                       start={650}
                       duration={4400}
                       reduced={reduced}
+                      caret={elapsed < 5200}
                     />
-                    {elapsed < 5200 ? <span className="flow-caret" aria-hidden="true" /> : null}
                   </div>
                   <div className="flow-submit-row">
                     <span>Good News Today</span>
@@ -373,85 +418,142 @@ export function ExampleRun() {
                     <span>Good News Today</span>
                     <span className="flow-tag">Playbook</span>
                   </div>
-                  {RULES.map(([name, value], index) =>
-                    elapsed >= 7000 + index * 1400 ? (
-                      <div className="flow-rule" key={name}>
-                        <span>{name}</span>
-                        <p>
-                          <StreamText
-                            text={value}
-                            elapsed={elapsed}
-                            start={7000 + index * 1400}
-                            duration={1000}
-                            reduced={reduced}
-                          />
-                        </p>
-                      </div>
-                    ) : null,
-                  )}
-                  {elapsed >= 12500 ? (
-                    <div className="flow-ready">
-                      <Icon kind="check" /> Playbook ready. Starting the first run.
+                  {RULES.map(([name, value], index) => (
+                    <div
+                      className="flow-rule flow-reveal"
+                      key={name}
+                      data-revealed={elapsed >= 7000 + index * 1400}
+                      aria-hidden={elapsed < 7000 + index * 1400 || undefined}
+                    >
+                      <span>{name}</span>
+                      <p>
+                        <StreamText
+                          text={value}
+                          elapsed={elapsed}
+                          start={7000 + index * 1400}
+                          duration={1000}
+                          reduced={reduced}
+                        />
+                      </p>
                     </div>
-                  ) : null}
+                  ))}
+                  <div
+                    className="flow-ready flow-reveal"
+                    data-revealed={elapsed >= 12500}
+                    aria-hidden={elapsed < 12500 || undefined}
+                  >
+                    <Icon kind="check" /> Playbook ready. Starting the first run.
+                  </div>
                 </div>
               ) : null}
               {stage === 2 ? (
                 <div className="flow-research">
-                  {EVENTS.map(([start, title, detail], index) =>
-                    elapsed >= start ? (
-                      <div className="flow-event" key={title}>
-                        <span
-                          className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? 'is-done' : ''}`}
-                        >
-                          {elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? (
-                            <Icon kind="check" />
-                          ) : (
-                            <span className="flow-spinner" />
-                          )}
-                        </span>
-                        <div>
-                          <strong>{title}</strong>
-                          <p>
-                            <StreamText
-                              text={detail}
-                              elapsed={elapsed}
-                              start={start}
-                              duration={1400}
-                              reduced={reduced}
-                            />
-                          </p>
-                        </div>
-                      </div>
-                    ) : null,
-                  )}
-                </div>
-              ) : null}
-              {stage === 3 ? (
-                <div className="flow-posts">
-                  {POSTS.map(([channel, text], index) =>
-                    elapsed >= 24200 + index * 3600 ? (
-                      <article className="flow-post" key={channel}>
-                        <div className="flow-post-heading">
-                          <strong>
-                            Good News Today <span>on {channel}</span>
-                          </strong>
-                          <span className="flow-tag">
-                            {elapsed >= 31600 ? 'Draft ready' : 'Writing'}
-                          </span>
-                        </div>
+                  {EVENTS.map(([start, title, detail], index) => (
+                    <div
+                      className="flow-event flow-reveal"
+                      key={title}
+                      data-revealed={elapsed >= start}
+                      aria-hidden={elapsed < start || undefined}
+                    >
+                      <span
+                        className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 21500) ? 'is-done' : ''}`}
+                      >
+                        {elapsed >= (EVENTS[index + 1]?.[0] ?? 21500) ? (
+                          <Icon kind="check" />
+                        ) : (
+                          <span className="flow-spinner" />
+                        )}
+                      </span>
+                      <div>
+                        <strong>{title}</strong>
                         <p>
                           <StreamText
-                            text={text}
+                            text={detail}
                             elapsed={elapsed}
-                            start={24200 + index * 3600}
-                            duration={3300}
+                            start={start}
+                            duration={1400}
                             reduced={reduced}
                           />
                         </p>
+                      </div>
+                    </div>
+                  ))}
+                  <div
+                    className="flow-candidates flow-reveal"
+                    data-revealed={elapsed >= 21500}
+                    aria-hidden={elapsed < 21500 || undefined}
+                  >
+                    <strong>5 candidates → 3 fresh stories</strong>
+                    <ul>
+                      {CANDIDATES.map(([title, status], index) => (
+                        <li key={title} className={index < 3 ? 'is-selected' : ''}>
+                          <span>{title}</span>
+                          <span>{status}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p>
+                      The urban garden story matches a previous post. It won’t enter the queue
+                      again.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+              {stage === 3 ? (
+                <div className="flow-writing">
+                  <div className="flow-story-picker" role="group" aria-label="Story previews">
+                    {STORIES.map((story, index) => (
+                      <button
+                        type="button"
+                        key={story.title}
+                        aria-pressed={activeStory === index}
+                        onClick={() => {
+                          setPlaying(false)
+                          setElapsed(31200 + index * 4000)
+                        }}
+                      >
+                        <span className="flow-story-number" aria-hidden="true">
+                          {elapsed >= 31000 + index * 4000 ? <Icon kind="check" /> : index + 1}
+                        </span>
+                        <span>{story.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flow-posts">
+                    {STORIES.map((story, index) => (
+                      <article
+                        className="flow-post flow-reveal"
+                        key={story.title}
+                        data-revealed={activeStory === index}
+                        aria-hidden={activeStory !== index || undefined}
+                      >
+                        <div className="flow-post-heading">
+                          <strong>{story.title}</strong>
+                          <span
+                            className={`flow-tag ${elapsed >= 31000 + index * 4000 ? 'is-ready' : ''}`}
+                          >
+                            {elapsed >= 31000 + index * 4000 ? '2 posts ready' : 'Writing'}
+                          </span>
+                        </div>
+                        <div className="flow-channel-posts">
+                          {story.posts.map(([channel, text]) => (
+                            <div key={channel}>
+                              <span className="flow-channel">{channel}</span>
+                              <p>
+                                <StreamText
+                                  text={text}
+                                  elapsed={elapsed}
+                                  start={28200 + index * 4000}
+                                  duration={2800}
+                                  reduced={reduced}
+                                />
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </article>
-                    ) : null,
-                  )}
+                    ))}
+                  </div>
                 </div>
               ) : null}
               {stage === 4 ? (
@@ -459,15 +561,28 @@ export function ExampleRun() {
                   <div className="flow-success">
                     <Icon kind="check" />
                   </div>
-                  <h4>Two drafts. Your final say.</h4>
-                  <p>
-                    Saved to Buffer for X and LinkedIn.
-                    <br />
-                    Both tagged Dispatchlet and ready for review.
-                  </p>
+                  <h4>Three stories. A full day covered.</h4>
+                  <p>6 posts scheduled in Buffer · X + LinkedIn</p>
+                  <ol className="flow-schedule" aria-label="Scheduled stories">
+                    {STORIES.map((story, index) => (
+                      <li
+                        key={story.title}
+                        className="flow-reveal"
+                        data-revealed={elapsed >= 43100 + index * 800}
+                        aria-hidden={elapsed < 43100 + index * 800 || undefined}
+                      >
+                        <time>{story.time}</time>
+                        <div>
+                          <strong>{story.title}</strong>
+                          <span>X + LinkedIn · Scheduled</span>
+                        </div>
+                        <Icon kind="check" />
+                      </li>
+                    ))}
+                  </ol>
                   <div className="flow-receipt">
-                    <span>Good News Today</span>
-                    <span className="flow-tag">2 drafts saved</span>
+                    <span>3-hour gaps · No repeated stories</span>
+                    <span className="flow-tag">6 posts scheduled</span>
                   </div>
                   <div className="flow-next">
                     <Icon kind="check" /> Tomorrow, the playbook runs again.
@@ -504,7 +619,7 @@ export function ExampleRun() {
                 </button>
               ) : null}
               <span className="flow-time" aria-hidden="true">
-                {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / 36 sec
+                {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / {TOTAL_SECONDS} sec
               </span>
             </div>
           </div>
@@ -514,7 +629,7 @@ export function ExampleRun() {
             aria-label="Walkthrough progress"
             aria-valuenow={Math.floor(elapsed / 1000)}
             aria-valuemin={0}
-            aria-valuemax={36}
+            aria-valuemax={TOTAL_SECONDS}
           >
             <span style={{ transform: `scaleX(${elapsed / DURATION})` }} />
           </div>
@@ -570,24 +685,30 @@ export function ExampleRun() {
             <h3>Follow the research</h3>
             <p>
               The agent searches trusted sources and reads the original reporting. It checks dates
-              and previous runs, keeps a conservation recovery story, skips company PR and saves a
-              repair café story for later.
+              and previous runs, selects three fresh stories and skips both company PR and an urban
+              garden story that was already posted.
             </p>
           </li>
           <li>
-            <h3>Review the channel-specific drafts</h3>
-            {POSTS.map(([channel, text]) => (
-              <div key={channel}>
-                <h4>{channel}</h4>
-                <p>{text}</p>
+            <h3>See the channel-specific posts</h3>
+            {STORIES.map((story) => (
+              <div key={story.title}>
+                <h4>{story.title}</h4>
+                {story.posts.map(([channel, text]) => (
+                  <p key={channel}>
+                    <strong>{channel}:</strong> {text}
+                  </p>
+                ))}
               </div>
             ))}
           </li>
           <li>
-            <h3>Find your drafts in Buffer</h3>
+            <h3>See the schedule in Buffer</h3>
             <p>
-              Both posts are saved as drafts and tagged Dispatchlet. You review them before they go
-              out. The playbook runs again the next morning.
+              Spread mode schedules the three stories at 09:00, 12:00 and 15:00, each for X and
+              LinkedIn: six posts, with three hours between stories. The duplicate is excluded.
+              Draft mode is also available if you prefer to review posts first. The playbook runs
+              again the next morning.
             </p>
           </li>
         </ol>

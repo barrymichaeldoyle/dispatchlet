@@ -252,8 +252,43 @@ html {
   color: var(--color-muted);
 }
 .flow-caption {
+  display: grid;
   margin-bottom: 28px;
 }
+.flow-caption > div {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+.flow-caption > .is-active {
+  visibility: visible;
+}
+.flow-text {
+  display: grid;
+}
+.flow-text > span {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.flow-measure {
+  visibility: hidden;
+  user-select: none;
+  pointer-events: none;
+}
+.flow-caret-space {
+  display: inline-block;
+  width: 2px;
+  margin-left: 2px;
+}
+.flow-reveal {
+  opacity: 1;
+  transition: opacity 280ms ease-out;
+}
+.flow-reveal[data-revealed='false'] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .flow-caption h3 {
   margin: 0;
   font-size: 22px;
@@ -360,7 +395,6 @@ html {
   padding: 13px 0;
   font-size: 14px;
   line-height: 1.5;
-  animation: flow-arrive 350ms both;
 }
 .flow-rule > span {
   color: var(--color-muted);
@@ -382,7 +416,13 @@ html {
   gap: 16px;
   min-height: 71px;
   padding-bottom: 16px;
-  animation: flow-arrive 350ms both;
+}
+.flow-event > div {
+  min-width: 0;
+  flex: 1;
+}
+.flow-reveal[data-revealed='false'] .flow-spinner {
+  animation-play-state: paused;
 }
 .flow-event-marker {
   display: flex;
@@ -417,13 +457,16 @@ html {
 }
 .flow-posts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.flow-posts > article {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
 .flow-post {
   border-top: 1px solid var(--color-ink);
   padding-top: 14px;
-  animation: flow-arrive 400ms both;
 }
 .flow-post-heading {
   display: flex;
@@ -432,12 +475,22 @@ html {
   align-items: center;
   gap: 8px;
 }
+.flow-post-heading .flow-tag {
+  color: var(--color-muted);
+  background: var(--color-paper);
+  transition:
+    color 200ms,
+    background 200ms;
+  min-width: 76px;
+  text-align: center;
+}
+.flow-post-heading .flow-tag.is-ready {
+  color: var(--color-pine);
+  background: var(--color-tint);
+}
 .flow-post-heading strong {
   font-size: 13px;
   font-weight: 500;
-}
-.flow-post-heading strong span {
-  color: var(--color-muted);
 }
 .flow-post p {
   white-space: pre-line;
@@ -609,12 +662,10 @@ html {
 @keyframes flow-arrive {
   from {
     opacity: 0.35;
-    transform: translateY(8px);
     clip-path: inset(0 0 8px 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
     clip-path: inset(0);
   }
 }
@@ -690,10 +741,6 @@ html {
     grid-template-columns: 57px 1fr;
     gap: 12px;
   }
-  .flow-posts {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
   .flow-post p {
     font-size: 14px;
     margin-top: 12px;
@@ -706,7 +753,8 @@ html {
     font-size: 11px;
   }
   .flow-event {
-    min-height: 90px;
+    min-height: 64px;
+    padding-bottom: 12px;
     gap: 10px;
   }
   .flow-finish h4 {
@@ -981,7 +1029,7 @@ header nav button {
 .flow-dialog .flow-scene {
   width: 100%;
   max-width: 960px;
-  margin-block: auto;
+  margin-block: 0;
   flex-shrink: 0;
 }
 .flow-dialog .flow-input {
@@ -1091,5 +1139,142 @@ header nav button {
 @media (prefers-reduced-motion: reduce) {
   .flow-dialog[open] {
     animation: none;
+  }
+}
+
+/* Keep each result in a reserved slot: streaming changes ink, never geometry. */
+.flow-candidates {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 14px;
+}
+.flow-candidates > strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.flow-candidates ul {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+.flow-candidates li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.flow-candidates li > span:last-child {
+  flex-shrink: 0;
+  color: var(--color-muted);
+}
+.flow-candidates li.is-selected > span:last-child {
+  color: var(--color-pine);
+}
+.flow-candidates > p {
+  font-size: 12px;
+  color: var(--color-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+.flow-story-picker {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+.flow-story-picker button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  text-align: left;
+  font-size: 13px;
+  color: var(--color-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.flow-story-picker button[aria-pressed='true'] {
+  color: var(--color-ink);
+  background: var(--color-tint);
+  border-color: var(--color-rule);
+}
+.flow-story-number {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-pine);
+}
+.flow-channel-posts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin-top: 20px;
+}
+.flow-channel {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.flow-channel-posts p {
+  margin-top: 8px;
+}
+.flow-schedule {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+}
+.flow-schedule li {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--color-rule);
+  padding: 16px 0;
+}
+.flow-schedule time {
+  font-size: 21px;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-pine);
+}
+.flow-schedule li > div {
+  flex: 1;
+}
+.flow-schedule strong {
+  font-size: 13px;
+  font-weight: 500;
+  display: block;
+}
+.flow-schedule li span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.flow-schedule li > svg {
+  flex-shrink: 0;
+  color: var(--color-pine);
+}
+@media (max-width: 600px) {
+  .flow-channel-posts {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .flow-story-picker {
+    margin-bottom: 16px;
+  }
+  .flow-candidates li {
+    font-size: 11px;
+    gap: 10px;
+  }
+  .flow-schedule li {
+    gap: 12px;
+  }
+  .flow-receipt {
+    flex-wrap: wrap;
   }
 }
