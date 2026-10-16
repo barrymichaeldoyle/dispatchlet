@@ -31,7 +31,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await expect(
     demo
       .locator('.flow-event p')
-      .filter({ hasText: '7 searches · 11 pages read. Original reporting verified.' }),
+      .filter({ hasText: '5 searches · 4 pages read. Original reporting verified.' }),
   ).toBeVisible()
   await page.clock.runFor(11000)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)

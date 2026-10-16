@@ -66,7 +66,7 @@ const RULES = [
 ]
 const EVENTS = [
   [15400, 'Searching trusted sources', 'Finding fresh conservation and community reporting.'],
-  [17100, 'Reading the sources', '7 searches · 11 pages read. Original reporting verified.'],
+  [17100, 'Reading the sources', '5 searches · 4 pages read. Original reporting verified.'],
   [18800, 'Checking what you’ve already covered', 'Matching candidates against previous posts.'],
 ] as const
 const STORIES = [
