@@ -1,5 +1,7 @@
 const cloudUrl = import.meta.env.VITE_CONVEX_URL as string | undefined
 
+export const convexConfigured = Boolean(cloudUrl)
+
 /** The Convex HTTP actions domain, derived from the deployment URL when not set directly. */
 const CONVEX_SITE_URL: string | undefined =
   (import.meta.env.VITE_CONVEX_SITE_URL as string | undefined) ??

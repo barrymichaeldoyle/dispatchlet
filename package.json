@@ -25,8 +25,6 @@
     "precommit": "pnpm exec lint-staged && pnpm run audit && pnpm test"
   },
   "dependencies": {
-    "@convex-dev/react-query": "0.1.0",
-    "@posthog/react": "^1.7.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "0.10.13",
     "@tanstack/react-router": "1.170.44",
@@ -39,6 +37,7 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@cloudflare/vite-plugin": "^1.26.0",
     "@edge-runtime/vm": "^5.0.0",
     "@playwright/test": "^1.64.1",

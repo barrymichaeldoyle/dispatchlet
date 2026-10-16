@@ -7,6 +7,7 @@ test('home page loads with the tagline and the waiting list', async ({ page }) =
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
     'Your research agent for a fresh Buffer queue.',
   )
+  await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Join the waiting list' })).toBeVisible()
   await expect(page.getByText('Opens 28 October.')).toBeVisible()
 })
@@ -19,9 +20,8 @@ test('joining the waiting list shows a position', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   const join = page.getByRole('button', { name: 'Join the waiting list' })
-  await join.click()
   const email = page.getByLabel('Email', { exact: true })
-  await expect(email).toBeFocused()
+  await expect(email).toBeVisible()
 
   await email.fill('not an email')
   await join.click()
@@ -47,7 +47,6 @@ test('signup errors preserve the email and allow a retry', async ({ page }) => {
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   const join = page.getByRole('button', { name: 'Join the waiting list' })
-  await join.click()
   const email = page.getByLabel('Email', { exact: true })
   await email.fill('retry@example.com')
   await join.click()
@@ -83,8 +82,7 @@ for (const width of [390, 768, 1360]) {
       ).toBe(true)
     }
     const join = page.getByRole('button', { name: 'Join the waiting list' })
-    await join.click()
-    await assertPosition()
+    await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
     await page.getByLabel('Email', { exact: true }).fill('layout@example.com')
     await join.click()
     await expect(page.getByRole('status')).toContainText('You are number 7.')

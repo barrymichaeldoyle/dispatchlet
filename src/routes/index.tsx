@@ -1,14 +1,68 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useSyncExternalStore } from 'react'
 import { ExampleRun } from '../components/example-run'
 import { ThemeToggle } from '../components/theme-toggle'
-import { WaitlistCount } from '../components/waitlist-count'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
-import { convexConfigured } from '../integrations/convex/provider'
+import { convexConfigured } from '../lib/waitlist'
 import { track } from '../integrations/posthog/track'
 
-export const Route = createFileRoute('/')({ component: Home })
+// The optional live count must not delay the landing page or block signup if its chunk fails.
+const WaitlistCount = lazy(() =>
+  import('../components/waitlist-count')
+    .then((module) => ({ default: module.WaitlistCount }))
+    .catch(() => ({ default: () => <></> })),
+)
+
+const SITE_URL = 'https://dispatchlet.com/'
+const TITLE = 'Dispatchlet — Your research agent for a fresh Buffer queue'
+const DESCRIPTION =
+  'Turn your niche into a fresh Buffer queue. Dispatchlet researches trusted sources, writes channel-ready posts, and saves drafts for your review. Opens 28 October.'
+
+export const Route = createFileRoute('/')({
+  component: Home,
+  head: () => ({
+    meta: [
+      { title: TITLE },
+      { name: 'description', content: DESCRIPTION },
+      { name: 'robots', content: 'index, follow' },
+      { property: 'og:type', content: 'website' },
+      { property: 'og:site_name', content: 'Dispatchlet' },
+      { property: 'og:title', content: TITLE },
+      { property: 'og:description', content: DESCRIPTION },
+      { property: 'og:url', content: SITE_URL },
+      { property: 'og:image', content: `${SITE_URL}og.png` },
+      { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      {
+        property: 'og:image:alt',
+        content: 'Dispatchlet. Your research agent for a fresh Buffer queue.',
+      },
+      { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:title', content: TITLE },
+      { name: 'twitter:description', content: DESCRIPTION },
+      { name: 'twitter:image', content: `${SITE_URL}og.png` },
+      {
+        name: 'twitter:image:alt',
+        content: 'Dispatchlet. Your research agent for a fresh Buffer queue.',
+      },
+    ],
+    links: [{ rel: 'canonical', href: SITE_URL }],
+    scripts: [
+      {
+        type: 'application/ld+json',
+        children: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: 'Dispatchlet',
+          url: SITE_URL,
+          description: DESCRIPTION,
+          inLanguage: 'en',
+        }),
+      },
+    ],
+  }),
+})
 
 const SOURCE_URL = 'https://github.com/barrymichaeldoyle/dispatchlet'
 const BARRY_URL = 'https://x.com/barrymdoyle'
@@ -48,7 +102,10 @@ function Home() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex h-14 items-center justify-between gap-3 border-b border-ink px-4 sm:px-8">
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
+      <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 border-b border-ink px-4 py-1 sm:px-8">
         <Wordmark size="sm" />
         <nav
           aria-label="Main"
@@ -64,7 +121,11 @@ function Home() {
         </nav>
       </header>
 
-      <main className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-4 pb-16 sm:px-8">
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-4 sm:px-8"
+      >
         <section className="grid grid-cols-1 gap-x-8 gap-y-10 border-b border-ink pt-12 pb-10 md:grid-cols-12 md:pt-[72px] md:pb-14">
           <div className="flex flex-col gap-6 md:col-span-7">
             <Wordmark size="lg" />
@@ -86,7 +147,11 @@ function Home() {
                 : notice === 'unsubscribed'
                   ? 'You are off the list and will not get the launch email.'
                   : 'Opens 28 October. Join the list and you will get one email when it does.'}
-              {mounted && convexConfigured ? <WaitlistCount /> : null}
+              {mounted && convexConfigured ? (
+                <Suspense fallback={null}>
+                  <WaitlistCount />
+                </Suspense>
+              ) : null}
             </p>
           </div>
           <ol className="m-0 flex list-none flex-col self-end border-t border-rule p-0 text-[15px] leading-[1.55] md:col-span-5">
@@ -110,7 +175,7 @@ function Home() {
 
         <section className="grid grid-cols-1 gap-x-8 gap-y-8 border-b border-rule py-10 md:grid-cols-2 md:py-14">
           <div className="flex flex-col gap-3">
-            <span className="text-base font-medium">Where it comes from</span>
+            <h2 className="m-0 text-base font-medium">Where it comes from</h2>
             <p className="m-0 max-w-[56ch] text-[15px] leading-[1.6]">
               I run the GrandPrixPicks account on X this way, with a cron job and a text file.
               Dispatchlet is that, for anyone with a Buffer account.
@@ -118,7 +183,7 @@ function Home() {
             <span className="text-sm text-muted">Barry Doyle</span>
           </div>
           <div className="flex flex-col gap-3">
-            <span className="text-base font-medium">What it does with your data</span>
+            <h2 className="m-0 text-base font-medium">What it does with your data</h2>
             <p className="m-0 max-w-[56ch] text-[15px] leading-[1.6]">
               Posts are marked as AI-assisted in Buffer. You can see every search it ran and why it
               kept or skipped a story. Your Buffer tokens are encrypted and deleted when you
@@ -130,21 +195,20 @@ function Home() {
             </p>
           </div>
         </section>
-
-        <footer className="flex flex-wrap justify-between gap-x-6 gap-y-2 pt-6 text-sm text-muted">
-          <span>Built on the Buffer API for Buffer Commit. Not a Buffer product.</span>
-          <span>
-            <a href={BARRY_URL} className="text-muted">
-              Built in public
-            </a>{' '}
-            for Buffer Commit.{' '}
-            <a href={SOURCE_URL} className="text-muted">
-              Source
-            </a>{' '}
-            is public under the Elastic License 2.0.
-          </span>
-        </footer>
       </main>
+      <footer className="mx-auto flex w-full max-w-[1360px] flex-wrap justify-between gap-x-6 gap-y-2 px-4 pt-6 pb-10 text-sm text-muted sm:px-8">
+        <span>Built on the Buffer API for Buffer Commit. Not a Buffer product.</span>
+        <span>
+          <a href={BARRY_URL} className="text-muted">
+            Built in public
+          </a>{' '}
+          for Buffer Commit.{' '}
+          <a href={SOURCE_URL} className="text-muted">
+            Source
+          </a>{' '}
+          is public under the Elastic License 2.0.
+        </span>
+      </footer>
     </div>
   )
 }

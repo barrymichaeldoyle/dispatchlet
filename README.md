@@ -61,6 +61,21 @@ registry; a failed audit request also blocks the commit. A clean audit means
 no known dependency vulnerabilities were reported at the time of the check.
 Typechecking, Knip and browser tests remain in CI through the existing checks.
 
+## Landing page quality
+
+The landing page is prerendered, with a self-hosted Schibsted Grotesk font
+(SIL Open Font License in `src/assets/fonts/OFL.txt`). The interactive demo is
+user-started, supports pause/replay and chapter selection, and has a native
+HTML transcript that also works without JavaScript.
+
+Analytics and the optional live waiting-list count load separately from the
+initial page. Analytics uses the slim PostHog SDK for explicit funnel events;
+autocapture, session recording, surveys and feature flags are disabled on this
+surface. Signup and the demo remain usable if those optional downloads fail.
+
+See [the landing page review](docs/landing-page-review.md) for measurements,
+accessibility coverage and verification commands.
+
 ## Deployment
 
 Pushes to `main` deploy production through Cloudflare Workers Builds for

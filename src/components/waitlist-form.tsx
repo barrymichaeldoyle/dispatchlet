@@ -1,10 +1,9 @@
-import { useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { isValidEmail } from '../../convex/lib/email'
 import { track } from '../integrations/posthog/track'
 import { WAITLIST_ACTION } from '../lib/waitlist'
 
 type State =
-  | { kind: 'idle' }
   | { kind: 'open'; error?: string }
   | { kind: 'submitting' }
   | { kind: 'done'; position?: number }
@@ -36,18 +35,15 @@ export function WaitlistForm() {
     () => true,
     () => false,
   )
-  const [state, setState] = useState<State>({ kind: 'idle' })
+  const [state, setState] = useState<State>({ kind: 'open' })
   const inputRef = useRef<HTMLInputElement>(null)
-
-  const open = state.kind === 'open' || state.kind === 'submitting'
+  const confirmationRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    if (state.kind === 'done') confirmationRef.current?.focus({ preventScroll: true })
+  }, [state.kind])
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (state.kind === 'idle') {
-      setState({ kind: 'open' })
-      requestAnimationFrame(() => inputRef.current?.focus())
-      return
-    }
     if (state.kind !== 'open') return
 
     const form = new FormData(event.currentTarget)
@@ -94,65 +90,65 @@ export function WaitlistForm() {
     }
   }
 
-  if (state.kind === 'done') {
-    return (
-      <p className="m-0 flex min-h-43 items-start pt-2 text-[15px] sm:min-h-30" role="status">
-        {state.position
-          ? `You are number ${state.position}. Check your email to confirm.`
-          : 'Thanks. Check your email to confirm.'}
-      </p>
-    )
-  }
-
   return (
-    <form
-      method="post"
-      action={WAITLIST_ACTION}
-      noValidate={enhanced}
-      data-enhanced={enhanced}
-      onSubmit={onSubmit}
-      className="flex flex-col gap-2"
-    >
-      <div className="flex min-h-36 content-start flex-col gap-3 sm:min-h-23 sm:flex-row sm:flex-wrap">
-        <label htmlFor="waitlist-email" className="sr-only">
-          Email
-        </label>
-        <input
-          ref={inputRef}
-          id="waitlist-email"
-          name="email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="Your email"
-          required
-          hidden={enhanced && !open}
-          disabled={state.kind === 'submitting'}
-          aria-invalid={state.kind === 'open' && state.error ? true : undefined}
-          aria-describedby={state.kind === 'open' && state.error ? 'waitlist-error' : undefined}
-          className="h-10 w-full border border-ink bg-paper px-3 text-base text-ink placeholder:text-muted sm:w-72 sm:text-[15px]"
-        />
-        <button
-          type="submit"
-          disabled={state.kind === 'submitting'}
-          className="h-10 w-full bg-pine px-5 text-[15px] font-medium text-paper disabled:cursor-default sm:w-auto"
+    <div className="waitlist-slot">
+      {state.kind === 'done' ? (
+        <p ref={confirmationRef} tabIndex={-1} className="waitlist-confirmation" role="status">
+          {state.position
+            ? `You are number ${state.position}. Check your email to confirm.`
+            : 'Thanks. Check your email to confirm.'}
+        </p>
+      ) : (
+        <form
+          method="post"
+          action={WAITLIST_ACTION}
+          noValidate={enhanced}
+          data-enhanced={enhanced}
+          onSubmit={onSubmit}
+          aria-label="Join the waiting list"
+          aria-busy={state.kind === 'submitting'}
         >
-          {state.kind === 'submitting' ? 'Joining' : 'Join the waiting list'}
-        </button>
-        <a
-          href="#run"
-          className="inline-flex h-10 w-full items-center justify-center border border-ink px-4 text-[15px] font-medium text-ink no-underline sm:w-auto"
-        >
-          See an example run
-        </a>
-      </div>
-      <p id="waitlist-error" className="m-0 min-h-5 text-sm" aria-live="polite">
-        {state.kind === 'open' && state.error ? state.error : ''}
-      </p>
-      <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
-        <label htmlFor="waitlist-website">Website</label>
-        <input id="waitlist-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
-      </div>
-    </form>
+          <label htmlFor="waitlist-email" className="waitlist-label">
+            Email
+          </label>
+          <div className="waitlist-fields">
+            <input
+              ref={inputRef}
+              id="waitlist-email"
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder="you@example.com"
+              required
+              disabled={state.kind === 'submitting'}
+              aria-invalid={state.kind === 'open' && state.error === INVALID ? true : undefined}
+              aria-describedby={state.kind === 'open' && state.error ? 'waitlist-error' : undefined}
+            />
+            <button type="submit" disabled={state.kind === 'submitting'}>
+              {state.kind === 'submitting' ? 'Joining…' : 'Join the waiting list'}
+            </button>
+          </div>
+          <p id="waitlist-error" className="waitlist-error" aria-live="polite" aria-atomic="true">
+            {state.kind === 'open' && state.error ? state.error : ''}
+          </p>
+          <div className="absolute -left-[9999px] h-px w-px overflow-hidden" aria-hidden="true">
+            <label htmlFor="waitlist-website">Website</label>
+            <input
+              id="waitlist-website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+            />
+          </div>
+        </form>
+      )}
+      <a href="#run" className="waitlist-demo-link">
+        See an example run<span aria-hidden="true"> →</span>
+      </a>
+    </div>
   )
 }

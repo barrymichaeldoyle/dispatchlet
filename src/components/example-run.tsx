@@ -1,129 +1,522 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
-function Row({ time, last, children }: { time: string; last?: boolean; children: ReactNode }) {
+const DURATION = 36000
+const PROMPT =
+  'Find positive news about conservation and communities. Use trusted sources, skip company PR, and never repeat a story. Write one post for X and LinkedIn every morning. Save drafts for me to review.'
+const STAGES = ['Your brief', 'The playbook', 'Research', 'Your drafts', 'In Buffer']
+const STARTS = [0, 6500, 14000, 24000, 33000]
+const TITLES = [
+  'Start with what you care about.',
+  'A playbook built around your brief.',
+  'Follow the work as it happens.',
+  'One story. Written for each channel.',
+  'Ready for your review in Buffer.',
+]
+const NOTES = [
+  'A paragraph is all it takes to give your agent direction.',
+  'You can edit the sources, voice and rules before the first run.',
+  'See the searches, sources and decisions behind every post.',
+  'The same research, with copy adapted for X and LinkedIn.',
+  'Review your drafts, then let the same playbook run tomorrow.',
+]
+const RULES = [
+  ['Sources', 'Positive News, Good News Network, BBC and The Guardian.'],
+  ['Voice', 'Warm and factual. Specific details, no hype.'],
+  ['Rules', 'Verify the source. Skip company PR and stories already covered.'],
+  ['Delivery', 'Every morning · X + LinkedIn · Save as drafts'],
+]
+const EVENTS = [
+  [
+    14500,
+    'Searching trusted sources',
+    'Looking for conservation and community stories from the last 48 hours.',
+  ],
+  [
+    17000,
+    'Reading the sources',
+    '7 searches · 11 pages read. Checking dates and original reporting.',
+  ],
+  [
+    19500,
+    'Checking what you’ve already covered',
+    'Comparing candidates with previous runs. No repeat stories.',
+  ],
+  [
+    21500,
+    'Choosing a story',
+    'Kept: a conservation recovery. Skipped: company PR. Saved a repair café story for a later run.',
+  ],
+] as const
+const POSTS = [
+  [
+    'X',
+    '[Species] numbers in [region] have doubled since a reserve was set up ten years ago, according to [conservation body]. Slow work, but it works. theguardian.com/…',
+  ],
+  [
+    'LinkedIn',
+    'Ten years ago [region] set aside a reserve for [species]. This week [conservation body] reported the population has doubled.\n\nIt took patience, local rangers and not much money. The full story is in the link.',
+  ],
+]
+
+function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' }) {
   return (
-    <div
-      className={`grid grid-cols-[80px_minmax(0,1fr)] gap-x-4 border-b sm:gap-x-6 ${
-        last ? 'border-ink' : 'border-rule'
-      }`}
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <span className="border-r border-rule pt-[18px] pr-3 pb-4 text-right text-sm text-muted">
-        {time}
+      {kind === 'play' ? <path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none" /> : null}
+      {kind === 'pause' ? <path d="M9 5v14M16 5v14" /> : null}
+      {kind === 'replay' ? (
+        <>
+          <path d="M3 10a9 9 0 1 1 2 8M3 4v6h6" />
+        </>
+      ) : null}
+      {kind === 'check' ? <path d="m5 12 4 4L19 6" /> : null}
+      {kind === 'arrow' ? <path d="M5 12h14m-5-5 5 5-5 5" /> : null}
+    </svg>
+  )
+}
+
+function stream(text: string, elapsed: number, start: number, duration: number, reduced: boolean) {
+  return text.slice(
+    0,
+    Math.floor(
+      text.length * Math.min(1, Math.max(0, (elapsed - start) / (reduced ? 1 : duration))),
+    ),
+  )
+}
+
+function StreamText({
+  text,
+  elapsed,
+  start,
+  duration,
+  reduced,
+}: {
+  text: string
+  elapsed: number
+  start: number
+  duration: number
+  reduced: boolean
+}) {
+  return (
+    <>
+      <span className="flow-stream" aria-hidden="true">
+        {stream(text, elapsed, start, duration, reduced)}
       </span>
-      <div className="flex flex-col gap-1.5 py-4">{children}</div>
-    </div>
+      <span className="sr-only">{text}</span>
+    </>
   )
 }
 
-function Story({
-  kept,
-  title,
-  reason,
-  last,
-}: {
-  kept?: boolean
-  title: string
-  reason: string
-  last?: boolean
-}) {
-  return (
-    <tr className={`border-t border-rule ${kept ? 'bg-tint' : ''} ${last ? 'border-b' : ''}`}>
-      <td
-        className={`w-[72px] py-2.5 pr-4 pl-2 align-top ${kept ? 'font-medium text-pine' : 'text-muted'}`}
-      >
-        {kept ? 'Kept' : 'Skipped'}
-      </td>
-      <td className={`py-2.5 pr-2 align-top ${kept ? '' : 'text-muted'}`}>
-        {title}
-        <br />
-        <span className="text-muted">{reason}</span>
-      </td>
-    </tr>
-  )
-}
-
-function Post({
-  channel,
-  children,
-  last,
-}: {
-  channel: string
-  children: ReactNode
-  last?: boolean
-}) {
-  return (
-    <div className={`flex flex-col gap-2.5 border-b py-4 ${last ? 'border-ink' : 'border-rule'}`}>
-      <div className="flex justify-between text-sm text-muted">
-        <span>{channel}</span>
-        <span>Draft</span>
-      </div>
-      <p className="m-0 text-[15px] leading-[1.55]">{children}</p>
-    </div>
-  )
-}
+const subscribe = () => () => {}
 
 export function ExampleRun() {
+  const ready = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  )
+  const control = useRef<HTMLButtonElement>(null)
+  const [elapsed, setElapsed] = useState(0)
+  const [running, setPlaying] = useState(false)
+  const [started, setStarted] = useState(false)
+  const [reduced, setReduced] = useState(false)
+  const section = useRef<HTMLElement>(null)
+  const complete = elapsed >= DURATION
+  const playing = running && !complete
+  const stage = STARTS.reduce((current, start, index) => (elapsed >= start ? index : current), 0)
+
+  useEffect(() => {
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduced(preference.matches)
+    update()
+    preference.addEventListener('change', update)
+    return () => preference.removeEventListener('change', update)
+  }, [])
+
+  useEffect(() => {
+    if (!playing) return
+    let previous = performance.now()
+    const timer = window.setInterval(() => {
+      const now = performance.now()
+      const delta = now - previous
+      setElapsed((value) => Math.min(DURATION, value + delta))
+      previous = now
+    }, 50)
+    return () => window.clearInterval(timer)
+  }, [playing])
+
+  useEffect(() => {
+    const pauseWhenHidden = () => {
+      if (document.hidden) setPlaying(false)
+    }
+    document.addEventListener('visibilitychange', pauseWhenHidden)
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) setPlaying(false)
+    })
+    if (section.current) observer.observe(section.current)
+    return () => {
+      document.removeEventListener('visibilitychange', pauseWhenHidden)
+      observer.disconnect()
+    }
+  }, [])
+
+  const play = () => {
+    if (complete) setElapsed(0)
+    setStarted(true)
+    setPlaying((value) => (complete ? true : !value))
+  }
+  const seek = (index: number) => {
+    setStarted(true)
+    setPlaying(false)
+    setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
+  }
+  const label = complete
+    ? 'Replay demo'
+    : playing
+      ? 'Pause demo'
+      : started
+        ? 'Resume demo'
+        : 'Play the demo'
+
   return (
-    <section id="run" aria-label="Example run" className="flex scroll-mt-6 flex-col pt-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 pb-4">
-        <span className="text-base font-medium">A run from the Good News Today playbook</span>
-        <span className="text-sm text-muted">15 Oct at 09:00.</span>
-      </div>
-      <div className="grid grid-cols-1 gap-x-8 border-t border-ink md:grid-cols-12">
-        <div className="flex flex-col md:col-span-8">
-          <Row time="09:00:03">
-            <span className="text-base font-medium">Research</span>
-            <p className="m-0 max-w-[64ch] text-[15px] leading-[1.55]">
-              Ran 7 searches and read 11 pages on positive.news, goodnewsnetwork.org,
-              reasonstobecheerful.world, bbc.com and theguardian.com. Kept 4 stories from the last 2
-              days.
-            </p>
-          </Row>
-          <Row time="09:00:51">
-            <span className="text-base font-medium">Chose 1 of 4 stories</span>
-            <table className="w-full table-fixed border-collapse text-[15px] leading-normal [overflow-wrap:anywhere]">
-              <tbody>
-                <Story
-                  kept
-                  title="[Species] numbers in [region] double after a 10 year reserve programme"
-                  reason="theguardian.com, 5 hours ago. A named conservation body and a figure. Not posted before."
-                />
-                <Story
-                  title="[Town] opens a free repair cafe in its old library"
-                  reason="Good story, but the playbook allows 1 post per run. Kept for tomorrow."
-                />
-                <Story
-                  title="[Company] pledges to plant a million trees"
-                  reason="Company press release, and the playbook says to skip those."
-                  last
-                />
-              </tbody>
-            </table>
-          </Row>
-          <Row time="09:01:55" last>
-            <span className="text-base font-medium">Saved to Buffer</span>
-            <p className="m-0 text-[15px] leading-[1.55]">
-              2 drafts created, one for X and one for LinkedIn, both tagged Dispatchlet.
-            </p>
-          </Row>
+    <section
+      ref={section}
+      id="run"
+      aria-label="Example run"
+      className="flow-section"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') setPlaying(false)
+      }}
+    >
+      <div className="flow-heading">
+        <div>
+          <h2>From a brief to a fresh Buffer queue.</h2>
+          <p>Follow Good News Today’s first run, start to finish.</p>
         </div>
-        <div className="flex flex-col md:col-span-4">
-          <Post channel="Good News Today on X">
-            [Species] numbers in [region] have doubled since a reserve was set up ten years ago,
-            according to [conservation body]. Slow work, but it works. theguardian.com/…
-          </Post>
-          <Post channel="Good News Today on LinkedIn" last>
-            Ten years ago [region] set aside a reserve for [species]. This week [conservation body]
-            reported the population has doubled.
-            <br />
-            <br />
-            It took patience, local rangers and not much money. The full story is in the link.
-          </Post>
+        <button
+          ref={control}
+          type="button"
+          className="flow-control"
+          onClick={play}
+          disabled={!ready}
+          aria-controls="flow-workspace"
+        >
+          <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
+          {label}
+        </button>
+      </div>
+
+      <div className={`flow-demo ${playing ? 'is-playing' : ''}`}>
+        <ol className="flow-stages" aria-label="Demo progress">
+          {STAGES.map((name, index) => (
+            <li
+              key={name}
+              className={started && index <= stage ? 'is-current' : ''}
+              aria-current={started && index === stage ? 'step' : undefined}
+            >
+              <button
+                type="button"
+                onClick={() => seek(index)}
+                disabled={!ready}
+
+                aria-controls="flow-workspace"
+              >
+                <span className="flow-stage-number" aria-hidden="true">
+                  {started && index < stage ? <Icon kind="check" /> : index + 1}
+                </span>
+                <span>{name}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        <div id="flow-workspace" className="flow-workspace">
+          {!started ? (
+            <div className="flow-intro">
+              <button
+                type="button"
+                className="flow-play"
+                onClick={() => {
+                  play()
+                  control.current?.focus({ preventScroll: true })
+                }}
+                disabled={!ready}
+                aria-label="Play the full walkthrough"
+                aria-controls="flow-workspace"
+              >
+                <Icon kind="play" />
+              </button>
+              <h3>
+                You bring the direction.
+                <br />
+                Dispatchlet takes it from there.
+              </h3>
+              <p>Watch a brief become a playbook, research and two drafts ready to review.</p>
+              <span className="flow-duration">36-second walkthrough · No signup needed</span>
+            </div>
+          ) : (
+            <>
+              <div className="flow-caption">
+                <h3>{TITLES[stage]}</h3>
+                <p>{NOTES[stage]}</p>
+              </div>
+              <div key={stage} className="flow-scene">
+                {stage === 0 ? (
+                  <div className="flow-prompt">
+                    <div className="flow-field-label">What would you like to post about?</div>
+                    <div className="flow-input" role="group" aria-label="Example brief">
+                      <StreamText
+                        text={PROMPT}
+                        elapsed={elapsed}
+                        start={650}
+                        duration={4400}
+                        reduced={reduced}
+                      />
+                      {elapsed < 5200 ? <span className="flow-caret" aria-hidden="true" /> : null}
+                    </div>
+                    <div className="flow-submit-row">
+                      <span>Good News Today</span>
+                      <span className={`flow-submit ${elapsed >= 6000 ? 'is-clicked' : ''}`}>
+                        Create playbook <Icon kind="arrow" />
+                      </span>
+                    </div>
+                    {elapsed > 5100 ? (
+                      <div
+                        className={`flow-cursor ${elapsed >= 6000 ? 'is-clicking' : ''}`}
+                        aria-hidden="true"
+                      >
+                        <svg width="26" height="30" viewBox="0 0 26 30">
+                          <path
+                            d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
+                            fill="var(--color-ink)"
+                            stroke="var(--color-paper)"
+                            strokeWidth="2"
+                          />
+                        </svg>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {stage === 1 ? (
+                  <div className="flow-playbook">
+                    <div className="flow-document-title">
+                      <span>Good News Today</span>
+                      <span className="flow-tag">Playbook</span>
+                    </div>
+                    {RULES.map(([name, value], index) =>
+                      elapsed >= 7000 + index * 1400 ? (
+                        <div className="flow-rule" key={name}>
+                          <span>{name}</span>
+                          <p>
+                            <StreamText
+                              text={value}
+                              elapsed={elapsed}
+                              start={7000 + index * 1400}
+                              duration={1000}
+                              reduced={reduced}
+                            />
+                          </p>
+                        </div>
+                      ) : null,
+                    )}
+                    {elapsed >= 12500 ? (
+                      <div className="flow-ready">
+                        <Icon kind="check" /> Playbook ready. Starting the first run.
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+                {stage === 2 ? (
+                  <div className="flow-research">
+                    {EVENTS.map(([start, title, detail], index) =>
+                      elapsed >= start ? (
+                        <div className="flow-event" key={title}>
+                          <span
+                            className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? 'is-done' : ''}`}
+                          >
+                            {elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? (
+                              <Icon kind="check" />
+                            ) : (
+                              <span className="flow-spinner" />
+                            )}
+                          </span>
+                          <div>
+                            <strong>{title}</strong>
+                            <p>
+                              <StreamText
+                                text={detail}
+                                elapsed={elapsed}
+                                start={start}
+                                duration={1400}
+                                reduced={reduced}
+                              />
+                            </p>
+                          </div>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                ) : null}
+                {stage === 3 ? (
+                  <div className="flow-posts">
+                    {POSTS.map(([channel, text], index) =>
+                      elapsed >= 24200 + index * 3600 ? (
+                        <article className="flow-post" key={channel}>
+                          <div className="flow-post-heading">
+                            <strong>
+                              Good News Today <span>on {channel}</span>
+                            </strong>
+                            <span className="flow-tag">
+                              {elapsed >= 31600 ? 'Draft ready' : 'Writing'}
+                            </span>
+                          </div>
+                          <p>
+                            <StreamText
+                              text={text}
+                              elapsed={elapsed}
+                              start={24200 + index * 3600}
+                              duration={3300}
+                              reduced={reduced}
+                            />
+                          </p>
+                        </article>
+                      ) : null,
+                    )}
+                  </div>
+                ) : null}
+                {stage === 4 ? (
+                  <div className="flow-finish">
+                    <div className="flow-success">
+                      <Icon kind="check" />
+                    </div>
+                    <h4>Two drafts. Your final say.</h4>
+                    <p>
+                      Saved to Buffer for X and LinkedIn.
+                      <br />
+                      Both tagged Dispatchlet and ready for review.
+                    </p>
+                    <div className="flow-receipt">
+                      <span>Good News Today</span>
+                      <span className="flow-tag">2 drafts saved</span>
+                    </div>
+                    <div className="flow-next">
+                      <Icon kind="check" /> Tomorrow, the playbook runs again.
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+        <div className="flow-player">
+          <span aria-live="polite" aria-atomic="true">
+            {!started
+              ? 'Ready when you are'
+              : complete
+                ? 'Walkthrough complete'
+                : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
+          </span>
+          <div className="flow-player-actions">
+            {started ? (
+              <button
+                type="button"
+                className="flow-transport"
+                onClick={play}
+                aria-label={
+                  complete
+                    ? 'Replay walkthrough'
+                    : playing
+                      ? 'Pause walkthrough'
+                      : 'Resume walkthrough'
+                }
+                aria-controls="flow-workspace"
+              >
+                <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
+                {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
+              </button>
+            ) : null}
+            <span className="flow-time" aria-hidden="true">
+              {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / 36 sec
+            </span>
+          </div>
+        </div>
+        <div
+          className="flow-progress"
+          role="progressbar"
+          aria-label="Walkthrough progress"
+          aria-valuenow={Math.floor(elapsed / 1000)}
+          aria-valuemin={0}
+          aria-valuemax={36}
+        >
+          <span style={{ transform: `scaleX(${elapsed / DURATION})` }} />
         </div>
       </div>
-      <p className="m-0 pt-4 text-sm text-muted">
-        This run is from testing. Live runs start 28 October.
+      <noscript>
+        <p className="flow-disclaimer">
+          The animation needs JavaScript. You can read the full walkthrough below.
+        </p>
+      </noscript>
+      <p className="flow-disclaimer">
+        Illustrative walkthrough, sped up. Story details are placeholders. Live runs start 28
+        October.
       </p>
+      <details
+        className="flow-transcript"
+        onToggle={(event) => {
+          if (event.currentTarget.open) setPlaying(false)
+        }}
+      >
+        <summary>Read the full walkthrough</summary>
+        <ol>
+          <li>
+            <h3>Give the agent a brief</h3>
+            <p>{PROMPT}</p>
+          </li>
+          <li>
+            <h3>Review your playbook</h3>
+            <dl>
+              {RULES.map(([name, value]) => (
+                <div key={name}>
+                  <dt>{name}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+          <li>
+            <h3>Follow the research</h3>
+            <p>
+              The agent searches trusted sources and reads the original reporting. It checks dates
+              and previous runs, keeps a conservation recovery story, skips company PR and saves a
+              repair café story for later.
+            </p>
+          </li>
+          <li>
+            <h3>Review the channel-specific drafts</h3>
+            {POSTS.map(([channel, text]) => (
+              <div key={channel}>
+                <h4>{channel}</h4>
+                <p>{text}</p>
+              </div>
+            ))}
+          </li>
+          <li>
+            <h3>Find your drafts in Buffer</h3>
+            <p>
+              Both posts are saved as drafts and tagged Dispatchlet. You review them before they go
+              out. The playbook runs again the next morning.
+            </p>
+          </li>
+        </ol>
+      </details>
     </section>
   )
 }
