@@ -101,8 +101,12 @@ for (const viewport of [
         expect(button!.y).toBeGreaterThanOrEqual(0)
         expect(button!.y + button!.height).toBeLessThanOrEqual(viewport.height)
       }
-      const transport = await demo.locator('.flow-transport').boundingBox()
-      expect(transport!.y + transport!.height).toBeLessThanOrEqual(viewport.height)
+      for (const control of await demo.locator('.flow-transport').all()) {
+        const transport = await control.boundingBox()
+        expect(transport!.x).toBeGreaterThanOrEqual(0)
+        expect(transport!.x + transport!.width).toBeLessThanOrEqual(viewport.width)
+        expect(transport!.y + transport!.height).toBeLessThanOrEqual(viewport.height)
+      }
       expect(
         await demo.evaluate(
           (el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight,
@@ -248,4 +252,40 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await expect(demo.locator('.flow-schedule')).not.toContainText('urban garden')
   await expect(demo.locator('.flow-schedule')).not.toContainText('company')
   await expect(demo.getByText('6 posts scheduled', { exact: true })).toBeVisible()
+})
+
+test('restart begins a fresh run from playing, paused and partially typed states', async ({
+  page,
+}) => {
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  const restart = demo.getByRole('button', { name: 'Restart walkthrough' })
+  const progress = demo.getByRole('progressbar')
+  await page.clock.runFor(23000)
+  await expect(demo.locator('.flow-candidates')).toBeVisible()
+  await restart.click()
+  await expect(progress).toHaveAttribute('aria-valuenow', '0')
+  await expect(demo.getByRole('heading', { name: 'Start with what you care about.' })).toBeVisible()
+  await expect(restart).toBeFocused()
+  await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
+  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toBeEmpty()
+  await page.clock.runFor(2000)
+  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toContainText(
+    'Find positive news',
+  )
+  await restart.press('Enter')
+  await expect(progress).toHaveAttribute('aria-valuenow', '0')
+  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toBeEmpty()
+  await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
+  await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
+  await restart.click()
+  await expect(progress).toHaveAttribute('aria-valuenow', '0')
+  await expect(demo.locator('.flow-player')).toContainText('Playing · Your brief')
+  expect(await demo.locator('.flow-workspace').evaluate((el) => el.scrollTop)).toBe(0)
+  await page.clock.runFor(7000)
+  await expect(
+    demo.getByRole('heading', { name: 'A playbook built around your brief.' }),
+  ).toBeVisible()
 })

@@ -85,6 +85,7 @@ const CANDIDATES = [
 function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close' }) {
   return (
     <svg
+      className={kind === 'check' ? 'flow-check' : undefined}
       width="18"
       height="18"
       viewBox="0 0 24 24"
@@ -167,6 +168,7 @@ export function ExampleRun() {
   const readAfterClose = useRef(false)
   const [focused, setFocused] = useState(false)
   const [elapsed, setElapsed] = useState(0)
+  const [runId, setRunId] = useState(0)
   const [running, setPlaying] = useState(false)
   const [started, setStarted] = useState(false)
   const [reduced, setReduced] = useState(false)
@@ -230,9 +232,16 @@ export function ExampleRun() {
     setPlaying(false)
     dialog.current?.close()
   }
+  const restart = () => {
+    setElapsed(0)
+    setRunId((value) => value + 1)
+    setStarted(true)
+    setPlaying(true)
+    workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
+  }
   const play = () => {
-    if (complete) setElapsed(0)
-    setPlaying((value) => (complete ? true : !value))
+    if (complete) restart()
+    else setPlaying((value) => !value)
   }
   const seek = (index: number) => {
     setStarted(true)
@@ -375,7 +384,7 @@ export function ExampleRun() {
                 </div>
               ))}
             </div>
-            <div key={stage} className="flow-scene">
+            <div key={`${runId}-${stage}`} className="flow-scene">
               {stage === 0 ? (
                 <div className="flow-prompt">
                   <div className="flow-field-label">What would you like to post about?</div>
@@ -600,6 +609,17 @@ export function ExampleRun() {
                   : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
             </span>
             <div className="flow-player-actions">
+              {!complete ? (
+                <button
+                  type="button"
+                  className="flow-transport flow-restart"
+                  onClick={restart}
+                  aria-label="Restart walkthrough"
+                  aria-controls="flow-workspace"
+                >
+                  <Icon kind="replay" /> Restart
+                </button>
+              ) : null}
               {started ? (
                 <button
                   type="button"
@@ -614,7 +634,10 @@ export function ExampleRun() {
                   }
                   aria-controls="flow-workspace"
                 >
-                  <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
+                  <Icon
+                    key={complete ? 'replay' : playing ? 'pause' : 'play'}
+                    kind={complete ? 'replay' : playing ? 'pause' : 'play'}
+                  />
                   {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
                 </button>
               ) : null}

@@ -281,12 +281,18 @@ html {
 }
 .flow-reveal {
   opacity: 1;
-  transition: opacity 280ms ease-out;
+  visibility: visible;
+  transition:
+    opacity 280ms ease-out,
+    visibility 0s;
 }
 .flow-reveal[data-revealed='false'] {
   visibility: hidden;
   opacity: 0;
   pointer-events: none;
+  transition:
+    opacity 160ms ease-out,
+    visibility 0s 160ms;
 }
 
 .flow-caption h3 {
@@ -1277,4 +1283,159 @@ header nav button {
   .flow-receipt {
     flex-wrap: wrap;
   }
+}
+
+/* Feedback follows the run: chapter handoff, selection, then a confirmed check. */
+.flow-caption > .is-active {
+  animation: flow-caption-in 320ms ease-out;
+}
+.flow-transport {
+  transition:
+    background 140ms ease-out,
+    color 140ms ease-out;
+}
+.flow-transport:active,
+.flow-close:active {
+  background: var(--color-rule);
+}
+.flow-transport > svg {
+  animation: flow-control-in 180ms ease-out;
+}
+.flow-restart:hover > svg {
+  transform: rotate(-35deg);
+}
+.flow-restart > svg {
+  transition: transform 180ms ease-out;
+}
+.flow-stages li[aria-current='step'] .flow-stage-number {
+  background: var(--color-pine);
+  color: var(--color-on-pine);
+  border-color: var(--color-pine);
+}
+.flow-stage-number {
+  transition:
+    background 220ms ease-out,
+    color 220ms ease-out,
+    border-color 220ms ease-out;
+}
+.flow-check path {
+  stroke-dasharray: 24;
+  animation: flow-check-in 380ms ease-out both;
+}
+.flow-story-picker button {
+  transition:
+    background 200ms ease-out,
+    color 200ms ease-out,
+    border-color 200ms ease-out;
+}
+.flow-story-picker button:hover {
+  background: var(--color-tint);
+  color: var(--color-ink);
+}
+.flow-story-picker button:active {
+  border-color: var(--color-pine);
+}
+.flow-candidates[data-revealed='true'] li {
+  animation: flow-result-in 260ms ease-out both;
+}
+.flow-candidates li:nth-child(2) {
+  animation-delay: 60ms;
+}
+.flow-candidates li:nth-child(3) {
+  animation-delay: 120ms;
+}
+.flow-candidates li:nth-child(4) {
+  animation-delay: 180ms;
+}
+.flow-candidates li:nth-child(5) {
+  animation-delay: 240ms;
+}
+.flow-schedule [data-revealed='true'] .flow-check {
+  animation: flow-control-in 240ms ease-out;
+}
+.flow-progress > span {
+  transition: transform 70ms linear;
+}
+.flow-demo:not(.is-playing) .flow-progress > span {
+  transition: none;
+}
+@keyframes flow-caption-in {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes flow-control-in {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes flow-check-in {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes flow-result-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (max-width: 480px) {
+  .flow-dialog .flow-player {
+    gap: 6px;
+  }
+  .flow-dialog .flow-player-actions {
+    gap: 2px;
+  }
+  .flow-dialog .flow-transport {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+  .flow-dialog .flow-time {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-dialog .flow-caption > .is-active,
+  .flow-dialog .flow-candidates li {
+    animation: none;
+  }
+  .flow-dialog .flow-reveal,
+  .flow-dialog .flow-stage-number,
+  .flow-dialog .flow-story-picker button {
+    transition: none;
+  }
+  .flow-restart:hover > svg {
+    transform: none;
+  }
+}
+.flow-schedule .flow-check path,
+.flow-ready .flow-check path {
+  animation: none;
+}
+.flow-schedule [data-revealed='true'] .flow-check path,
+.flow-ready[data-revealed='true'] .flow-check path {
+  animation: flow-check-in 380ms ease-out both;
+}
+/* Let departing copy clear before the next story becomes legible. */
+.flow-posts .flow-post {
+  transition:
+    opacity 220ms ease-out 120ms,
+    visibility 0s;
+}
+.flow-posts .flow-post[data-revealed='false'] {
+  transition:
+    opacity 100ms ease-out,
+    visibility 0s 100ms;
 }

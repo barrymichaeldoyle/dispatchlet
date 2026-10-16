@@ -14,7 +14,7 @@ The demo starts only on request. Its 48-second sequence types the brief, animate
 submission, builds the playbook, and turns five research candidates into three
 fresh stories. It explicitly skips a previously posted story and company PR,
 streams six channel-specific posts, then shows a Buffer schedule at 09:00, 12:00
-and 15:00 using Spread mode. Story previews are selectable and pause playback. Pause/resume, replay,
+and 15:00 using Spread mode. Story previews are selectable and pause playback. Pause/resume, restart at any point, replay,
 chapter selection and hidden-tab pausing are supported. Escape closes and pauses
 the player, restoring focus to the launcher and preserving progress.
 Chapter selection shows the complete chosen step in a paused state. Playback
@@ -25,7 +25,11 @@ the player. Read instead closes the player and opens/focuses the transcript.
 
 Streaming text reserves its complete wrapped height, results occupy reserved
 slots, and chapters share a fixed top anchor. The writing scene crossfades
-between three story previews in one reserved area. Content no longer recenters
+between three story previews in one reserved area, clearing outgoing copy before
+the next preview appears. Active chapter markers, drawn completion checks,
+staggered research decisions and control feedback explain state changes without
+moving the content. Restart resets the timer, scroll position and opening
+animation while keeping the player open and keyboard focus on the control. Content no longer recenters
 as text arrives. Position and size regressions are checked throughout playback
 at desktop and two phone sizes.
 
@@ -101,7 +105,7 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 31 browser tests against the production preview: playback and replay, pause,
+- 32 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
