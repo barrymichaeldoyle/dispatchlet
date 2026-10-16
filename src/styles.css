@@ -461,15 +461,6 @@ html {
   border-radius: 50%;
   animation: flow-spin 1s linear infinite;
 }
-.flow-posts {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-}
-.flow-posts > article {
-  grid-area: 1 / 1;
-  min-width: 0;
-}
 .flow-post {
   border-top: 1px solid var(--color-ink);
   padding-top: 14px;
@@ -1183,38 +1174,6 @@ header nav button {
   line-height: 1.5;
   margin: 0;
 }
-.flow-story-picker {
-  display: grid;
-  gap: 4px;
-  margin-bottom: 24px;
-}
-.flow-story-picker button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 1px solid transparent;
-  text-align: left;
-  font-size: 13px;
-  color: var(--color-muted);
-  background: transparent;
-  cursor: pointer;
-}
-.flow-story-picker button[aria-pressed='true'] {
-  color: var(--color-ink);
-  background: var(--color-tint);
-  border-color: var(--color-rule);
-}
-.flow-story-number {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-pine);
-}
 .flow-channel-posts {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1270,9 +1229,6 @@ header nav button {
     gap: 16px;
     margin-top: 16px;
   }
-  .flow-story-picker {
-    margin-bottom: 16px;
-  }
   .flow-candidates li {
     font-size: 11px;
     gap: 10px;
@@ -1322,34 +1278,6 @@ header nav button {
   stroke-dasharray: 24;
   animation: flow-check-in 380ms ease-out both;
 }
-.flow-story-picker button {
-  transition:
-    background 200ms ease-out,
-    color 200ms ease-out,
-    border-color 200ms ease-out;
-}
-.flow-story-picker button:hover {
-  background: var(--color-tint);
-  color: var(--color-ink);
-}
-.flow-story-picker button:active {
-  border-color: var(--color-pine);
-}
-.flow-candidates[data-revealed='true'] li {
-  animation: flow-result-in 260ms ease-out both;
-}
-.flow-candidates li:nth-child(2) {
-  animation-delay: 60ms;
-}
-.flow-candidates li:nth-child(3) {
-  animation-delay: 120ms;
-}
-.flow-candidates li:nth-child(4) {
-  animation-delay: 180ms;
-}
-.flow-candidates li:nth-child(5) {
-  animation-delay: 240ms;
-}
 .flow-schedule [data-revealed='true'] .flow-check {
   animation: flow-control-in 240ms ease-out;
 }
@@ -1383,14 +1311,6 @@ header nav button {
     stroke-dashoffset: 0;
   }
 }
-@keyframes flow-result-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
 @media (max-width: 480px) {
   .flow-dialog .flow-player {
     gap: 6px;
@@ -1407,13 +1327,11 @@ header nav button {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .flow-dialog .flow-caption > .is-active,
-  .flow-dialog .flow-candidates li {
+  .flow-dialog .flow-caption > .is-active {
     animation: none;
   }
   .flow-dialog .flow-reveal,
-  .flow-dialog .flow-stage-number,
-  .flow-dialog .flow-story-picker button {
+  .flow-dialog .flow-stage-number {
     transition: none;
   }
   .flow-restart:hover > svg {
@@ -1428,14 +1346,46 @@ header nav button {
 .flow-ready[data-revealed='true'] .flow-check path {
   animation: flow-check-in 380ms ease-out both;
 }
-/* Let departing copy clear before the next story becomes legible. */
-.flow-posts .flow-post {
-  transition:
-    opacity 220ms ease-out 120ms,
-    visibility 0s;
+
+/* A single writing example leaves room to understand the outcome. */
+.flow-story-results {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
 }
-.flow-posts .flow-post[data-revealed='false'] {
-  transition:
-    opacity 100ms ease-out,
-    visibility 0s 100ms;
+.flow-story-results li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-top: 1px solid var(--color-rule);
+  padding: 14px 0;
+}
+.flow-story-results svg {
+  flex-shrink: 0;
+  color: var(--color-pine);
+}
+.flow-story-results strong {
+  display: block;
+  font-weight: 500;
+  font-size: 13px;
+}
+.flow-story-results li span {
+  display: block;
+  color: var(--color-muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.flow-candidates .is-duplicate {
+  background: var(--color-tint);
+  padding-inline: 8px;
+}
+.flow-candidates .is-duplicate > span:last-child {
+  color: var(--color-pine);
+  font-weight: 500;
+}
+.flow-story-results [data-revealed='false'] .flow-check path {
+  animation: none;
+}
+.flow-story-results [data-revealed='true'] .flow-check path {
+  animation: flow-check-in 380ms ease-out both;
 }

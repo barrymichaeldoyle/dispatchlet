@@ -10,26 +10,33 @@ secondary demo link, a pending state and recoverable errors. Successful signup
 moves keyboard focus to confirmation and keeps the demo link available. Network
 errors preserve the address without marking the address itself invalid.
 
-The demo starts only on request. Its 48-second sequence types the brief, animates
+The demo starts only on request. Its 65-second sequence types the brief, animates
 submission, builds the playbook, and turns five research candidates into three
-fresh stories. It explicitly skips a previously posted story and company PR,
-streams six channel-specific posts, then shows a Buffer schedule at 09:00, 12:00
-and 15:00 using Spread mode. Story previews are selectable and pause playback. Pause/resume, restart at any point, replay,
-chapter selection and hidden-tab pausing are supported. Escape closes and pauses
-the player, restoring focus to the launcher and preserving progress.
-Chapter selection shows the complete chosen step in a paused state. Playback
-opens a native full-screen dialog sized to the dynamic viewport. The landing
-page remains inactive and scroll-locked behind it. The close button, chapters
-and playback controls stay visible while longer stage content scrolls inside
-the player. Read instead closes the player and opens/focuses the transcript.
+fresh stories. It explicitly skips a previously posted story and company PR.
+Research details arrive as complete text rather than competing typewriter streams.
+The completed candidate list holds for seven seconds before the next chapter.
+
+The writing chapter keeps one short X/LinkedIn comparison on screen. Its channels
+stream in sequence, then the other two stories appear as compact completed items.
+There is no automatic story switching. All six example posts remain available in
+the transcript. The final Buffer schedule places stories at 09:00, 12:00 and
+15:00 using Spread mode, with over seven seconds to read the completed schedule.
+
+Pause/resume, restart at any point, replay, chapter selection and hidden-tab
+pausing are supported. Escape closes and pauses the player, restoring focus to
+the launcher and preserving progress. Chapter selection shows the complete
+chosen step in a paused state. Playback opens a native full-screen dialog sized
+to the dynamic viewport. The landing page remains inactive and scroll-locked
+behind it. The close button, chapters and playback controls stay visible while
+longer stage content scrolls inside the player. Read instead closes the player
+and opens/focuses the transcript.
 
 Streaming text reserves its complete wrapped height, results occupy reserved
-slots, and chapters share a fixed top anchor. The writing scene crossfades
-between three story previews in one reserved area, clearing outgoing copy before
-the next preview appears. Active chapter markers, drawn completion checks,
-staggered research decisions and control feedback explain state changes without
-moving the content. Restart resets the timer, scroll position and opening
-animation while keeping the player open and keyboard focus on the control. Content no longer recenters
+slots, and chapters share a fixed top anchor. Motion is limited to chapter
+handoffs, sequential results, completion checks and control feedback. Candidate
+rows appear together, without a stagger competing with the duplicate decision.
+Restart resets the timer, scroll position and opening animation while keeping
+the player open and keyboard focus on the control. Content no longer recenters
 as text arrives. Position and size regressions are checked throughout playback
 at desktop and two phone sizes.
 
@@ -109,7 +116,7 @@ JavaScript disabled. Relevant references:
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
-  story preview selection, axe scans, signup
+  reading holds, sequential channel writing, axe scans, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
 - Current Chromium, WebKit and Firefox checks cover all five chapters at four
