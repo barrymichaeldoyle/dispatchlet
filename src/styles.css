@@ -238,7 +238,7 @@ html {
 }
 .flow-caption p {
   margin: 8px 0 0;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--color-muted);
   line-height: 1.5;
 }
@@ -300,7 +300,6 @@ html {
   top: calc(50% - 2px);
   left: calc(50% - 3px);
   pointer-events: none;
-  animation: flow-cursor 750ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 .flow-cursor > svg {
   display: block;
@@ -340,7 +339,7 @@ html {
   gap: 20px;
   border-bottom: 1px solid var(--color-rule);
   padding: 13px 0;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.5;
 }
 .flow-rule > span {
@@ -385,12 +384,12 @@ html {
   border-radius: 50%;
 }
 .flow-event strong {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
 }
 .flow-event p {
   margin: 5px 0 0;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
   color: var(--color-muted);
 }
@@ -427,13 +426,13 @@ html {
   background: var(--color-tint);
 }
 .flow-post-heading strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
 }
 .flow-post p {
   white-space: pre-line;
   margin: 18px 0 0;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -621,16 +620,6 @@ html {
     transform: rotate(360deg);
   }
 }
-@keyframes flow-cursor {
-  from {
-    opacity: 0;
-    transform: translate(75px, 45px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(0);
-  }
-}
 @keyframes flow-click {
   from {
     opacity: 0.8;
@@ -656,7 +645,7 @@ html {
     justify-content: flex-start;
     padding: 14px 3px;
     gap: 8px;
-    font-size: 11px;
+    font-size: 12px;
     text-align: center;
   }
 
@@ -680,11 +669,11 @@ html {
     gap: 12px;
   }
   .flow-post p {
-    font-size: 14px;
+    font-size: 15px;
     margin-top: 12px;
   }
   .flow-post-heading strong {
-    font-size: 12px;
+    font-size: 14px;
   }
   .flow-player {
     padding-inline: 14px;
@@ -993,6 +982,7 @@ header nav button {
 .flow-dialog .flow-player {
   padding: 10px max(24px, calc((100% - 1080px) / 2));
   min-height: 64px;
+  font-size: 14px;
 }
 .flow-dialog .flow-transport {
   min-height: 44px;
@@ -1100,7 +1090,7 @@ header nav button {
   padding-top: 14px;
 }
 .flow-candidates > strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
 }
 .flow-candidates ul {
@@ -1113,7 +1103,7 @@ header nav button {
   justify-content: space-between;
   gap: 16px;
   padding: 8px 0;
-  font-size: 12px;
+  font-size: 14px;
   border-bottom: 1px solid var(--color-rule);
 }
 .flow-candidates li > span:last-child {
@@ -1124,7 +1114,7 @@ header nav button {
   color: var(--color-pine);
 }
 .flow-candidates > p {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-muted);
   line-height: 1.5;
   margin: 0;
@@ -1136,7 +1126,7 @@ header nav button {
   margin-top: 20px;
 }
 .flow-channel {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-muted);
 }
 .flow-channel-posts p {
@@ -1164,14 +1154,14 @@ header nav button {
   flex: 1;
 }
 .flow-schedule strong {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   display: block;
 }
 .flow-schedule li span {
   display: block;
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 5px;
 }
 .flow-schedule li > svg {
@@ -1185,7 +1175,7 @@ header nav button {
     margin-top: 16px;
   }
   .flow-candidates li {
-    font-size: 11px;
+    font-size: 13px;
     gap: 10px;
   }
   .flow-schedule li {
@@ -1319,12 +1309,12 @@ header nav button {
 .flow-story-results strong {
   display: block;
   font-weight: 500;
-  font-size: 13px;
+  font-size: 15px;
 }
 .flow-story-results li span {
   display: block;
   color: var(--color-muted);
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 4px;
 }
 .flow-candidates .is-duplicate {
@@ -1400,10 +1390,10 @@ header nav button {
 }
 .is-overview .flow-panel-title {
   display: block;
-  margin: 0 0 12px;
-  padding-bottom: 12px;
+  margin: 0 0 8px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--color-rule);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 500;
   color: var(--color-ink);
   transition: color 200ms ease-out;
@@ -1414,7 +1404,7 @@ header nav button {
 .is-overview .flow-panel-waiting {
   margin: 0;
   max-width: 28ch;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.6;
   color: var(--color-muted);
 }
@@ -1431,54 +1421,60 @@ header nav button {
 .flow-dialog .is-overview .flow-input {
   min-height: 0;
   padding: 12px;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.6;
 }
 .is-overview .flow-submit-row {
-  font-size: 11px;
+  font-size: 13px;
   gap: 8px;
   margin-top: 12px;
 }
 .is-overview .flow-submit {
   padding: 10px;
   gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .is-overview .flow-document-title {
-  font-size: 12px;
+  font-size: 14px;
 }
 .is-overview .flow-rule {
   grid-template-columns: 48px minmax(0, 1fr);
   gap: 8px;
   padding-block: 8px;
-  font-size: 12px;
+  font-size: 14px;
 }
 .is-overview .flow-ready {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 .is-overview .flow-event {
   min-height: 0;
-  padding-bottom: 16px;
+  padding-bottom: 8px;
   gap: 8px;
 }
 .is-overview .flow-event strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 .is-overview .flow-event p {
-  font-size: 12px;
+  font-size: 14px;
+}
+.is-overview .flow-candidates {
+  padding-top: 8px;
+}
+.is-overview .flow-candidates ul {
+  margin-block: 8px;
 }
 .is-overview .flow-candidates li {
   flex-direction: column;
-  gap: 3px;
-  font-size: 12px;
-  padding-block: 6px;
+  gap: 2px;
+  font-size: 14px;
+  padding-block: 2px;
 }
 .is-overview .flow-candidates li > span:last-child {
-  font-size: 11px;
+  font-size: 13px;
 }
 .is-overview .flow-candidates > p {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .is-overview .flow-post {
   padding-top: 0;
@@ -1488,19 +1484,19 @@ header nav button {
   align-items: flex-start;
 }
 .is-overview .flow-post-heading strong {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.5;
 }
 .is-overview .flow-post-heading .flow-tag {
   min-width: 0;
-  font-size: 10px;
+  font-size: 12px;
 }
 .is-overview .flow-channel-posts {
   grid-template-columns: 1fr;
   gap: 20px;
 }
 .is-overview .flow-post p {
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.6;
 }
 .is-overview .flow-story-results {
@@ -1510,11 +1506,11 @@ header nav button {
   gap: 8px;
 }
 .is-overview .flow-story-results strong {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 .is-overview .flow-story-results li span {
-  font-size: 11px;
+  font-size: 13px;
 }
 .is-overview .flow-finish {
   padding-top: 0;
@@ -1529,7 +1525,7 @@ header nav button {
   line-height: 1.3;
 }
 .is-overview .flow-finish > p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .is-overview .flow-schedule li {
   gap: 10px;
@@ -1539,30 +1535,30 @@ header nav button {
   margin-top: 12px;
 }
 .is-overview .flow-schedule time {
-  font-size: 19px;
+  font-size: 22px;
 }
 .is-overview .flow-schedule strong {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 .is-overview .flow-schedule li span {
-  font-size: 11px;
+  font-size: 13px;
 }
 .is-overview .flow-receipt {
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: 14px;
   margin-top: 12px;
   padding-block: 12px;
 }
 .is-overview .flow-next {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 @media (min-width: 1100px) and (min-height: 650px) {
   .flow-dialog .flow-stages button {
     min-height: 44px;
     padding-block: 10px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
   }
   .flow-dialog .flow-stage-number {
@@ -1597,7 +1593,7 @@ header nav button {
     padding-bottom: 12px;
   }
   .flow-dialog .is-overview .flow-input {
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.5;
   }
   .is-overview .flow-submit-row > span:first-child {
@@ -1607,7 +1603,7 @@ header nav button {
     justify-content: flex-end;
   }
   .is-overview .flow-post p {
-    font-size: 12px;
+    font-size: 14px;
     line-height: 1.5;
   }
   .is-overview .flow-channel-posts {

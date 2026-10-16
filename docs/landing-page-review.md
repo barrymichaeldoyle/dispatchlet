@@ -28,13 +28,13 @@ secondary demo link, a pending state and recoverable errors. Successful signup
 moves keyboard focus to confirmation and keeps the demo link available. Network
 errors preserve the address without marking the address itself invalid.
 
-The demo starts only on request. Its 54-second sequence types the brief, animates
+The demo starts only on request. Its 38-second sequence types the brief, animates
 submission, builds the playbook, and turns five research candidates into three
 fresh stories. It explicitly skips a previously posted story and company PR.
 Research details arrive as complete text rather than competing typewriter streams.
-Candidates appear one at a time, 650ms apart, in reserved slots. The completed
-list holds for almost five seconds before the next chapter. The submit cursor
-arrives during the final part of prompt typing, then clicks after it finishes.
+Candidates appear one at a time, 550ms apart, in reserved slots. The completed
+list holds just long enough to read the skip decision, then moves on. The submit
+cursor arrives after the brief is written, and clicks as it reaches the button.
 Its tip and click ripple are anchored to the submit button’s center at every size.
 
 The writing chapter keeps one short X/LinkedIn comparison on screen. Its channels
@@ -53,7 +53,7 @@ The skipped urban garden finding opens a native, light-dismiss popover showing a
 clearly labeled illustrative prior post and the match explanation. Opening it
 pauses playback. Escape closes only the explanation and restores the trigger,
 leaving the walkthrough paused. The final Buffer schedule places stories at 09:00, 12:00 and
-15:00 using Spread mode, with over seven seconds to read the completed schedule.
+15:00 using Spread mode, with a few seconds to read the completed schedule.
 
 Pause/resume, restart at any point, replay, chapter selection and hidden-tab
 pausing are supported. Escape closes and pauses the player, restoring focus to

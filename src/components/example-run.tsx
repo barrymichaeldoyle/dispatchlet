@@ -11,14 +11,39 @@ import { Wordmark } from './wordmark'
 import { BrandText } from './brand-text'
 import { ThemeToggle } from './theme-toggle'
 
-const DURATION = 54000
-const CANDIDATE_START = 24500
-const CANDIDATE_INTERVAL = 650
+const TYPE_START = 600
+const TYPE_DURATION = 5800
+const CURSOR_TRAVEL = 500
+const CURSOR_START = 6700
+const CLICK = CURSOR_START + CURSOR_TRAVEL
+const CREATED = 7500
+const PLAYBOOK = 8200
+const RULE_START = 8400
+const RULE_INTERVAL = 1400
+const RULE_DURATION = 1100
+const READY = 14000
+const RESEARCH = 15200
+const CANDIDATE_START = 19600
+const CANDIDATE_INTERVAL = 550
+const POSTS = 24000
+const X_START = 24200
+const X_DURATION = 1500
+const LI_START = 26200
+const LI_DURATION = 2000
+const POSTS_READY = 28500
+const STORY_2 = 29500
+const STORY_3 = 30400
+const BUFFER = 31900
+const SLOT_START = 32200
+const SLOT_INTERVAL = 900
+const RECEIPT = 34000
+const DURATION = 38000
+const WRITING_SETTLED = 30800
 const TOTAL_SECONDS = DURATION / 1000
 const PROMPT =
   'Find three positive stories each morning about conservation and communities. Skip company PR and anything we’ve posted before. Write for X and LinkedIn, and schedule each story three hours apart.'
 const STAGES = ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']
-const STARTS = [0, 9000, 18000, 32000, 44000]
+const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
   'Describe what you want to post.',
   'Set the sources, voice and schedule.',
@@ -40,9 +65,9 @@ const RULES = [
   ['Delivery', '3 stories each morning · X + LinkedIn · Spread 3 hours apart'],
 ]
 const EVENTS = [
-  [18300, 'Searching trusted sources', 'Finding fresh conservation and community reporting.'],
-  [21000, 'Reading the sources', '7 searches · 11 pages read. Original reporting verified.'],
-  [23500, 'Checking what you’ve already covered', 'Matching candidates against previous posts.'],
+  [15400, 'Searching trusted sources', 'Finding fresh conservation and community reporting.'],
+  [17100, 'Reading the sources', '7 searches · 11 pages read. Original reporting verified.'],
+  [18800, 'Checking what you’ve already covered', 'Matching candidates against previous posts.'],
 ] as const
 const STORIES = [
   {
@@ -120,6 +145,14 @@ function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' 
       {kind === 'arrow' ? <path d="M5 12h14m-5-5 5 5-5 5" /> : null}
     </svg>
   )
+}
+
+function cursorMotion(elapsed: number) {
+  const travel = Math.min(1, Math.max(0, (elapsed - CURSOR_START) / CURSOR_TRAVEL))
+  return {
+    opacity: Math.min(1, travel / 0.16),
+    transform: `translate(${(1 - travel) * 70}px, ${(1 - travel) * 40}px)`,
+  }
 }
 
 function stream(text: string, elapsed: number, start: number, duration: number, reduced: boolean) {
@@ -311,14 +344,14 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   const inspectStory = (index: number, moveFocus = false) => {
     setPlaying(false)
     const focus = moveFocus || !overview
-    if (index === selectedStory && elapsed >= 42000) {
+    if (index === selectedStory && elapsed >= WRITING_SETTLED) {
       if (focus)
         previews.current
           ?.querySelector<HTMLElement>('[data-selected="true"]')
           ?.focus({ preventScroll: true })
     } else focusPreview.current = focus
     setSelectedStory(index)
-    setElapsed((value) => Math.max(value, 42000))
+    setElapsed((value) => Math.max(value, WRITING_SETTLED))
   }
 
   const launch = (button: HTMLElement) => {
@@ -509,33 +542,36 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <StreamText
                         text={PROMPT}
                         elapsed={elapsed}
-                        start={800}
-                        duration={6000}
+                        start={TYPE_START}
+                        duration={TYPE_DURATION}
                         reduced={reduced}
-                        caret={elapsed < 7000}
+                        caret={elapsed < CURSOR_START}
                       />
                     </div>
                     <div className="flow-submit-row">
                       <span>Good News Today</span>
-                      <span className={`flow-submit ${elapsed >= 7400 ? 'is-clicked' : ''}`}>
+                      <span
+                        className={`flow-submit ${elapsed >= CLICK && elapsed < CLICK + 400 ? 'is-clicked' : ''}`}
+                      >
                         <span className="flow-submit-label">
                           <span
-                            aria-hidden={elapsed >= 9000 || undefined}
-                            className={elapsed < 9000 ? 'is-active' : ''}
+                            aria-hidden={elapsed >= CREATED || undefined}
+                            className={elapsed < CREATED ? 'is-active' : ''}
                           >
                             Create playbook
                           </span>
                           <span
-                            aria-hidden={elapsed < 9000 || undefined}
-                            className={elapsed >= 9000 ? 'is-active' : ''}
+                            aria-hidden={elapsed < CREATED || undefined}
+                            className={elapsed >= CREATED ? 'is-active' : ''}
                           >
                             Playbook created
                           </span>
                         </span>
-                        <Icon kind={elapsed >= 9000 ? 'check' : 'arrow'} />
-                        {elapsed >= 6000 && elapsed < 9000 ? (
+                        <Icon kind={elapsed >= CREATED ? 'check' : 'arrow'} />
+                        {elapsed >= CURSOR_START && elapsed < PLAYBOOK ? (
                           <span
-                            className={`flow-cursor ${elapsed >= 7400 ? 'is-clicking' : ''}`}
+                            className={`flow-cursor ${elapsed >= CLICK ? 'is-clicking' : ''}`}
+                            style={cursorMotion(elapsed)}
                             aria-hidden="true"
                           >
                             <svg width="26" height="30" viewBox="0 0 26 30">
@@ -568,8 +604,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <div
                         className="flow-rule flow-reveal"
                         key={name}
-                        data-revealed={elapsed >= 9400 + index * 1700}
-                        aria-hidden={elapsed < 9400 + index * 1700 || undefined}
+                        data-revealed={elapsed >= RULE_START + index * RULE_INTERVAL}
+                        aria-hidden={elapsed < RULE_START + index * RULE_INTERVAL || undefined}
                       >
                         <span>
                           <BrandText>{name}</BrandText>
@@ -578,8 +614,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           <StreamText
                             text={value}
                             elapsed={elapsed}
-                            start={9400 + index * 1700}
-                            duration={1400}
+                            start={RULE_START + index * RULE_INTERVAL}
+                            duration={RULE_DURATION}
                             reduced={reduced}
                           />
                         </p>
@@ -587,8 +623,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                     ))}
                     <div
                       className="flow-ready flow-reveal"
-                      data-revealed={elapsed >= 16200}
-                      aria-hidden={elapsed < 16200 || undefined}
+                      data-revealed={elapsed >= READY}
+                      aria-hidden={elapsed < READY || undefined}
                     >
                       <Icon kind="check" /> Playbook ready. Starting the first run.
                     </div>
@@ -755,9 +791,9 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                             </button>
                           ) : (
                             <span
-                              className={`flow-tag ${selectedStory !== null || elapsed >= 37200 ? 'is-ready' : ''}`}
+                              className={`flow-tag ${selectedStory !== null || elapsed >= POSTS_READY ? 'is-ready' : ''}`}
                             >
-                              {selectedStory !== null || elapsed >= 37200
+                              {selectedStory !== null || elapsed >= POSTS_READY
                                 ? '2 posts ready'
                                 : 'Writing'}
                             </span>
@@ -769,11 +805,12 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                               className="flow-reveal"
                               key={channel}
                               data-revealed={
-                                selectedStory !== null || elapsed >= (index === 0 ? 32300 : 34700)
+                                selectedStory !== null ||
+                                elapsed >= (index === 0 ? X_START : LI_START)
                               }
                               aria-hidden={
                                 (selectedStory === null &&
-                                  elapsed < (index === 0 ? 32300 : 34700)) ||
+                                  elapsed < (index === 0 ? X_START : LI_START)) ||
                                 undefined
                               }
                             >
@@ -782,8 +819,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                                 <StreamText
                                   text={text}
                                   elapsed={selectedStory !== null ? DURATION : elapsed}
-                                  start={index === 0 ? 32300 : 34700}
-                                  duration={index === 0 ? 1600 : 2300}
+                                  start={index === 0 ? X_START : LI_START}
+                                  duration={index === 0 ? X_DURATION : LI_DURATION}
                                   reduced={reduced}
                                 />
                               </p>
@@ -803,8 +840,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <li
                         className="flow-reveal"
                         key={story.title}
-                        data-revealed={elapsed >= 38700 + index * 1000}
-                        aria-hidden={elapsed < 38700 + index * 1000 || undefined}
+                        data-revealed={elapsed >= STORY_2 + index * (STORY_3 - STORY_2)}
+                        aria-hidden={elapsed < STORY_2 + index * (STORY_3 - STORY_2) || undefined}
                       >
                         <Icon kind="check" />
                         <div>
@@ -837,14 +874,14 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   <h4>Three stories. A full day covered.</h4>
                   <p className="flow-finish-status">
                     <span
-                      className={elapsed < 46500 ? 'is-active' : ''}
-                      aria-hidden={elapsed >= 46500 || undefined}
+                      className={elapsed < RECEIPT ? 'is-active' : ''}
+                      aria-hidden={elapsed >= RECEIPT || undefined}
                     >
                       <BrandText>Scheduling in Buffer · X + LinkedIn</BrandText>
                     </span>
                     <span
-                      className={elapsed >= 46500 ? 'is-active' : ''}
-                      aria-hidden={elapsed < 46500 || undefined}
+                      className={elapsed >= RECEIPT ? 'is-active' : ''}
+                      aria-hidden={elapsed < RECEIPT || undefined}
                     >
                       <BrandText>6 posts scheduled in Buffer · X + LinkedIn</BrandText>
                     </span>
@@ -855,8 +892,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                         key={story.title}
                         data-highlighted={selectedStory === index}
                         className="flow-reveal"
-                        data-revealed={elapsed >= 44300 + index * 1100}
-                        aria-hidden={elapsed < 44300 + index * 1100 || undefined}
+                        data-revealed={elapsed >= SLOT_START + index * SLOT_INTERVAL}
+                        aria-hidden={elapsed < SLOT_START + index * SLOT_INTERVAL || undefined}
                       >
                         <time>{story.time}</time>
                         <div>
@@ -876,16 +913,16 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   </ol>
                   <div
                     className="flow-receipt flow-reveal"
-                    data-revealed={elapsed >= 46500}
-                    aria-hidden={elapsed < 46500 || undefined}
+                    data-revealed={elapsed >= RECEIPT}
+                    aria-hidden={elapsed < RECEIPT || undefined}
                   >
                     <span>3-hour gaps · No repeated stories</span>
                     <span className="flow-tag">6 posts scheduled</span>
                   </div>
                   <div
                     className="flow-next flow-reveal"
-                    data-revealed={elapsed >= 46500}
-                    aria-hidden={elapsed < 46500 || undefined}
+                    data-revealed={elapsed >= RECEIPT}
+                    aria-hidden={elapsed < RECEIPT || undefined}
                   >
                     <Icon kind="check" /> Tomorrow, the playbook runs again.
                   </div>
