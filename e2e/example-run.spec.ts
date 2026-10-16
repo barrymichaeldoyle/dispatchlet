@@ -1,25 +1,24 @@
 import { expect, test } from '@playwright/test'
 
-test('walkthrough plays from brief to drafts, pauses, and replays', async ({ page }) => {
+test('full-screen walkthrough plays from brief to drafts, pauses, and replays', async ({
+  page,
+}) => {
   await page.clock.install()
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  const demo = page.getByRole('region', { name: 'Example run' })
-  await expect(demo.getByText('You bring the direction.')).toBeVisible()
-  await expect(demo.getByText('2 drafts saved')).toHaveCount(0)
-  await demo.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  await expect(page.getByText('You bring the direction.')).toBeVisible()
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await expect(demo).toBeVisible()
   await page.clock.runFor(2000)
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toContainText(
-    'Find positive news',
-  )
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).not.toContainText(
-    'Save drafts for me to review.',
-  )
-  await demo.getByRole('button', { name: 'Pause demo', exact: true }).click()
-  const brief = await demo.getByLabel('Example brief').locator('.flow-stream').textContent()
+  const brief = demo.getByLabel('Example brief').locator('.flow-stream')
+  await expect(brief).toContainText('Find positive news')
+  await expect(brief).not.toContainText('Save drafts for me to review.')
+  await demo.getByRole('button', { name: 'Pause walkthrough', exact: true }).click()
+  const pausedBrief = await brief.textContent()
   await page.clock.runFor(3000)
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toHaveText(brief ?? '')
-  await demo.getByRole('button', { name: 'Resume demo', exact: true }).click()
+  await expect(brief).toHaveText(pausedBrief ?? '')
+  await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await page.clock.runFor(5000)
   await expect(
     demo.getByRole('heading', { name: 'A playbook built around your brief.' }),
@@ -35,84 +34,119 @@ test('walkthrough plays from brief to drafts, pauses, and replays', async ({ pag
   await page.clock.runFor(4000)
   await expect(demo.locator('.flow-player')).toContainText('Walkthrough complete')
   await expect(demo.getByText('2 drafts saved')).toBeVisible()
-  await demo.getByRole('button', { name: 'Replay demo' }).click()
+  await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
   await expect(demo.getByRole('heading', { name: 'Start with what you care about.' })).toBeVisible()
   await expect(demo.getByText('2 drafts saved')).toHaveCount(0)
 })
 
-test('walkthrough pauses when it leaves the viewport', async ({ page }) => {
+test('closing pauses playback, restores focus and page position, and allows resuming', async ({
+  page,
+}) => {
   await page.clock.install()
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  const demo = page.getByRole('region', { name: 'Example run' })
-  await demo.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const opener = page.getByRole('button', { name: 'Play the full walkthrough' })
+  await expect(opener).toBeEnabled()
+  await opener.scrollIntoViewIfNeeded()
+  const before = await page.evaluate(() => window.scrollY)
+  await opener.click()
+  const demo = page.getByRole('dialog')
+  await page.clock.runFor(2000)
+  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  await demo.getByRole('button', { name: 'Close walkthrough' }).click()
+  await expect(demo).not.toBeVisible()
+  await expect(opener).toBeFocused()
+  expect(await page.evaluate(() => window.scrollY)).toBe(before)
+  await page.clock.runFor(3000)
+  await expect(page.locator('.flow-progress')).toHaveAttribute('aria-valuenow', progress ?? '')
+  await page.getByRole('button', { name: 'Resume demo', exact: true }).click()
+  await expect(demo).toBeVisible()
   await page.clock.runFor(1000)
-  await page.setViewportSize({ width: 1360, height: 500 })
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-  await expect(demo.getByRole('button', { name: 'Resume demo' })).toBeAttached()
+  expect(Number(await demo.getByRole('progressbar').getAttribute('aria-valuenow'))).toBeGreaterThan(
+    Number(progress),
+  )
+  await page.keyboard.press('Escape')
+  await expect(demo).not.toBeVisible()
+  await expect(page.getByRole('button', { name: 'Resume demo', exact: true })).toBeFocused()
+  await expect(page.locator('html')).not.toHaveCSS('overflow', 'hidden')
 })
 
-for (const width of [320, 390, 1360]) {
-  test(`walkthrough fits at ${width}px with reduced motion`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 900 })
+for (const viewport of [
+  { width: 320, height: 568 },
+  { width: 390, height: 844 },
+  { width: 768, height: 1024 },
+  { width: 1360, height: 900 },
+  { width: 844, height: 390 },
+]) {
+  test(`focused player fills ${viewport.width}×${viewport.height} with persistent controls`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
     await page.emulateMedia({ reducedMotion: 'reduce' })
-    await page.clock.install()
     await page.goto('/')
-    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-    const demo = page.getByRole('region', { name: 'Example run' })
-    await demo.getByRole('button', { name: 'Play the demo', exact: true }).click()
-    await page.clock.runFor(1000)
-    await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toContainText(
-      'Save drafts for me to review.',
-    )
-    await expect(demo.locator('.flow-caret')).toHaveCSS('animation-name', 'none')
-    await page.clock.runFor(31000)
-    await expect(demo.locator('.flow-post')).toHaveCount(2)
-    expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
-    ).toBe(true)
-    await page.clock.runFor(4000)
-    await expect(demo.getByText('2 drafts saved')).toBeVisible()
+    await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+    const demo = page.getByRole('dialog')
+    await expect(demo).toBeVisible()
+    const assertViewport = async () => {
+      const bounds = await demo.boundingBox()
+      expect(bounds?.x).toBe(0)
+      expect(bounds?.y).toBe(0)
+      expect(bounds?.width).toBe(viewport.width)
+      expect(bounds?.height).toBe(viewport.height)
+      for (const name of ['Close walkthrough', 'Read instead']) {
+        const button = await demo.getByRole('button', { name, exact: true }).boundingBox()
+        expect(button!.y).toBeGreaterThanOrEqual(0)
+        expect(button!.y + button!.height).toBeLessThanOrEqual(viewport.height)
+      }
+      const transport = await demo.locator('.flow-transport').boundingBox()
+      expect(transport!.y + transport!.height).toBeLessThanOrEqual(viewport.height)
+      expect(
+        await demo.evaluate(
+          (el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight,
+        ),
+      ).toBe(true)
+    }
+    await assertViewport()
+    await expect(demo).toHaveCSS('animation-name', 'none')
+    for (const chapter of ['Your brief', 'The playbook', 'Research', 'Your drafts', 'In Buffer']) {
+      await demo.getByRole('button', { name: chapter, exact: true }).click()
+      await assertViewport()
+    }
+    await page.keyboard.press('Escape')
+    await expect(demo).not.toBeVisible()
   })
 }
 
-for (const scenario of [
-  { width: 1360, height: 900, reduced: false, button: 'Play the demo' },
-  { width: 390, height: 900, reduced: false, button: 'Play the full walkthrough' },
-  { width: 390, height: 640, reduced: true, button: 'Play the demo' },
-]) {
-  test(`play frames the scenario at ${scenario.width}×${scenario.height}`, async ({ page }) => {
-    await page.setViewportSize({ width: scenario.width, height: scenario.height })
-    await page.emulateMedia({ reducedMotion: scenario.reduced ? 'reduce' : 'no-preference' })
-    await page.goto('/')
-    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-    const demo = page.getByRole('region', { name: 'Example run' })
-    const frame = demo.locator('.flow-demo')
-    const assertFraming = async () => {
-      await expect
-        .poll(async () =>
-          frame.evaluate((element) => {
-            const rect = element.getBoundingClientRect()
-            const height = window.visualViewport?.height ?? window.innerHeight
-            return Math.abs(
-              rect.height + 32 <= height ? rect.top + rect.height / 2 - height / 2 : rect.top - 16,
-            )
-          }),
-        )
-        .toBeLessThan(2)
-    }
-    await demo.getByRole('button', { name: scenario.button, exact: true }).click()
-    await assertFraming()
-    // Pausing is stationary; resuming brings the scenario back into view.
-    await demo.getByRole('button', { name: 'Pause walkthrough', exact: true }).click()
-    const pausedScroll = await page.evaluate(() => window.scrollY)
-    await page.waitForTimeout(150)
-    expect(await page.evaluate(() => window.scrollY)).toBe(pausedScroll)
-    await demo.getByRole('button', { name: 'Resume demo', exact: true }).click()
-    await assertFraming()
-    await expect(demo.getByRole('button', { name: 'Pause demo', exact: true })).toBeAttached()
-    await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
-    await demo.getByRole('button', { name: 'Replay demo', exact: true }).click()
-    await assertFraming()
-  })
-}
+test('focus stays inside the player and Read instead opens the native transcript', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await expect(demo.getByRole('button', { name: 'Close walkthrough' })).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await expect(demo.getByRole('button', { name: 'Read instead' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(demo.getByRole('button', { name: 'Close walkthrough' })).toBeFocused()
+  const backgroundScroll = await page.evaluate(() => window.scrollY)
+  await page.mouse.wheel(0, 600)
+  expect(await page.evaluate(() => window.scrollY)).toBe(backgroundScroll)
+  await demo.getByRole('button', { name: 'Read instead' }).click()
+  await expect(demo).not.toBeVisible()
+  await expect(page.getByText('Read the full walkthrough', { exact: true })).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Review your playbook' })).toBeVisible()
+})
+
+test('player adapts to orientation changes without changing the landing page scroll', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await expect(demo).toBeVisible()
+  await page.setViewportSize({ width: 844, height: 390 })
+  await expect.poll(async () => (await demo.boundingBox())?.height).toBe(390)
+  await expect(demo.getByRole('button', { name: 'Close walkthrough' })).toBeInViewport()
+  await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeInViewport()
+  await expect(demo.getByRole('button', { name: 'Read instead' })).toBeInViewport()
+})

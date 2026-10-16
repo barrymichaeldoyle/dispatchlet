@@ -13,9 +13,13 @@ errors preserve the address without marking the address itself invalid.
 The demo starts only on request. Its 36-second sequence types the brief, animates
 submission, builds the playbook, streams research decisions and channel-specific
 drafts, then confirms the illustrative Buffer handoff. Pause/resume, replay,
-Escape-to-pause, chapter selection and offscreen/hidden-tab pausing are supported.
+chapter selection and hidden-tab pausing are supported. Escape closes and pauses
+the player, restoring focus to the launcher and preserving progress.
 Chapter selection shows the complete chosen step in a paused state. Playback
-controls are available above and below the demo.
+opens a native full-screen dialog sized to the dynamic viewport. The landing
+page remains inactive and scroll-locked behind it. The close button, chapters
+and playback controls stay visible while longer stage content scrolls inside
+the player. Read instead closes the player and opens/focuses the transcript.
 
 Reduced motion removes cursor movement and animated transitions and shows each
 text block without typewriter motion. Screen readers receive complete text
@@ -32,7 +36,9 @@ assistive-technology certification.
 
 ## Loading and animation
 
-Lighthouse 13.5.0, default mobile simulation, against the production build served
+The measurements below record the original landing-page polish pass, before
+the full-screen player follow-up. Lighthouse 13.5.0, default mobile simulation,
+against the production build served
 locally by `pnpm preview`, using the same environment before and after.
 
 | Measurement                              | Before    | After     |
@@ -56,7 +62,8 @@ separately. Analytics uses the slim SDK and does not request unused flag,
 recording or survey features. The font is preloaded from the same origin, removing
 an external render-blocking stylesheet and its font-discovery chain.
 
-A complete real-time mobile playback in headless Chromium produced 2,172 frame
+Before the full-screen follow-up, a complete real-time mobile playback in
+headless Chromium produced 2,172 frame
 samples, a 16.7 ms median and 95th percentile frame interval, no observed long
 tasks and no page errors. Playback performs no real research or Buffer requests.
 Desktop/mobile demo heights remain stable across chapters. The page was checked
@@ -86,8 +93,10 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 23 browser tests against the production preview: playback and replay, pause,
-  chapter navigation, responsive layout, keyboard/focus, axe scans, signup
+- 27 browser tests against the production preview: playback and replay, pause,
+  chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
+  orientation changes, focus containment/restoration, background scroll locking,
+  Read instead, axe scans, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
 - Additional WebKit 27.2 and Firefox 157 smoke checks: mobile dark layout,

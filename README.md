@@ -65,8 +65,10 @@ Typechecking, Knip and browser tests remain in CI through the existing checks.
 
 The landing page is prerendered, with a self-hosted Schibsted Grotesk font
 (SIL Open Font License in `src/assets/fonts/OFL.txt`). The interactive demo is
-user-started, supports pause/replay and chapter selection, and has a native
-HTML transcript that also works without JavaScript.
+user-started and opens a responsive, full-screen native dialog with persistent
+playback controls. Closing it preserves progress and returns focus to the
+launcher. It supports pause/replay and chapter selection, and has a native HTML
+transcript that also works without JavaScript.
 
 Analytics and the optional live waiting-list count load separately from the
 initial page. Analytics uses the slim PostHog SDK for explicit funnel events;

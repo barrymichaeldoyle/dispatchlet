@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Wordmark } from './wordmark'
 
 const DURATION = 36000
 const PROMPT =
@@ -58,7 +59,7 @@ const POSTS = [
   ],
 ]
 
-function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' }) {
+function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close' }) {
   return (
     <svg
       width="18"
@@ -79,6 +80,7 @@ function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' 
         </>
       ) : null}
       {kind === 'check' ? <path d="m5 12 4 4L19 6" /> : null}
+      {kind === 'close' ? <path d="m6 6 12 12M6 18 18 6" /> : null}
       {kind === 'arrow' ? <path d="M5 12h14m-5-5 5 5-5 5" /> : null}
     </svg>
   )
@@ -124,15 +126,20 @@ export function ExampleRun() {
     () => true,
     () => false,
   )
-  const control = useRef<HTMLButtonElement>(null)
-  const scenario = useRef<HTMLDivElement>(null)
+  const dialog = useRef<HTMLDialogElement>(null)
+  const closeControl = useRef<HTMLButtonElement>(null)
+  const readControl = useRef<HTMLButtonElement>(null)
+  const workspace = useRef<HTMLDivElement>(null)
+  const opener = useRef<HTMLButtonElement | null>(null)
+  const transcript = useRef<HTMLDetailsElement>(null)
+  const readAfterClose = useRef(false)
+  const [focused, setFocused] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [running, setPlaying] = useState(false)
   const [started, setStarted] = useState(false)
   const [reduced, setReduced] = useState(false)
-  const section = useRef<HTMLElement>(null)
   const complete = elapsed >= DURATION
-  const playing = running && !complete
+  const playing = focused && running && !complete
   const stage = STARTS.reduce((current, start, index) => (elapsed >= start ? index : current), 0)
 
   useEffect(() => {
@@ -160,30 +167,39 @@ export function ExampleRun() {
       if (document.hidden) setPlaying(false)
     }
     document.addEventListener('visibilitychange', pauseWhenHidden)
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) setPlaying(false)
-    })
-    if (section.current) observer.observe(section.current)
     return () => {
       document.removeEventListener('visibilitychange', pauseWhenHidden)
-      observer.disconnect()
     }
   }, [])
 
-  const play = () => {
-    if (!playing) {
-      requestAnimationFrame(() => {
-        const frame = scenario.current
-        if (!frame) return
-        const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-        frame.scrollIntoView({
-          behavior: reduced ? 'instant' : 'smooth',
-          block: frame.offsetHeight + 32 <= viewportHeight ? 'center' : 'start',
-        })
-      })
+  useEffect(() => {
+    if (!focused) return
+    const previous = document.documentElement.style.overflow
+    document.documentElement.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = previous
     }
+  }, [focused])
+
+  useEffect(() => {
+    if (focused) workspace.current?.scrollTo({ top: 0, behavior: 'instant' })
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each chapter starts at the top of the stage.
+  }, [stage, focused])
+
+  const launch = (button: HTMLButtonElement) => {
+    opener.current = button
     if (complete) setElapsed(0)
     setStarted(true)
+    setPlaying(true)
+    dialog.current?.showModal()
+    setFocused(true)
+  }
+  const close = () => {
+    setPlaying(false)
+    dialog.current?.close()
+  }
+  const play = () => {
+    if (complete) setElapsed(0)
     setPlaying((value) => (complete ? true : !value))
   }
   const seek = (index: number) => {
@@ -191,286 +207,332 @@ export function ExampleRun() {
     setPlaying(false)
     setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
   }
-  const label = complete
-    ? 'Replay demo'
-    : playing
-      ? 'Pause demo'
-      : started
-        ? 'Resume demo'
-        : 'Play the demo'
+  const label = complete ? 'Replay demo' : started ? 'Resume demo' : 'Play the demo'
 
   return (
-    <section
-      ref={section}
-      id="run"
-      aria-label="Example run"
-      className="flow-section"
-      onKeyDown={(event) => {
-        if (event.key === 'Escape') setPlaying(false)
-      }}
-    >
+    <section id="run" aria-label="Example run" className="flow-section">
       <div className="flow-heading">
         <div>
           <h2>From a brief to a fresh Buffer queue.</h2>
           <p>Follow Good News Today’s first run, start to finish.</p>
         </div>
         <button
-          ref={control}
           type="button"
           className="flow-control"
-          onClick={play}
+          onClick={(event) => launch(event.currentTarget)}
           disabled={!ready}
-          aria-controls="flow-workspace"
+          aria-controls="flow-dialog"
+          aria-haspopup="dialog"
         >
-          <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
+          <Icon kind={complete ? 'replay' : 'play'} />
           {label}
         </button>
       </div>
 
-      <div ref={scenario} className={`flow-demo ${playing ? 'is-playing' : ''}`}>
-        <ol className="flow-stages" aria-label="Demo progress">
-          {STAGES.map((name, index) => (
-            <li
-              key={name}
-              className={started && index <= stage ? 'is-current' : ''}
-              aria-current={started && index === stage ? 'step' : undefined}
-            >
-              <button
-                type="button"
-                onClick={() => seek(index)}
-                disabled={!ready}
-
-                aria-controls="flow-workspace"
-              >
-                <span className="flow-stage-number" aria-hidden="true">
-                  {started && index < stage ? <Icon kind="check" /> : index + 1}
-                </span>
-                <span>{name}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-        <div id="flow-workspace" className="flow-workspace">
-          {!started ? (
-            <div className="flow-intro">
-              <button
-                type="button"
-                className="flow-play"
-                onClick={() => {
-                  play()
-                  control.current?.focus({ preventScroll: true })
-                }}
-                disabled={!ready}
-                aria-label="Play the full walkthrough"
-                aria-controls="flow-workspace"
-              >
-                <Icon kind="play" />
-              </button>
-              <h3>
-                You bring the direction.
-                <br />
-                Dispatchlet takes it from there.
-              </h3>
-              <p>Watch a brief become a playbook, research and two drafts ready to review.</p>
-              <span className="flow-duration">36-second walkthrough · No signup needed</span>
-            </div>
-          ) : (
-            <>
-              <div className="flow-caption">
-                <h3>{TITLES[stage]}</h3>
-                <p>{NOTES[stage]}</p>
-              </div>
-              <div key={stage} className="flow-scene">
-                {stage === 0 ? (
-                  <div className="flow-prompt">
-                    <div className="flow-field-label">What would you like to post about?</div>
-                    <div className="flow-input" role="group" aria-label="Example brief">
-                      <StreamText
-                        text={PROMPT}
-                        elapsed={elapsed}
-                        start={650}
-                        duration={4400}
-                        reduced={reduced}
-                      />
-                      {elapsed < 5200 ? <span className="flow-caret" aria-hidden="true" /> : null}
-                    </div>
-                    <div className="flow-submit-row">
-                      <span>Good News Today</span>
-                      <span className={`flow-submit ${elapsed >= 6000 ? 'is-clicked' : ''}`}>
-                        Create playbook <Icon kind="arrow" />
-                      </span>
-                    </div>
-                    {elapsed > 5100 ? (
-                      <div
-                        className={`flow-cursor ${elapsed >= 6000 ? 'is-clicking' : ''}`}
-                        aria-hidden="true"
-                      >
-                        <svg width="26" height="30" viewBox="0 0 26 30">
-                          <path
-                            d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
-                            fill="var(--color-ink)"
-                            stroke="var(--color-paper)"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                {stage === 1 ? (
-                  <div className="flow-playbook">
-                    <div className="flow-document-title">
-                      <span>Good News Today</span>
-                      <span className="flow-tag">Playbook</span>
-                    </div>
-                    {RULES.map(([name, value], index) =>
-                      elapsed >= 7000 + index * 1400 ? (
-                        <div className="flow-rule" key={name}>
-                          <span>{name}</span>
-                          <p>
-                            <StreamText
-                              text={value}
-                              elapsed={elapsed}
-                              start={7000 + index * 1400}
-                              duration={1000}
-                              reduced={reduced}
-                            />
-                          </p>
-                        </div>
-                      ) : null,
-                    )}
-                    {elapsed >= 12500 ? (
-                      <div className="flow-ready">
-                        <Icon kind="check" /> Playbook ready. Starting the first run.
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-                {stage === 2 ? (
-                  <div className="flow-research">
-                    {EVENTS.map(([start, title, detail], index) =>
-                      elapsed >= start ? (
-                        <div className="flow-event" key={title}>
-                          <span
-                            className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? 'is-done' : ''}`}
-                          >
-                            {elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? (
-                              <Icon kind="check" />
-                            ) : (
-                              <span className="flow-spinner" />
-                            )}
-                          </span>
-                          <div>
-                            <strong>{title}</strong>
-                            <p>
-                              <StreamText
-                                text={detail}
-                                elapsed={elapsed}
-                                start={start}
-                                duration={1400}
-                                reduced={reduced}
-                              />
-                            </p>
-                          </div>
-                        </div>
-                      ) : null,
-                    )}
-                  </div>
-                ) : null}
-                {stage === 3 ? (
-                  <div className="flow-posts">
-                    {POSTS.map(([channel, text], index) =>
-                      elapsed >= 24200 + index * 3600 ? (
-                        <article className="flow-post" key={channel}>
-                          <div className="flow-post-heading">
-                            <strong>
-                              Good News Today <span>on {channel}</span>
-                            </strong>
-                            <span className="flow-tag">
-                              {elapsed >= 31600 ? 'Draft ready' : 'Writing'}
-                            </span>
-                          </div>
-                          <p>
-                            <StreamText
-                              text={text}
-                              elapsed={elapsed}
-                              start={24200 + index * 3600}
-                              duration={3300}
-                              reduced={reduced}
-                            />
-                          </p>
-                        </article>
-                      ) : null,
-                    )}
-                  </div>
-                ) : null}
-                {stage === 4 ? (
-                  <div className="flow-finish">
-                    <div className="flow-success">
-                      <Icon kind="check" />
-                    </div>
-                    <h4>Two drafts. Your final say.</h4>
-                    <p>
-                      Saved to Buffer for X and LinkedIn.
-                      <br />
-                      Both tagged Dispatchlet and ready for review.
-                    </p>
-                    <div className="flow-receipt">
-                      <span>Good News Today</span>
-                      <span className="flow-tag">2 drafts saved</span>
-                    </div>
-                    <div className="flow-next">
-                      <Icon kind="check" /> Tomorrow, the playbook runs again.
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </>
-          )}
-        </div>
-        <div className="flow-player">
-          <span aria-live="polite" aria-atomic="true">
-            {!started
-              ? 'Ready when you are'
-              : complete
-                ? 'Walkthrough complete'
-                : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
-          </span>
-          <div className="flow-player-actions">
-            {started ? (
-              <button
-                type="button"
-                className="flow-transport"
-                onClick={play}
-                aria-label={
-                  complete
-                    ? 'Replay walkthrough'
-                    : playing
-                      ? 'Pause walkthrough'
-                      : 'Resume walkthrough'
-                }
-                aria-controls="flow-workspace"
-              >
-                <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
-                {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
-              </button>
-            ) : null}
-            <span className="flow-time" aria-hidden="true">
-              {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / 36 sec
-            </span>
-          </div>
-        </div>
-        <div
-          className="flow-progress"
-          role="progressbar"
-          aria-label="Walkthrough progress"
-          aria-valuenow={Math.floor(elapsed / 1000)}
-          aria-valuemin={0}
-          aria-valuemax={36}
-        >
-          <span style={{ transform: `scaleX(${elapsed / DURATION})` }} />
+      <div className="flow-preview">
+        <div className="flow-intro">
+          <button
+            type="button"
+            className="flow-play"
+            disabled={!ready}
+            onClick={(event) => launch(event.currentTarget)}
+            aria-label="Play the full walkthrough"
+            aria-haspopup="dialog"
+            aria-controls="flow-dialog"
+          >
+            <Icon kind="play" />
+          </button>
+          <h3>
+            You bring the direction.
+            <br />
+            Dispatchlet takes it from there.
+          </h3>
+          <p>Watch a brief become a playbook, research and two drafts ready to review.</p>
+          <span className="flow-duration">36-second walkthrough · Opens full screen</span>
         </div>
       </div>
+
+      <dialog
+        ref={dialog}
+        id="flow-dialog"
+        className="flow-dialog"
+        aria-label="Dispatchlet walkthrough"
+        aria-describedby="walkthrough-description"
+        onKeyDown={(event) => {
+          if (event.key !== 'Tab') return
+          if (event.shiftKey && document.activeElement === closeControl.current) {
+            event.preventDefault()
+            readControl.current?.focus()
+          } else if (!event.shiftKey && document.activeElement === readControl.current) {
+            event.preventDefault()
+            closeControl.current?.focus()
+          }
+        }}
+        onClose={() => {
+          setFocused(false)
+          setPlaying(false)
+          if (readAfterClose.current) {
+            readAfterClose.current = false
+            if (transcript.current) {
+              transcript.current.open = true
+              transcript.current.querySelector('summary')?.focus()
+            }
+          } else opener.current?.focus({ preventScroll: true })
+        }}
+      >
+        <header className="flow-focus-header">
+          <div className="flow-focus-brand">
+            <Wordmark />
+            <h2>Good News Today</h2>
+          </div>
+          <button
+            type="button"
+            ref={closeControl}
+            className="flow-close"
+            onClick={close}
+            aria-label="Close walkthrough"
+          >
+            Close <Icon kind="close" />
+          </button>
+        </header>
+        <div className={`flow-demo ${playing ? 'is-playing' : ''}`}>
+          <ol className="flow-stages" aria-label="Demo progress">
+            {STAGES.map((name, index) => (
+              <li
+                key={name}
+                className={started && index <= stage ? 'is-current' : ''}
+                aria-current={started && index === stage ? 'step' : undefined}
+              >
+                <button
+                  type="button"
+                  onClick={() => seek(index)}
+                  disabled={!ready}
+
+                  aria-controls="flow-workspace"
+                >
+                  <span className="flow-stage-number" aria-hidden="true">
+                    {started && index < stage ? <Icon kind="check" /> : index + 1}
+                  </span>
+                  <span>{name}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+          <div
+            ref={workspace}
+            id="flow-workspace"
+            className="flow-workspace"
+            tabIndex={0}
+            role="region"
+            aria-label="Current walkthrough step"
+          >
+            <div className="flow-caption">
+              <h3>{TITLES[stage]}</h3>
+              <p>{NOTES[stage]}</p>
+            </div>
+            <div key={stage} className="flow-scene">
+              {stage === 0 ? (
+                <div className="flow-prompt">
+                  <div className="flow-field-label">What would you like to post about?</div>
+                  <div className="flow-input" role="group" aria-label="Example brief">
+                    <StreamText
+                      text={PROMPT}
+                      elapsed={elapsed}
+                      start={650}
+                      duration={4400}
+                      reduced={reduced}
+                    />
+                    {elapsed < 5200 ? <span className="flow-caret" aria-hidden="true" /> : null}
+                  </div>
+                  <div className="flow-submit-row">
+                    <span>Good News Today</span>
+                    <span className={`flow-submit ${elapsed >= 6000 ? 'is-clicked' : ''}`}>
+                      Create playbook <Icon kind="arrow" />
+                    </span>
+                  </div>
+                  {elapsed > 5100 ? (
+                    <div
+                      className={`flow-cursor ${elapsed >= 6000 ? 'is-clicking' : ''}`}
+                      aria-hidden="true"
+                    >
+                      <svg width="26" height="30" viewBox="0 0 26 30">
+                        <path
+                          d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
+                          fill="var(--color-ink)"
+                          stroke="var(--color-paper)"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {stage === 1 ? (
+                <div className="flow-playbook">
+                  <div className="flow-document-title">
+                    <span>Good News Today</span>
+                    <span className="flow-tag">Playbook</span>
+                  </div>
+                  {RULES.map(([name, value], index) =>
+                    elapsed >= 7000 + index * 1400 ? (
+                      <div className="flow-rule" key={name}>
+                        <span>{name}</span>
+                        <p>
+                          <StreamText
+                            text={value}
+                            elapsed={elapsed}
+                            start={7000 + index * 1400}
+                            duration={1000}
+                            reduced={reduced}
+                          />
+                        </p>
+                      </div>
+                    ) : null,
+                  )}
+                  {elapsed >= 12500 ? (
+                    <div className="flow-ready">
+                      <Icon kind="check" /> Playbook ready. Starting the first run.
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {stage === 2 ? (
+                <div className="flow-research">
+                  {EVENTS.map(([start, title, detail], index) =>
+                    elapsed >= start ? (
+                      <div className="flow-event" key={title}>
+                        <span
+                          className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? 'is-done' : ''}`}
+                        >
+                          {elapsed >= (EVENTS[index + 1]?.[0] ?? 23500) ? (
+                            <Icon kind="check" />
+                          ) : (
+                            <span className="flow-spinner" />
+                          )}
+                        </span>
+                        <div>
+                          <strong>{title}</strong>
+                          <p>
+                            <StreamText
+                              text={detail}
+                              elapsed={elapsed}
+                              start={start}
+                              duration={1400}
+                              reduced={reduced}
+                            />
+                          </p>
+                        </div>
+                      </div>
+                    ) : null,
+                  )}
+                </div>
+              ) : null}
+              {stage === 3 ? (
+                <div className="flow-posts">
+                  {POSTS.map(([channel, text], index) =>
+                    elapsed >= 24200 + index * 3600 ? (
+                      <article className="flow-post" key={channel}>
+                        <div className="flow-post-heading">
+                          <strong>
+                            Good News Today <span>on {channel}</span>
+                          </strong>
+                          <span className="flow-tag">
+                            {elapsed >= 31600 ? 'Draft ready' : 'Writing'}
+                          </span>
+                        </div>
+                        <p>
+                          <StreamText
+                            text={text}
+                            elapsed={elapsed}
+                            start={24200 + index * 3600}
+                            duration={3300}
+                            reduced={reduced}
+                          />
+                        </p>
+                      </article>
+                    ) : null,
+                  )}
+                </div>
+              ) : null}
+              {stage === 4 ? (
+                <div className="flow-finish">
+                  <div className="flow-success">
+                    <Icon kind="check" />
+                  </div>
+                  <h4>Two drafts. Your final say.</h4>
+                  <p>
+                    Saved to Buffer for X and LinkedIn.
+                    <br />
+                    Both tagged Dispatchlet and ready for review.
+                  </p>
+                  <div className="flow-receipt">
+                    <span>Good News Today</span>
+                    <span className="flow-tag">2 drafts saved</span>
+                  </div>
+                  <div className="flow-next">
+                    <Icon kind="check" /> Tomorrow, the playbook runs again.
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flow-player">
+            <span aria-live="polite" aria-atomic="true">
+              {!started
+                ? 'Ready when you are'
+                : complete
+                  ? 'Walkthrough complete'
+                  : `${playing ? 'Playing' : 'Paused'} · ${STAGES[stage]}`}
+            </span>
+            <div className="flow-player-actions">
+              {started ? (
+                <button
+                  type="button"
+                  className="flow-transport"
+                  onClick={play}
+                  aria-label={
+                    complete
+                      ? 'Replay walkthrough'
+                      : playing
+                        ? 'Pause walkthrough'
+                        : 'Resume walkthrough'
+                  }
+                  aria-controls="flow-workspace"
+                >
+                  <Icon kind={complete ? 'replay' : playing ? 'pause' : 'play'} />
+                  {complete ? 'Replay' : playing ? 'Pause' : 'Resume'}
+                </button>
+              ) : null}
+              <span className="flow-time" aria-hidden="true">
+                {String(Math.floor(elapsed / 1000)).padStart(2, '0')} / 36 sec
+              </span>
+            </div>
+          </div>
+          <div
+            className="flow-progress"
+            role="progressbar"
+            aria-label="Walkthrough progress"
+            aria-valuenow={Math.floor(elapsed / 1000)}
+            aria-valuemin={0}
+            aria-valuemax={36}
+          >
+            <span style={{ transform: `scaleX(${elapsed / DURATION})` }} />
+          </div>
+        </div>
+        <footer className="flow-focus-footer">
+          <p id="walkthrough-description">Illustrative demo. Story details are placeholders.</p>
+          <button
+            ref={readControl}
+            type="button"
+            onClick={() => {
+              readAfterClose.current = true
+              close()
+            }}
+          >
+            Read instead
+          </button>
+        </footer>
+      </dialog>
       <noscript>
         <p className="flow-disclaimer">
           The animation needs JavaScript. You can read the full walkthrough below.
@@ -481,6 +543,7 @@ export function ExampleRun() {
         October.
       </p>
       <details
+        ref={transcript}
         className="flow-transcript"
         onToggle={(event) => {
           if (event.currentTarget.open) setPlaying(false)
