@@ -32,7 +32,10 @@ The demo starts only on request. Its 54-second sequence types the brief, animate
 submission, builds the playbook, and turns five research candidates into three
 fresh stories. It explicitly skips a previously posted story and company PR.
 Research details arrive as complete text rather than competing typewriter streams.
-The completed candidate list holds for five and a half seconds before the next chapter.
+Candidates appear one at a time, 650ms apart, in reserved slots. The completed
+list holds for almost five seconds before the next chapter. The submit cursor
+arrives during the final part of prompt typing, then clicks after it finishes.
+Its tip and click ripple are anchored to the submit button’s center at every size.
 
 The writing chapter keeps one short X/LinkedIn comparison on screen. Its channels
 stream in sequence, then the other two stories appear as compact completed items.
@@ -78,7 +81,7 @@ field without submitting the form. The completed run remains available to replay
 Streaming text reserves its complete wrapped height, results occupy reserved
 slots, and chapters share a fixed top anchor. Motion is limited to chapter
 handoffs, sequential results, completion checks and control feedback. Candidate
-rows appear together, without a stagger competing with the duplicate decision.
+rows reveal sequentially without moving the findings already on screen.
 Restart resets the timer, scroll position and opening animation while keeping
 the player open and keyboard focus on the control. Content no longer recenters
 as text arrives. Position and size regressions are checked throughout playback
@@ -156,7 +159,7 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 46 browser tests against the production preview: playback and replay, pause,
+- 48 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,

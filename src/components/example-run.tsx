@@ -11,6 +11,8 @@ import { Wordmark } from './wordmark'
 import { BrandText } from './brand-text'
 
 const DURATION = 54000
+const CANDIDATE_START = 24500
+const CANDIDATE_INTERVAL = 650
 const TOTAL_SECONDS = DURATION / 1000
 const PROMPT =
   'Find three positive stories each morning about conservation and communities. Skip company PR and anything we’ve posted before. Write for X and LinkedIn, and schedule each story three hours apart.'
@@ -505,7 +507,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                     </div>
                     <div className="flow-submit-row">
                       <span>Good News Today</span>
-                      <span className={`flow-submit ${elapsed >= 8200 ? 'is-clicked' : ''}`}>
+                      <span className={`flow-submit ${elapsed >= 7400 ? 'is-clicked' : ''}`}>
                         <span className="flow-submit-label">
                           <span
                             aria-hidden={elapsed >= 9000 || undefined}
@@ -521,23 +523,23 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           </span>
                         </span>
                         <Icon kind={elapsed >= 9000 ? 'check' : 'arrow'} />
+                        {elapsed >= 6000 && elapsed < 9000 ? (
+                          <span
+                            className={`flow-cursor ${elapsed >= 7400 ? 'is-clicking' : ''}`}
+                            aria-hidden="true"
+                          >
+                            <svg width="26" height="30" viewBox="0 0 26 30">
+                              <path
+                                d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
+                                fill="var(--color-ink)"
+                                stroke="var(--color-paper)"
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          </span>
+                        ) : null}
                       </span>
                     </div>
-                    {elapsed > 7300 && elapsed < 9000 ? (
-                      <div
-                        className={`flow-cursor ${elapsed >= 8200 ? 'is-clicking' : ''}`}
-                        aria-hidden="true"
-                      >
-                        <svg width="26" height="30" viewBox="0 0 26 30">
-                          <path
-                            d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
-                            fill="var(--color-ink)"
-                            stroke="var(--color-paper)"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      </div>
-                    ) : null}
                   </div>
                 </FlowPanel>
                 <FlowPanel
@@ -599,9 +601,9 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       aria-hidden={elapsed < start || undefined}
                     >
                       <span
-                        className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? 26500) ? 'is-done' : ''}`}
+                        className={`flow-event-marker ${elapsed >= (EVENTS[index + 1]?.[0] ?? CANDIDATE_START) ? 'is-done' : ''}`}
                       >
-                        {elapsed >= (EVENTS[index + 1]?.[0] ?? 26500) ? (
+                        {elapsed >= (EVENTS[index + 1]?.[0] ?? CANDIDATE_START) ? (
                           <Icon kind="check" />
                         ) : (
                           <span className="flow-spinner" />
@@ -615,16 +617,21 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   ))}
                   <div
                     className="flow-candidates flow-reveal"
-                    data-revealed={elapsed >= 26500}
-                    aria-hidden={elapsed < 26500 || undefined}
+                    data-revealed={elapsed >= CANDIDATE_START}
+                    aria-hidden={elapsed < CANDIDATE_START || undefined}
                   >
-                    <strong>5 candidates → 3 fresh stories</strong>
+                    <strong>Research candidates</strong>
                     <ul>
                       {CANDIDATES.map(([title, status], index) => (
                         <li
                           key={title}
                           data-highlighted={selectedStory === index}
-                          className={index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : ''}
+                          data-revealed={elapsed >= CANDIDATE_START + index * CANDIDATE_INTERVAL}
+                          aria-hidden={
+                            elapsed < CANDIDATE_START + index * CANDIDATE_INTERVAL || undefined
+                          }
+                          inert={elapsed < CANDIDATE_START + index * CANDIDATE_INTERVAL}
+                          className={`flow-reveal ${index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : ''}`}
                         >
                           {index < 3 ? (
                             <button
@@ -691,9 +698,18 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                         history. It keeps the three fresh stories and leaves this repeat out.
                       </p>
                     </div>
-                    <p>
-                      The urban garden story matches a previous post. It won’t enter the queue
-                      again.
+                    <p
+                      className="flow-reveal"
+                      data-revealed={
+                        elapsed >= CANDIDATE_START + (CANDIDATES.length - 1) * CANDIDATE_INTERVAL
+                      }
+                      aria-hidden={
+                        elapsed < CANDIDATE_START + (CANDIDATES.length - 1) * CANDIDATE_INTERVAL ||
+                        undefined
+                      }
+                    >
+                      Three fresh stories selected. The urban garden story matches a previous post.
+                      It won’t enter the queue again.
                     </p>
                   </div>
                 </div>

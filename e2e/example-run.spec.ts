@@ -218,9 +218,11 @@ for (const viewport of [
                 ? 'brief'
                 : element.classList.contains('flow-document-title')
                   ? 'document'
-                  : (element.querySelector('strong')?.textContent ??
-                    element.querySelector(':scope > span')?.textContent ??
-                    element.className)
+                  : element.matches('.flow-candidates li')
+                    ? element.querySelector('button, span')?.textContent
+                    : (element.querySelector('strong')?.textContent ??
+                      element.querySelector(':scope > span')?.textContent ??
+                      element.className)
               return {
                 key: `${element.closest('.flow-panel')?.getAttribute('aria-label')}:${element.className}:${key}`,
                 y: rect.y,
@@ -612,5 +614,50 @@ for (const viewport of [
     await watch.click()
     await expect(demo.locator('.flow-stages li[aria-current="step"]')).toContainText('The playbook')
     await expect(page).not.toHaveURL(/#run$/)
+  })
+}
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1280, height: 720 },
+]) {
+  test(`cursor lands on submit while research candidates arrive separately at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.clock.install()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+    const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+    await page.clock.runFor(6200)
+    await expect(demo.locator('.flow-cursor')).toBeVisible()
+    await expect(demo.locator('.flow-input .flow-stream')).not.toContainText(
+      'schedule each story three hours apart.',
+    )
+    await expect(demo.locator('.flow-submit')).not.toHaveClass(/is-clicked/)
+    await page.clock.runFor(1400)
+    await expect(demo.locator('.flow-submit')).toHaveClass(/is-clicked/)
+    await demo
+      .locator('.flow-cursor')
+      .evaluate((element) => element.getAnimations().forEach((animation) => animation.finish()))
+    const button = (await demo.locator('.flow-submit').boundingBox())!
+    const cursor = (await demo.locator('.flow-cursor').boundingBox())!
+    expect(Math.abs(cursor.x + 3 - (button.x + button.width / 2))).toBeLessThan(2)
+    expect(Math.abs(cursor.y + 2 - (button.y + button.height / 2))).toBeLessThan(2)
+    await page.clock.runFor(16200)
+    const rows = demo.locator('.flow-candidates li')
+    const geometry = await rows.evaluateAll((nodes) =>
+      nodes.map((n) => n.getBoundingClientRect().y),
+    )
+    await expect(demo.locator('.flow-candidates li[data-revealed="true"]')).toHaveCount(0)
+    await page.clock.runFor(700)
+    for (let count = 1; count <= 5; count++) {
+      await expect(demo.locator('.flow-candidates li[data-revealed="true"]')).toHaveCount(count)
+      expect(
+        await rows.evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().y)),
+      ).toEqual(geometry)
+      if (count < 5) await page.clock.runFor(650)
+    }
   })
 }
