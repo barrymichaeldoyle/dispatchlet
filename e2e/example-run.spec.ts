@@ -7,8 +7,10 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await page.clock.install()
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  await expect(page.getByText('You bring the direction.')).toBeVisible()
-  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'See how it works.' })).toBeVisible()
+  await page.locator('.flow-launch-icon').scrollIntoViewIfNeeded()
+  const icon = (await page.locator('.flow-launch-icon').boundingBox())!
+  await page.mouse.click(icon.x + icon.width / 2, icon.y + icon.height / 2)
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
   await expect(demo).toBeVisible()
   await page.clock.runFor(2000)
@@ -22,30 +24,30 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await page.clock.runFor(10000)
   await expect(
-    demo.getByRole('heading', { name: 'A playbook built around your brief.' }),
+    demo.getByRole('heading', { name: 'Set the sources, voice and schedule.' }),
   ).toBeVisible()
-  await page.clock.runFor(20000)
+  await page.clock.runFor(14000)
   await expect(demo.getByText('Searching trusted sources')).toBeVisible()
   await expect(
     demo
       .locator('.flow-event p')
       .filter({ hasText: '7 searches · 11 pages read. Original reporting verified.' }),
   ).toBeVisible()
-  await page.clock.runFor(20000)
+  await page.clock.runFor(16000)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await expect(
     demo.locator('.flow-post[data-selected="true"]').getByText('2 posts ready', { exact: true }),
   ).toBeVisible()
   await page.clock.runFor(7000)
   await expect(demo.locator('.flow-schedule li[data-revealed="true"]')).toHaveCount(3)
-  await page.clock.runFor(5000)
+  await page.clock.runFor(4000)
   await expect(demo.locator('.flow-schedule')).toBeVisible()
   await expect(demo.locator('.flow-player')).not.toContainText('Walkthrough complete')
   await page.clock.runFor(1000)
   await expect(demo.locator('.flow-player')).toContainText('Walkthrough complete')
   await expect(demo.getByText('6 posts scheduled', { exact: true })).toBeVisible()
   await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
-  await expect(demo.getByRole('heading', { name: 'Start with what you care about.' })).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Describe what you want to post.' })).toBeVisible()
   await expect(demo.getByText('6 posts scheduled', { exact: true })).toHaveCount(0)
 })
 
@@ -54,7 +56,7 @@ test('closing pauses playback, restores focus and page position, and allows resu
 }) => {
   await page.clock.install()
   await page.goto('/')
-  const opener = page.getByRole('button', { name: 'Play the full walkthrough' })
+  const opener = page.locator('.flow-launch-action')
   await expect(opener).toBeEnabled()
   await opener.scrollIntoViewIfNeeded()
   const before = await page.evaluate(() => window.scrollY)
@@ -185,9 +187,9 @@ for (const viewport of [
     const recorded = new Map<string, { y: number; height: number }>()
     let previous = 0
     for (const time of [
-      1000, 3000, 6500, 8000, 9500, 10500, 12000, 14000, 16000, 18000, 20500, 22500, 24000, 27500,
-      31000, 34500, 37500, 40500, 42000, 43500, 45000, 47000, 49500, 51000, 53500, 55000, 57000,
-      59000, 63000, 65000,
+      1000, 3000, 6500, 7500, 8500, 9500, 11000, 12500, 14500, 16500, 17500, 18500, 21500, 24000,
+      27000, 30000, 31500, 32500, 34000, 35500, 37500, 39000, 40500, 43000, 44500, 46000, 48000,
+      52000, 54000,
     ]) {
       await page.clock.fastForward(time - previous)
       previous = time
@@ -249,7 +251,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.runFor(35000)
+  await page.clock.runFor(28000)
   const candidates = demo.locator('.flow-candidates')
   await expect(candidates.locator('li')).toHaveCount(5)
   await expect(candidates.locator('.is-selected')).toHaveCount(3)
@@ -258,7 +260,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
   ).toContainText('Already posted · skipped')
   await expect(candidates).toContainText('matches a previous post')
   // Hold the duplicate decision before moving to writing.
-  await page.clock.runFor(5000)
+  await page.clock.runFor(3000)
   await expect(candidates).toBeVisible()
   await page.clock.runFor(12000)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
@@ -293,11 +295,11 @@ test('restart begins a fresh run from playing, paused and partially typed states
   const demo = page.getByRole('dialog')
   const restart = demo.getByRole('button', { name: 'Restart walkthrough' })
   const progress = demo.getByRole('progressbar')
-  await page.clock.runFor(35000)
+  await page.clock.runFor(28000)
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.getByRole('heading', { name: 'Start with what you care about.' })).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Describe what you want to post.' })).toBeVisible()
   await expect(restart).toBeFocused()
   await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
   await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toBeEmpty()
@@ -316,7 +318,7 @@ test('restart begins a fresh run from playing, paused and partially typed states
   expect(await demo.locator('.flow-workspace').evaluate((el) => el.scrollTop)).toBe(0)
   await page.clock.runFor(12000)
   await expect(
-    demo.getByRole('heading', { name: 'A playbook built around your brief.' }),
+    demo.getByRole('heading', { name: 'Set the sources, voice and schedule.' }),
   ).toBeVisible()
 })
 
@@ -348,7 +350,7 @@ for (const viewport of [
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
     await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
     let previous = 0
-    for (const time of [8000, 22000, 39000, 52000, 65000]) {
+    for (const time of [7000, 17000, 30000, 42000, 54000]) {
       await page.clock.fastForward(time - previous)
       previous = time
       expect(await original!.evaluate((el) => el.isConnected)).toBe(true)
@@ -394,21 +396,19 @@ test('resizing preserves progress while switching between overview and focused c
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.fastForward(52000)
+  await page.clock.fastForward(42000)
   await demo.getByRole('button', { name: 'Pause walkthrough' }).click()
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-overview/)
-  await expect(
-    demo.getByRole('heading', { name: 'One story, written for each channel.' }),
-  ).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Write for each channel.' })).toBeVisible()
   await expect(demo.locator('.flow-playbook')).toHaveCount(0)
   await page.setViewportSize({ width: 1440, height: 900 })
   await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await expect(demo.locator('.flow-post[data-selected="true"]')).toBeVisible()
-  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '52')
+  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '42')
 })
 
 test('feedback confirms completed work without an elapsed-seconds counter', async ({ page }) => {
@@ -422,7 +422,7 @@ test('feedback confirms completed work without an elapsed-seconds counter', asyn
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Create playbook')
   await page.clock.fastForward(4000)
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Playbook created')
-  await page.clock.fastForward(43000)
+  await page.clock.fastForward(33000)
   await expect(demo.locator('.flow-finish-status .is-active')).toContainText('Scheduling in Buffer')
   await expect(demo.locator('.flow-receipt')).not.toBeVisible()
   await expect(demo.getByRole('button', { name: 'Join the waiting list' })).toHaveCount(0)
@@ -450,7 +450,7 @@ for (const viewport of [
     await page.goto('/')
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
-    await page.clock.fastForward(65000)
+    await page.clock.fastForward(54000)
     const join = demo.getByRole('button', { name: 'Join the waiting list' })
     await expect(join).toBeInViewport()
     await join.focus()
@@ -474,7 +474,7 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-  await page.clock.fastForward(35000)
+  await page.clock.fastForward(28000)
   await demo
     .locator('.flow-candidates')
     .getByRole('button', { name: 'Community solar funds local projects' })
@@ -515,6 +515,7 @@ test('phone story previews are keyboard accessible and resume the original examp
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
   await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
   const story = demo
     .locator('.flow-schedule')
@@ -524,9 +525,7 @@ test('phone story previews are keyboard accessible and resume the original examp
   const active = demo.locator('.flow-post[data-selected="true"]')
   await expect(active).toBeFocused()
   await expect(active).toContainText('Community-owned solar')
-  await expect(
-    demo.getByRole('heading', { name: 'One story, written for each channel.' }),
-  ).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Write for each channel.' })).toBeVisible()
   await active.getByRole('button', { name: 'First story' }).click()
   await expect(active).toBeFocused()
   await expect(active).toContainText('Wildlife makes a comeback')
@@ -547,7 +546,7 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
-  await page.clock.fastForward(35000)
+  await page.clock.fastForward(28000)
   const trigger = demo.getByRole('button', { name: 'The urban garden story: why it was skipped' })
   await trigger.click()
   const detail = page.getByRole('dialog', { name: 'Already shared. Skipped this time.' })
@@ -564,3 +563,30 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await expect(trigger).toBeFocused()
   await expect(demo.locator('.flow-player')).toContainText('Paused')
 })
+
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1360, height: 900 },
+]) {
+  test(`Read instead scrolls past the launcher to the open transcript at ${viewport.width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.emulateMedia({ reducedMotion: viewport.width === 390 ? 'reduce' : 'no-preference' })
+    await page.goto('/')
+    const launcher = page.locator('.flow-launch-action')
+    await launcher.click()
+    const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+    await demo.getByRole('button', { name: 'Read instead' }).click()
+    await expect(demo).not.toBeVisible()
+    const reading = page.locator('.flow-transcript')
+    await expect(reading).toHaveAttribute('open', '')
+    await expect(page.getByText('Read the full walkthrough', { exact: true })).toBeFocused()
+    await expect.poll(async () => (await reading.boundingBox())!.y).toBeLessThanOrEqual(32)
+    expect((await reading.boundingBox())!.y).toBeGreaterThanOrEqual(0)
+    expect((await launcher.boundingBox())!.y + (await launcher.boundingBox())!.height).toBeLessThan(
+      0,
+    )
+    await expect(page.getByRole('heading', { name: 'Give the agent a brief' })).toBeInViewport()
+  })
+}

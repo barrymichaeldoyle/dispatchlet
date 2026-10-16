@@ -15,9 +15,9 @@ const WaitlistCount = lazy(() =>
 )
 
 const SITE_URL = 'https://dispatchlet.com/'
-const TITLE = 'Dispatchlet — Your research agent for a fresh Buffer queue'
+const TITLE = 'Dispatchlet — Research and social posts, ready for Buffer'
 const DESCRIPTION =
-  'Turn your niche into a fresh Buffer queue. Dispatchlet researches trusted sources, writes channel-ready posts, and saves drafts for your review. Opens 28 October.'
+  'Dispatchlet researches trusted sources, writes social posts for each channel, and sends drafts or scheduled posts to Buffer. Opens 28 October.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -105,48 +105,40 @@ function Home() {
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 border-b border-ink px-4 py-1 sm:px-8">
-        <Wordmark size="sm" />
-        <nav
-          aria-label="Main"
-          className="flex items-center gap-2 text-[13px] whitespace-nowrap sm:gap-6 sm:text-sm"
-        >
-          <a href="#run" className="text-ink no-underline hover:underline">
-            Example run
-          </a>
-          <a href={SOURCE_URL} className="text-ink no-underline hover:underline">
-            Source
-          </a>
-          <ThemeToggle />
-        </nav>
+      <header className="landing-header">
+        <div className="landing-header-inner">
+          <Wordmark size="sm" />
+          <nav
+            aria-label="Main"
+            className="flex items-center gap-2 text-[13px] whitespace-nowrap sm:gap-6 sm:text-sm"
+          >
+            <a href="#run" className="text-ink no-underline hover:underline">
+              How it works
+            </a>
+            <ThemeToggle />
+          </nav>
+        </div>
       </header>
 
-      <main
-        id="main-content"
-        tabIndex={-1}
-        className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col px-4 sm:px-8"
-      >
-        <section className="grid grid-cols-1 gap-x-8 gap-y-10 border-b border-ink pt-12 pb-10 md:grid-cols-12 md:pt-[72px] md:pb-14">
-          <div className="flex flex-col gap-6 md:col-span-7">
-            <Wordmark size="lg" />
-            <h1 className="m-0 max-w-[24ch] text-[32px] leading-[1.2] font-medium tracking-[-0.01em]">
-              Your research agent for a fresh Buffer queue.
-            </h1>
-            <p className="m-0 max-w-[60ch] text-base leading-[1.6]">
-              Tell Dispatchlet what you post about. It writes a playbook, checks your sources on a
-              schedule, writes the posts, and puts them in Buffer as drafts or straight into your
-              queue. It remembers what it has already covered, so it never posts the same story
-              twice.
+      <main id="main-content" tabIndex={-1} className="landing-main">
+        <section className="landing-hero" aria-labelledby="product-title">
+          <div className="landing-message">
+            <h1 id="product-title">An agent that researches and writes your posts.</h1>
+            <p className="landing-description">
+              Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared before,
+              and sends posts to Buffer.
             </p>
-            <div className="relative pt-1">
-              <WaitlistForm />
-            </div>
-            <p className="m-0 text-sm text-muted" aria-live="polite">
+            <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
+          </div>
+          <div className="landing-signup">
+            <h2>Get the launch email.</h2>
+            <WaitlistForm />
+            <p className="landing-notice" aria-live="polite">
               {notice === 'confirmed'
                 ? 'Thanks, you are on the list.'
                 : notice === 'unsubscribed'
                   ? 'You are off the list and will not get the launch email.'
-                  : 'Opens 28 October. Join the list and you will get one email when it does.'}
+                  : 'Opens 28 October. One launch email.'}
               {mounted && convexConfigured ? (
                 <Suspense fallback={null}>
                   <WaitlistCount />
@@ -154,59 +146,41 @@ function Home() {
               ) : null}
             </p>
           </div>
-          <ol className="m-0 flex list-none flex-col self-end border-t border-rule p-0 text-[15px] leading-[1.55] md:col-span-5">
-            {[
-              'Write a paragraph about what you post about.',
-              'Edit the playbook it writes, then pick a schedule.',
-              'Posts show up in Buffer. Approve them from the email, or let them go out.',
-            ].map((step, i) => (
-              <li
-                key={step}
-                className="grid grid-cols-[32px_minmax(0,1fr)] border-b border-rule py-3.5"
-              >
-                <span className="text-muted">{i + 1}</span>
-                <span>{step}</span>
-              </li>
-            ))}
-          </ol>
         </section>
 
         <ExampleRun />
 
-        <section className="grid grid-cols-1 gap-x-8 gap-y-8 border-b border-rule py-10 md:grid-cols-2 md:py-14">
-          <div className="flex flex-col gap-3">
-            <h2 className="m-0 text-base font-medium">Where it comes from</h2>
-            <p className="m-0 max-w-[56ch] text-[15px] leading-[1.6]">
-              I run the GrandPrixPicks account on X this way, with a cron job and a text file.
-              Dispatchlet is that, for anyone with a Buffer account.
-            </p>
-            <span className="text-sm text-muted">Barry Doyle</span>
-          </div>
-          <div className="flex flex-col gap-3">
-            <h2 className="m-0 text-base font-medium">What it does with your data</h2>
-            <p className="m-0 max-w-[56ch] text-[15px] leading-[1.6]">
-              Posts are marked as AI-assisted in Buffer. You can see every search it ran and why it
-              kept or skipped a story. Your Buffer tokens are encrypted and deleted when you
-              disconnect.
-            </p>
-            <p className="m-0 max-w-[56ch] text-[15px] leading-[1.6]">
-              Your email address is used for one confirmation and one launch email. Every email has
-              an unsubscribe link.
-            </p>
+        <section className="landing-questions" aria-labelledby="questions-title">
+          <h2 id="questions-title">Before you join</h2>
+          <div>
+            <details>
+              <summary>Can I review posts before they go out?</summary>
+              <p>
+                Yes. Save drafts in Buffer for review, or choose automatic scheduling. You set the
+                sources, voice and rules, and can see what the agent researched and why it kept or
+                skipped a story.
+              </p>
+            </details>
+            <details>
+              <summary>How is my data handled?</summary>
+              <p>
+                Posts are labeled AI-assisted in Buffer. Your Buffer tokens are encrypted and
+                deleted when you disconnect.
+              </p>
+              <p>
+                Your email is used for one confirmation and one launch email. Both include an
+                unsubscribe link.
+              </p>
+            </details>
           </div>
         </section>
       </main>
-      <footer className="mx-auto flex w-full max-w-[1360px] flex-wrap justify-between gap-x-6 gap-y-2 px-4 pt-6 pb-10 text-sm text-muted sm:px-8">
-        <span>Built on the Buffer API for Buffer Commit. Not a Buffer product.</span>
+      <footer className="landing-footer">
+        <span>Built with the Buffer API. Not a Buffer product.</span>
         <span>
-          <a href={BARRY_URL} className="text-muted">
-            Built in public
-          </a>{' '}
-          for Buffer Commit.{' '}
-          <a href={SOURCE_URL} className="text-muted">
-            Source
-          </a>{' '}
-          is public under the Elastic License 2.0.
+          <a href={BARRY_URL}>Barry Doyle</a>
+          <span aria-hidden="true"> · </span>
+          <a href={SOURCE_URL}>Source</a> · Elastic License 2.0
         </span>
       </footer>
     </div>

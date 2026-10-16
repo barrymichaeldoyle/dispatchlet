@@ -4,17 +4,26 @@ Reviewed locally on 16 October 2026. This work has not been deployed.
 
 ## Experience and accessibility
 
+The landing page leads with one explanation of the product: an agent researches
+and writes posts, skips repeats, and sends drafts or scheduled posts to Buffer.
+The desktop hero pairs this explanation with signup; mobile stacks the same
+content. One compact demo launcher replaces repeated introductions and controls.
+Review controls and data handling sit in two optional, native disclosure rows.
+Read instead closes the dialog, unlocks page scrolling, opens the transcript and
+scrolls its heading to the top of the viewport. The six sample posts are available
+in a separate disclosure within that walkthrough.
+
 The existing typography, paper/pine palette and light/dark themes are retained.
 The signup form has a persistent label, 44px input and submit controls, a clear
 secondary demo link, a pending state and recoverable errors. Successful signup
 moves keyboard focus to confirmation and keeps the demo link available. Network
 errors preserve the address without marking the address itself invalid.
 
-The demo starts only on request. Its 65-second sequence types the brief, animates
+The demo starts only on request. Its 54-second sequence types the brief, animates
 submission, builds the playbook, and turns five research candidates into three
 fresh stories. It explicitly skips a previously posted story and company PR.
 Research details arrive as complete text rather than competing typewriter streams.
-The completed candidate list holds for seven seconds before the next chapter.
+The completed candidate list holds for five and a half seconds before the next chapter.
 
 The writing chapter keeps one short X/LinkedIn comparison on screen. Its channels
 stream in sequence, then the other two stories appear as compact completed items.
@@ -51,7 +60,7 @@ to the dynamic viewport. The landing page remains inactive and scroll-locked
 behind it. The close button, chapters and playback controls stay visible while
 longer stage content scrolls inside the player. Read instead closes the player
 and opens/focuses the transcript. Playback shows no elapsed-seconds counter;
-the preview describes the duration as about a minute. Only the current desktop
+the landing page avoids an extra duration label. Only the current desktop
 phase is highlighted, with quiet checks on completed phases. The brief confirms
 playbook creation, and the Buffer receipt appears after all three slots arrive.
 On completion, Join the waiting list closes the player and focuses the email
@@ -138,7 +147,7 @@ JavaScript disabled. Relevant references:
 
 - `pnpm check`: lint, formatting, TypeScript, dependency usage and 24 unit tests.
 - `pnpm build`: production client/server build and home-page prerender.
-- 42 browser tests against the production preview: playback and replay, pause,
+- 44 browser tests against the production preview: playback and replay, pause,
   chapter navigation, full-viewport portrait/landscape layouts, persistent controls,
   orientation changes, focus containment/restoration, background scroll locking,
   Read instead, stable streaming positions, duplicate filtering, spaced scheduling,
@@ -149,6 +158,8 @@ JavaScript disabled. Relevant references:
   restoration, axe scans including optional detail/inspection states, signup
   pending/error/success, optional-download failures, themes, no-JavaScript
   content, metadata, crawler files and HTTP 404 behavior.
+- Current Chromium, WebKit and Firefox smoke checks also cover complete playback,
+  Read instead scrolling/focus and overflow at 1440×900 and 390×844.
 - Chromium covers both layouts, including short landscape. Additional WebKit
   and Firefox checks verify retained content, stable columns and full-picture
   fit at 1280×720, 1440×900 and 1920×1080, plus switching back to mobile.

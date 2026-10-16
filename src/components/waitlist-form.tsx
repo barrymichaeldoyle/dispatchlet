@@ -147,7 +147,7 @@ export function WaitlistForm() {
         </form>
       )}
       <a href="#run" className="waitlist-demo-link">
-        See an example run<span aria-hidden="true"> →</span>
+        Watch the demo<span aria-hidden="true"> →</span>
       </a>
     </div>
   )

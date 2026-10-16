@@ -11,13 +11,13 @@ test('keyboard users can skip navigation and keep focus when starting the demo',
   await page.keyboard.press('Enter')
   await expect(page.getByRole('main')).toBeFocused()
   const demo = page.getByRole('region', { name: 'Example run' })
-  await demo.getByRole('button', { name: 'Play the full walkthrough' }).focus()
+  await demo.getByRole('button', { name: 'Play the demo' }).focus()
   await page.keyboard.press('Enter')
   await expect(
     page.getByRole('dialog').getByRole('button', { name: 'Close walkthrough' }),
   ).toBeFocused()
   await page.keyboard.press('Escape')
-  await expect(demo.getByRole('button', { name: 'Play the full walkthrough' })).toBeFocused()
+  await expect(demo.locator('.flow-launch-action')).toBeFocused()
 })
 
 test('chapters allow inspection without waiting, and the transcript pauses playback', async ({
@@ -47,6 +47,11 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
     const audit = () => new AxeBuilder({ page }).analyze()
     expect((await audit()).violations).toEqual([])
+    await page.getByText('Can I review posts before they go out?', { exact: true }).click()
+    await page.getByText('How is my data handled?', { exact: true }).click()
+    expect((await audit()).violations, `expanded review/privacy in ${colorScheme} mode`).toEqual([])
+    await page.getByText('Can I review posts before they go out?', { exact: true }).click()
+    await page.getByText('How is my data handled?', { exact: true }).click()
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     for (const step of ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
@@ -94,7 +99,7 @@ test('signup remains usable on slow requests and announces confirmation with foc
   finish?.()
   await expect(page.getByRole('status')).toContainText('You are number 7.')
   await expect(page.getByRole('status')).toBeFocused()
-  await expect(page.getByRole('link', { name: 'See an example run' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Watch the demo' })).toBeVisible()
 })
 
 test('offline signup keeps the address and supports recovery', async ({ page }) => {
@@ -121,7 +126,7 @@ test('search and social metadata are rendered on the server', async ({
   const page = await context.newPage()
   const response = await page.goto(baseURL ?? 'http://localhost:3131')
   expect(response?.status()).toBe(200)
-  await expect(page).toHaveTitle('Dispatchlet — Your research agent for a fresh Buffer queue')
+  await expect(page).toHaveTitle('Dispatchlet — Research and social posts, ready for Buffer')
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1)
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
@@ -167,7 +172,7 @@ test('missing pages return a real 404 and are not indexed', async ({ page }) => 
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0)
   await page.getByRole('link', { name: 'Back to Dispatchlet' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Your research agent')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('An agent that researches')
 })
 
 test('layout reflows with enlarged text on a narrow viewport', async ({ page }) => {
@@ -203,7 +208,7 @@ test('optional analytics and count downloads cannot block the main experience', 
   )
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Your research agent')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('An agent that researches')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(page.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
