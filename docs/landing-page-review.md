@@ -75,7 +75,7 @@ and opens/focuses the transcript. Playback shows no elapsed-seconds counter;
 the landing page avoids an extra duration label. Only the current desktop
 phase is highlighted, with quiet checks on completed phases. The brief confirms
 playbook creation, and the Buffer receipt appears after all three slots arrive.
-On completion, Join the waiting list closes the player and focuses the email
+On completion, Notify me at launch closes the player and focuses the email
 field without submitting the form. The completed run remains available to replay.
 
 Streaming text reserves its complete wrapped height, results occupy reserved

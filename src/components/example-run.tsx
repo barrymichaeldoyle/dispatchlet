@@ -9,6 +9,7 @@ import {
 } from 'react'
 import { Wordmark } from './wordmark'
 import { BrandText } from './brand-text'
+import { ThemeToggle } from './theme-toggle'
 
 const DURATION = 54000
 const CANDIDATE_START = 24500
@@ -218,6 +219,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   )
   const dialog = useRef<HTMLDialogElement>(null)
   const closeControl = useRef<HTMLButtonElement>(null)
+  const themeGroup = useRef<HTMLDivElement>(null)
   const readControl = useRef<HTMLButtonElement>(null)
   const workspace = useRef<HTMLDivElement>(null)
   const previews = useRef<HTMLDivElement>(null)
@@ -396,12 +398,15 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         aria-describedby="walkthrough-description"
         onKeyDown={(event) => {
           if (event.key !== 'Tab') return
-          if (event.shiftKey && document.activeElement === closeControl.current) {
+          const themeTab =
+            themeGroup.current?.querySelector<HTMLInputElement>('input:checked') ??
+            themeGroup.current?.querySelector<HTMLInputElement>('input')
+          if (event.shiftKey && themeTab && document.activeElement === themeTab) {
             event.preventDefault()
             readControl.current?.focus()
           } else if (!event.shiftKey && document.activeElement === readControl.current) {
             event.preventDefault()
-            closeControl.current?.focus()
+            ;(themeTab ?? closeControl.current)?.focus()
           }
         }}
         onClose={() => {
@@ -422,15 +427,20 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             <Wordmark />
             <h2>Good News Today</h2>
           </div>
-          <button
-            type="button"
-            ref={closeControl}
-            className="flow-close"
-            onClick={close}
-            aria-label="Close walkthrough"
-          >
-            Close <Icon kind="close" />
-          </button>
+          <div className="flow-focus-tools">
+            <ThemeToggle name="demo-theme" ref={themeGroup} />
+            <button
+              type="button"
+              ref={closeControl}
+              className="flow-close"
+              onClick={close}
+              autoFocus
+              aria-label="Close walkthrough"
+            >
+              <span className="flow-close-label">Close</span>
+              <Icon kind="close" />
+            </button>
+          </div>
         </header>
         <div className={`flow-demo ${playing ? 'is-playing' : ''}`}>
           <ol className="flow-stages" aria-label="Demo progress">
@@ -906,7 +916,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   close()
                 }}
               >
-                Join the waiting list <Icon kind="arrow" />
+                Notify me at launch <Icon kind="arrow" />
               </button>
             ) : null}
             <div className="flow-player-actions">

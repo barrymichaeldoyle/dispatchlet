@@ -1,3 +1,4 @@
+export type ThemePreference = 'light' | 'dark' | 'system'
 type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'dispatchlet-theme'
@@ -16,9 +17,25 @@ export const THEME_SCRIPT = `(() => {
   } catch {}
 })();`
 
-export function getTheme(): Theme {
+export function getPreference(): ThemePreference {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved === 'light' || saved === 'dark' || saved === 'system') return saved
+  } catch {
+    return preferenceFromDocument()
+  }
+  return preferenceFromDocument()
+}
+
+function preferenceFromDocument(): ThemePreference {
   const saved = document.documentElement.dataset.theme
   if (saved === 'light' || saved === 'dark') return saved
+  return 'system'
+}
+
+export function getTheme(): Theme {
+  const preference = getPreference()
+  if (preference === 'light' || preference === 'dark') return preference
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
@@ -55,12 +72,12 @@ function updateBrowserTheme() {
   }
 }
 
-export function toggleTheme(): void {
-  const next = getTheme() === 'dark' ? 'light' : 'dark'
-  document.documentElement.dataset.theme = next
+export function setTheme(preference: ThemePreference): void {
+  if (preference === 'system') delete document.documentElement.dataset.theme
+  else document.documentElement.dataset.theme = preference
   updateBrowserTheme()
   try {
-    localStorage.setItem(STORAGE_KEY, next)
+    localStorage.setItem(STORAGE_KEY, preference)
   } catch {
     // Switching still works when browser storage is unavailable.
   }

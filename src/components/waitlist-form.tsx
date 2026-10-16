@@ -116,7 +116,7 @@ export function WaitlistForm({
           noValidate={enhanced}
           data-enhanced={enhanced}
           onSubmit={onSubmit}
-          aria-label="Join the waiting list"
+          aria-label="Notify me at launch"
           aria-busy={state.kind === 'submitting'}
         >
           <label htmlFor="waitlist-email" className="waitlist-label">
@@ -139,7 +139,7 @@ export function WaitlistForm({
               aria-describedby={state.kind === 'open' && state.error ? 'waitlist-error' : undefined}
             />
             <button type="submit" disabled={state.kind === 'submitting'}>
-              {state.kind === 'submitting' ? 'Joining…' : 'Join the waiting list'}
+              {state.kind === 'submitting' ? 'Saving…' : 'Notify me at launch'}
             </button>
           </div>
           <p id="waitlist-error" className="waitlist-error" aria-live="polite" aria-atomic="true">

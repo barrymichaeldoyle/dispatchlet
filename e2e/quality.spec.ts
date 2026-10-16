@@ -93,8 +93,8 @@ test('signup remains usable on slow requests and announces confirmation with foc
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await page.getByLabel('Email', { exact: true }).fill('quality@example.com')
-  await page.getByRole('button', { name: 'Join the waiting list' }).click()
-  await expect(page.getByRole('button', { name: 'Joining…' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Notify me at launch' }).click()
+  await expect(page.getByRole('button', { name: 'Saving…' })).toBeDisabled()
   await expect(page.getByRole('form')).toHaveAttribute('aria-busy', 'true')
   finish?.()
   await expect(page.getByRole('status')).toContainText('You are number 7.')
@@ -107,14 +107,14 @@ test('offline signup keeps the address and supports recovery', async ({ page }) 
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await page.getByLabel('Email', { exact: true }).fill('offline@example.com')
-  await page.getByRole('button', { name: 'Join the waiting list' }).click()
+  await page.getByRole('button', { name: 'Notify me at launch' }).click()
   await expect(page.getByText('Something went wrong. Try again in a minute.')).toBeVisible()
   await expect(page.getByLabel('Email', { exact: true })).toHaveValue('offline@example.com')
   await expect(page.getByLabel('Email', { exact: true })).not.toHaveAttribute(
     'aria-invalid',
     'true',
   )
-  await expect(page.getByRole('button', { name: 'Join the waiting list' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeEnabled()
 })
 
 test('search and social metadata are rendered on the server', async ({
@@ -185,7 +185,7 @@ test('layout reflows with enlarged text on a narrow viewport', async ({ page }) 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
-  await expect(page.getByRole('button', { name: 'Join the waiting list' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeVisible()
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
@@ -214,6 +214,6 @@ test('optional analytics and count downloads cannot block the main experience', 
   await expect(page.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await page.getByRole('button', { name: 'Close walkthrough' }).click()
   await page.getByLabel('Email', { exact: true }).fill('optional@example.com')
-  await page.getByRole('button', { name: 'Join the waiting list' }).click()
+  await page.getByRole('button', { name: 'Notify me at launch' }).click()
   await expect(page.getByRole('status')).toContainText('You are number 7.')
 })

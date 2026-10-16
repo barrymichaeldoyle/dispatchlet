@@ -5,10 +5,10 @@ test('home page loads with the tagline and the waiting list', async ({ page }) =
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await expect(page).toHaveTitle(/Dispatchlet/)
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'An agent that researches and writes your posts.',
+    'An agent that researches and writes your social posts.',
   )
   await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Join the waiting list' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeVisible()
   await expect(page.getByText('Opens 28 October.')).toBeVisible()
 })
 
@@ -19,7 +19,7 @@ test('joining the waiting list shows a position', async ({ page }) => {
   )
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  const join = page.getByRole('button', { name: 'Join the waiting list' })
+  const join = page.getByRole('button', { name: 'Notify me at launch' })
   const email = page.getByLabel('Email', { exact: true })
   await expect(email).toBeVisible()
 
@@ -46,7 +46,7 @@ test('signup errors preserve the email and allow a retry', async ({ page }) => {
   })
   await page.goto('/')
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  const join = page.getByRole('button', { name: 'Join the waiting list' })
+  const join = page.getByRole('button', { name: 'Notify me at launch' })
   const email = page.getByLabel('Email', { exact: true })
   await email.fill('retry@example.com')
   await join.click()
@@ -81,7 +81,7 @@ for (const width of [390, 768, 1360]) {
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
       ).toBe(true)
     }
-    const join = page.getByRole('button', { name: 'Join the waiting list' })
+    const join = page.getByRole('button', { name: 'Notify me at launch' })
     await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
     await page.getByLabel('Email', { exact: true }).fill('layout@example.com')
     await join.click()

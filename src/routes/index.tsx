@@ -110,14 +110,14 @@ function Home() {
       <header className="landing-header">
         <div className="landing-header-inner">
           <Wordmark size="sm" />
-          <ThemeToggle />
+          <ThemeToggle name="theme" />
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1} className="landing-main">
         <section className="landing-hero" aria-labelledby="product-title">
           <div className="landing-message">
-            <h1 id="product-title">An agent that researches and writes your posts.</h1>
+            <h1 id="product-title">An agent that researches and writes your social posts.</h1>
             <p className="landing-description">
               <BrandText>
                 Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared
@@ -186,7 +186,7 @@ function Home() {
           <BrandText>Built with the Buffer API. Not a Buffer product.</BrandText>
         </span>
         <span>
-          <a href={BARRY_URL}>Barry Doyle</a>
+          <a href={BARRY_URL}>Barry Michael Doyle</a>
           <span aria-hidden="true"> · </span>
           <a href={SOURCE_URL}>Source</a> · Elastic License 2.0
         </span>
