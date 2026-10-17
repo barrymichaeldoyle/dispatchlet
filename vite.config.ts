@@ -15,7 +15,10 @@ const config = defineConfig({
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
     tailwindcss(),
     tanstackStart({
-      pages: [{ path: '/', prerender: { enabled: true, crawlLinks: false } }],
+      pages: ['/', '/privacy', '/terms'].map((path) => ({
+        path,
+        prerender: { enabled: true, crawlLinks: false },
+      })),
     }),
     viteReact(),
   ],

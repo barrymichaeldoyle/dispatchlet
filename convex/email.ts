@@ -28,7 +28,7 @@ function html(paragraphs: string[], unsubscribe: string): string {
         `<p style="margin:0 0 16px;font:15px/1.55 system-ui,sans-serif;color:#1a1a1a">${p}</p>`,
     )
     .join('')
-  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;color:#6a6a66"><a href="${unsubscribe}" style="color:#6a6a66">Unsubscribe</a></p></div>`
+  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;color:#6a6a66"><a href="${unsubscribe}" style="color:#6a6a66">Unsubscribe</a> or read the <a href="https://dispatchlet.com/privacy" style="color:#6a6a66">privacy policy</a>.</p></div>`
 }
 
 type Message = {
@@ -46,7 +46,7 @@ function confirmMessage(email: string, token: string): Message {
     from: FROM,
     to: email,
     subject: 'Confirm your place on the Dispatchlet list',
-    text: `You asked to hear when Dispatchlet opens. Confirm here: ${l.confirm}\n\nIf this was not you, ignore this email.\n\nUnsubscribe: ${l.unsubscribe}\n`,
+    text: `You asked to hear when Dispatchlet opens. Confirm here: ${l.confirm}\n\nIf this was not you, ignore this email.\n\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
     html: html(
       [
         `You asked to hear when Dispatchlet opens. Confirm here: <a href="${l.confirm}" style="color:#0f6e56">${escapeHtml(l.confirm)}</a>`,
@@ -64,7 +64,7 @@ function launchMessage(email: string, token: string): Message {
     from: FROM,
     to: email,
     subject: 'Dispatchlet is open',
-    text: `You can connect your Buffer account now at https://dispatchlet.com. The first 10 runs are on me. If you try it, reply and tell me what broke.\n\nUnsubscribe: ${l.unsubscribe}\n`,
+    text: `You can connect your Buffer account now at https://dispatchlet.com. The first 10 runs are on me. If you try it, reply and tell me what broke.\n\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
     html: html(
       [
         'You can connect your Buffer account now at <a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a>. The first 10 runs are on me. If you try it, reply and tell me what broke.',

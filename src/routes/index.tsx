@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { lazy, Suspense, useEffect, useRef, useSyncExternalStore } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
+import { SiteFooter } from '../components/site-footer'
 import { ThemeToggle } from '../components/theme-toggle'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
@@ -64,9 +65,6 @@ export const Route = createFileRoute('/')({
     ],
   }),
 })
-
-const SOURCE_URL = 'https://github.com/barrymichaeldoyle/dispatchlet'
-const BARRY_URL = 'https://x.com/barrymdoyle'
 
 type Notice = 'confirmed' | 'unsubscribed' | null
 
@@ -175,22 +173,14 @@ function Home() {
               </p>
               <p>
                 Your email is used for one confirmation and one launch email. Both include an
-                unsubscribe link.
+                unsubscribe link. The <a href="/privacy">privacy policy</a> lists everything that is
+                collected and who handles it.
               </p>
             </details>
           </div>
         </section>
       </main>
-      <footer className="landing-footer">
-        <span>
-          <BrandText>Built with the Buffer API. Not a Buffer product.</BrandText>
-        </span>
-        <span>
-          <a href={BARRY_URL}>Barry Michael Doyle</a>
-          <span aria-hidden="true"> · </span>
-          <a href={SOURCE_URL}>Source</a> · Elastic License 2.0
-        </span>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

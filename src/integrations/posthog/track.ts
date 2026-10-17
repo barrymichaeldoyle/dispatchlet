@@ -13,6 +13,8 @@ export function initializeAnalytics(): Promise<void> {
       posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
         api_host: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
         person_profiles: 'identified_only',
+        // No cookie or local storage, so the privacy policy can promise nothing is kept on the device.
+        persistence: 'memory',
         capture_pageview: false,
         autocapture: false,
         disable_session_recording: true,
