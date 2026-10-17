@@ -4,6 +4,8 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type Ref,
 } from 'react'
@@ -360,6 +362,39 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     setStarted(true)
     setPlaying(false)
     setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
+  }
+  // The progress bar scrubs like a video: playback pauses while dragging and resumes on release.
+  const resumeAfterScrub = useRef(false)
+  const scrubTo = (time: number) => {
+    dismissDetail()
+    setSelectedStory(null)
+    setStarted(true)
+    setElapsed(Math.min(DURATION, Math.max(0, time)))
+  }
+  const scrubToPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    scrubTo(((event.clientX - rect.left) / rect.width) * DURATION)
+  }
+  const endScrub = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+    event.currentTarget.releasePointerCapture(event.pointerId)
+    if (resumeAfterScrub.current) setPlaying(true)
+    resumeAfterScrub.current = false
+  }
+  const scrubByKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const step = {
+      ArrowRight: 1000,
+      ArrowUp: 1000,
+      ArrowLeft: -1000,
+      ArrowDown: -1000,
+      PageUp: 5000,
+      PageDown: -5000,
+    }[event.key]
+    if (step !== undefined) scrubTo(elapsed + step)
+    else if (event.key === 'Home') scrubTo(0)
+    else if (event.key === 'End') scrubTo(DURATION)
+    else return
+    event.preventDefault()
   }
   const label = complete ? 'Replay demo' : started ? 'Resume demo' : 'Play the demo'
 
@@ -1043,13 +1078,36 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           </div>
           <div
             className="flow-progress"
-            role="progressbar"
+            role="slider"
+            tabIndex={0}
             aria-label="Walkthrough progress"
             aria-valuenow={Math.floor(elapsed / 1000)}
             aria-valuemin={0}
             aria-valuemax={TOTAL_SECONDS}
+            aria-valuetext={`${Math.floor(elapsed / 1000)} of ${TOTAL_SECONDS} seconds`}
+            aria-controls="flow-workspace"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return
+              event.currentTarget.setPointerCapture(event.pointerId)
+              resumeAfterScrub.current = playing
+              setPlaying(false)
+              scrubToPointer(event)
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) scrubToPointer(event)
+            }}
+            onPointerUp={endScrub}
+            onPointerCancel={endScrub}
+            onKeyDown={scrubByKey}
           >
-            <span style={{ transform: `scaleX(${elapsed / DURATION})` }} />
+            <span
+              className="flow-progress-fill"
+              style={{ transform: `scaleX(${elapsed / DURATION})` }}
+            />
+            <span
+              className="flow-progress-thumb"
+              style={{ left: `${(elapsed / DURATION) * 100}%` }}
+            />
           </div>
         </div>
         <footer className="flow-focus-footer">

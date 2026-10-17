@@ -66,7 +66,9 @@ test('closing pauses playback, restores focus and page position, and allows resu
   await opener.click()
   const demo = page.getByRole('dialog')
   await page.clock.runFor(2000)
-  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  const progress = await demo
+    .getByRole('slider', { name: 'Walkthrough progress' })
+    .getAttribute('aria-valuenow')
   await demo.getByRole('button', { name: 'Close walkthrough' }).click()
   await expect(demo).not.toBeVisible()
   await expect(opener).toBeFocused()
@@ -76,9 +78,13 @@ test('closing pauses playback, restores focus and page position, and allows resu
   await page.getByRole('button', { name: 'Resume demo', exact: true }).click()
   await expect(demo).toBeVisible()
   await page.clock.runFor(1000)
-  expect(Number(await demo.getByRole('progressbar').getAttribute('aria-valuenow'))).toBeGreaterThan(
-    Number(progress),
-  )
+  expect(
+    Number(
+      await demo
+        .getByRole('slider', { name: 'Walkthrough progress' })
+        .getAttribute('aria-valuenow'),
+    ),
+  ).toBeGreaterThan(Number(progress))
   await page.keyboard.press('Escape')
   await expect(demo).not.toBeVisible()
   await expect(page.getByRole('button', { name: 'Resume demo', exact: true })).toBeFocused()
@@ -227,7 +233,7 @@ for (const viewport of [
       if (previous < T.EXPAND && time >= T.EXPAND) recorded.clear()
       await page.clock.fastForward(time - previous)
       previous = time
-      await expect(demo.getByRole('progressbar')).toHaveAttribute(
+      await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
         'aria-valuenow',
         String((time / 1000) | 0),
       )
@@ -337,7 +343,7 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
   const restart = demo.getByRole('button', { name: 'Restart walkthrough' })
-  const progress = demo.getByRole('progressbar')
+  const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
   await page.clock.runFor(T.CANDIDATE_START + 1000)
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await restart.click()
@@ -460,7 +466,9 @@ test('resizing preserves progress while switching between overview and focused c
   const demo = page.getByRole('dialog')
   await page.clock.fastForward(T.POSTS + 2000)
   await demo.getByRole('button', { name: 'Pause walkthrough' }).click()
-  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  const progress = await demo
+    .getByRole('slider', { name: 'Walkthrough progress' })
+    .getAttribute('aria-valuenow')
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-overview/)
@@ -473,7 +481,10 @@ test('resizing preserves progress while switching between overview and focused c
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await expect(demo.locator('.flow-post[data-selected="true"]')).toBeVisible()
-  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
+  await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
+    'aria-valuenow',
+    progress!,
+  )
 })
 
 test('feedback confirms completed work without an elapsed-seconds counter', async ({ page }) => {
@@ -530,7 +541,10 @@ for (const viewport of [
     expect(submissions).toBe(0)
     await page.getByRole('button', { name: 'Replay demo', exact: true }).click()
     await expect(demo).toBeVisible()
-    await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '0',
+    )
   })
 }
 
@@ -551,9 +565,14 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
   const active = demo.locator('.flow-post[data-selected="true"]')
   await expect(active).toContainText('Community-owned solar')
   await expect(demo.locator('.flow-player')).toContainText(/paused/i)
-  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  const progress = await demo
+    .getByRole('slider', { name: 'Walkthrough progress' })
+    .getAttribute('aria-valuenow')
   await page.clock.fastForward(5000)
-  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
+  await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
+    'aria-valuenow',
+    progress!,
+  )
   await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
   const previews = demo.locator('.flow-post-previews')
   const original = await previews.boundingBox()
@@ -626,9 +645,14 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await expect(detail).toContainText('Previous post, illustrative example')
   await expect(detail).toContainText('A neighbourhood garden')
   await expect(detail.getByRole('button', { name: 'Close duplicate explanation' })).toBeFocused()
-  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
+  const progress = await demo
+    .getByRole('slider', { name: 'Walkthrough progress' })
+    .getAttribute('aria-valuenow')
   await page.clock.runFor(5000)
-  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
+  await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
+    'aria-valuenow',
+    progress!,
+  )
   await page.keyboard.press('Escape')
   await expect(detail).not.toBeVisible()
   await expect(demo).toBeVisible()
@@ -740,7 +764,11 @@ for (const viewport of [
     }
     expect(travelled).toBe(true)
     expect(arrived).toBe(true)
-    const second = Number(await demo.getByRole('progressbar').getAttribute('aria-valuenow'))
+    const second = Number(
+      await demo
+        .getByRole('slider', { name: 'Walkthrough progress' })
+        .getAttribute('aria-valuenow'),
+    )
     await page.clock.runFor(T.CANDIDATE_START - 1000 - second * 1000)
     const rows = demo.locator('.flow-candidates li')
     const geometry = await rows.evaluateAll((nodes) =>
@@ -760,3 +788,34 @@ for (const viewport of [
     }
   })
 }
+
+test('the progress bar seeks like a video by click, drag and keyboard', async ({ page }) => {
+  // Below the desktop layout there is no opening view transition, which never settles under the
+  // fake clock (it fakes animation frames too). The scrubber is the same at every width.
+  await page.setViewportSize({ width: 1000, height: 800 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  const bar = demo.getByRole('slider', { name: 'Walkthrough progress' })
+  const box = (await bar.boundingBox())!
+  // Clicking halfway jumps to the middle of the run and keeps playing.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
+  await expect(bar).toHaveAttribute('aria-valuenow', String((T.DURATION / 2000) | 0))
+  await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
+  // Dragging to the end shows the final frame.
+  const open = (await bar.boundingBox())!
+  await page.mouse.move(open.x + open.width / 2, open.y + open.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(open.x + open.width + 20, open.y + open.height / 2, { steps: 4 })
+  await page.mouse.up()
+  await expect(bar).toHaveAttribute('aria-valuenow', String(T.DURATION / 1000))
+  await expect(demo.locator('.flow-receipt')).toContainText('Scheduled 6 posts.')
+  // Keyboard: Home goes back to the start, arrows step a second at a time.
+  await bar.focus()
+  await page.keyboard.press('Home')
+  await expect(bar).toHaveAttribute('aria-valuenow', '0')
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await expect(bar).toHaveAttribute('aria-valuenow', '2')
+})

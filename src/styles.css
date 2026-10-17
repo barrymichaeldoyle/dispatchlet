@@ -584,16 +584,50 @@ html {
   cursor: default;
 }
 
+/*
+ * The progress bar is a scrubber. It sits on the bottom edge of the clipped player, so the hit
+ * area and the playhead both rise above the line rather than spreading below it.
+ */
 .flow-progress {
+  position: relative;
+  z-index: 1;
   height: 3px;
-  overflow: hidden;
   background: var(--color-rule);
+  cursor: pointer;
+  touch-action: none;
 }
-.flow-progress > span {
+.flow-progress::before {
+  content: '';
+  position: absolute;
+  inset: -16px 0 0;
+}
+.flow-progress:focus-visible {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
+}
+.flow-progress > .flow-progress-fill {
   display: block;
   height: 100%;
   background: var(--color-pine);
   transform-origin: left;
+  pointer-events: none;
+}
+.flow-progress-thumb {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 14px;
+  margin-left: -2px;
+  background: var(--color-pine);
+  pointer-events: none;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 120ms ease-out;
+}
+.flow-progress:hover > .flow-progress-thumb,
+.flow-progress:focus-visible > .flow-progress-thumb,
+.flow-progress:active > .flow-progress-thumb {
+  transform: scaleY(1);
 }
 .flow-disclaimer {
   margin: 14px 0 0;
@@ -1258,10 +1292,10 @@ header nav button {
 .flow-schedule [data-revealed='true'] .flow-check {
   animation: flow-control-in 240ms ease-out;
 }
-.flow-progress > span {
+.flow-progress > .flow-progress-fill {
   transition: transform 70ms linear;
 }
-.flow-demo:not(.is-playing) .flow-progress > span {
+.flow-demo:not(.is-playing) .flow-progress > .flow-progress-fill {
   transition: none;
 }
 @keyframes flow-caption-in {
