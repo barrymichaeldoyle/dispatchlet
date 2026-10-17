@@ -601,9 +601,10 @@ html {
   position: absolute;
   inset: -16px 0 0;
 }
+/* A ring around a 3px line reads as a double rule, so focus darkens the track and raises a taller playhead. */
 .flow-progress:focus-visible {
-  outline: 2px solid var(--color-pine);
-  outline-offset: 2px;
+  outline: none;
+  background: var(--color-muted);
 }
 .flow-progress > .flow-progress-fill {
   display: block;
@@ -628,6 +629,11 @@ html {
 .flow-progress:focus-visible > .flow-progress-thumb,
 .flow-progress:active > .flow-progress-thumb {
   transform: scaleY(1);
+}
+.flow-progress:focus-visible > .flow-progress-thumb {
+  width: 6px;
+  height: 18px;
+  margin-left: -3px;
 }
 .flow-disclaimer {
   margin: 14px 0 0;
@@ -1829,11 +1835,24 @@ header nav button {
   outline: 1px solid var(--color-pine);
   outline-offset: -1px;
 }
-.flow-candidates li:focus-within,
-.flow-schedule li:focus-within,
-.flow-story-results li:focus-within {
+/*
+ * A row whose title is a stretched link gets one ring around the whole row, never a second one on
+ * the link. The ring sits just outside the row, clear of its text and card border; the scrolling
+ * columns keep a little right padding so it is not clipped there.
+ */
+.flow-candidates li:has(.flow-story-link:focus-visible),
+.flow-schedule li:has(.flow-story-link:focus-visible),
+.flow-story-results li:has(.flow-story-link:focus-visible) {
   outline: 2px solid var(--color-pine);
-  outline-offset: -2px;
+  outline-offset: 3px;
+}
+.is-overview .flow-scene > .flow-panel {
+  padding-right: 6px;
+}
+.flow-candidates .flow-story-link:focus-visible,
+.flow-schedule .flow-story-link:focus-visible,
+.flow-story-results .flow-story-link:focus-visible {
+  outline: none;
 }
 .flow-preview-reset {
   cursor: pointer;

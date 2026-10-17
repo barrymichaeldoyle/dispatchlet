@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -18,6 +19,7 @@ import { BufferMark, ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
 import { useOnceInView } from '../lib/use-once-in-view'
+import { useScrollable } from '../lib/use-scrollable'
 import {
   CANDIDATES,
   PREVIOUS_POST,
@@ -162,12 +164,14 @@ function FlowPanel({
   children: ReactNode
 }) {
   const visible = overview ? stage >= index : stage === index
+  const [scrollRef, scrollable] = useScrollable<HTMLElement>()
   return (
     <section
+      ref={scrollRef}
       className={`flow-panel flow-panel-${index}`}
       hidden={!overview && !visible}
       aria-label={title}
-      tabIndex={overview && index > 1 ? 0 : undefined}
+      tabIndex={overview && index > 1 && scrollable ? 0 : undefined}
       data-active={stage === index}
       data-pending={stage < index}
     >
@@ -237,6 +241,16 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   // Desktop opens on the brief alone, then opens out into the full workspace once it is submitted.
   const shouldExpand = elapsed >= EXPAND || selectedStory !== null
   const [expanded, setExpanded] = useState(false)
+  // Scroll containers are tab stops only while they have something to scroll.
+  const [workspaceScrollRef, workspaceScrollable] = useScrollable<HTMLDivElement>()
+  const [contextScrollRef, contextScrollable] = useScrollable<HTMLDivElement>()
+  const workspaceRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      workspace.current = element
+      workspaceScrollRef(element)
+    },
+    [workspaceScrollRef],
+  )
 
   useEffect(() => {
     const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -506,10 +520,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             ))}
           </ol>
           <div
-            ref={workspace}
+            ref={workspaceRef}
             id="flow-workspace"
             className={`flow-workspace ${overview ? 'is-overview' : ''} ${overview && !expanded ? 'is-intro' : ''}`}
-            tabIndex={0}
+            tabIndex={workspaceScrollable ? 0 : undefined}
             role="region"
             aria-label={overview ? 'Live walkthrough workspace' : 'Current walkthrough step'}
           >
@@ -531,8 +545,9 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             </div>
             <div key={overview ? runId : `${runId}-${viewStage}`} className="flow-scene">
               <div
+                ref={contextScrollRef}
                 className="flow-context"
-                tabIndex={overview ? 0 : undefined}
+                tabIndex={overview && contextScrollable ? 0 : undefined}
                 role={overview ? 'region' : undefined}
                 aria-label={overview ? 'Brief and playbook' : undefined}
               >

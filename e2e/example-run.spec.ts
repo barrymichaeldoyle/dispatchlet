@@ -819,3 +819,18 @@ test('the progress bar seeks like a video by click, drag and keyboard', async ({
   await page.keyboard.press('ArrowRight')
   await expect(bar).toHaveAttribute('aria-valuenow', '2')
 })
+
+test('demo columns are tab stops only when they have something to scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await page.clock.runFor(T.DURATION + 100)
+  const columns = demo.locator('.flow-workspace, .flow-context, .flow-scene > .flow-panel')
+  // Everything fits on a large screen, so no column needs to take focus.
+  await expect(columns.and(page.locator('[tabindex="0"]'))).toHaveCount(0)
+  // On a short screen the columns scroll, so keyboard users can reach and scroll them.
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await expect(columns.and(page.locator('[tabindex="0"]'))).not.toHaveCount(0)
+})
