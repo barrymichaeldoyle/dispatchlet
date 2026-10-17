@@ -1784,18 +1784,50 @@ header nav button {
 .flow-post-previews {
   display: grid;
 }
+/*
+ * Switching stories swaps the posts in two beats: the old set fades out quickly, then the new one
+ * rises in, so two sets of text never overlap. Hidden posts keep everything inside hidden, but
+ * only once the fade has ended.
+ */
 .flow-post-previews > .flow-post {
   grid-area: 1 / 1;
   min-width: 0;
   opacity: 0;
   visibility: hidden;
+  transform: translateY(-4px);
+  transition:
+    opacity 120ms ease-in,
+    transform 120ms ease-in,
+    visibility 0s 120ms;
 }
 .flow-post-previews > .flow-post[data-selected='false'] * {
   visibility: hidden !important;
+  transition: visibility 0s 120ms !important;
 }
 .flow-post-previews > .flow-post[data-selected='true'] {
   opacity: 1;
   visibility: visible;
+  transform: none;
+  transition:
+    opacity 240ms ease-out 130ms,
+    transform 340ms cubic-bezier(0.2, 0.9, 0.3, 1) 130ms,
+    visibility 0s;
+}
+/* Picking a story moves its highlight smoothly between rows. */
+.flow-schedule li {
+  transition:
+    background 220ms ease-out,
+    outline-color 220ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-post-previews > .flow-post,
+  .flow-post-previews > .flow-post[data-selected='true'],
+  .flow-duplicate-detail,
+  .flow-duplicate-detail::backdrop,
+  .flow-match > *,
+  .flow-schedule li {
+    transition: none;
+  }
 }
 .flow-post-previews > .flow-post:focus-visible {
   outline-offset: 4px;
@@ -1862,20 +1894,53 @@ header nav button {
 .flow-preview-reset:hover {
   color: var(--color-ink);
 }
+/* The skipped-story explainer rises in over a fading backdrop and drops back out when closed. */
 .flow-duplicate-detail {
   position: fixed;
   inset: 0;
   margin: auto;
-  width: min(440px, calc(100vw - 40px));
+  width: min(460px, calc(100vw - 40px));
   max-height: calc(100dvh - 40px);
   overflow: auto;
   padding: 24px;
   border: 1px solid var(--color-rule);
   color: var(--color-ink);
   background: var(--color-paper);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.18);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 200ms ease-out,
+    transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1.15),
+    overlay 280ms allow-discrete,
+    display 280ms allow-discrete;
+}
+.flow-duplicate-detail:not(:popover-open) {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+  transition-duration: 140ms;
+  transition-timing-function: ease-in;
+}
+@starting-style {
+  .flow-duplicate-detail:popover-open {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
 }
 .flow-duplicate-detail::backdrop {
   background: rgb(0 0 0 / 0.25);
+  transition:
+    background 220ms ease-out,
+    overlay 220ms allow-discrete,
+    display 220ms allow-discrete;
+}
+.flow-duplicate-detail:not(:popover-open)::backdrop {
+  background: rgb(0 0 0 / 0);
+}
+@starting-style {
+  .flow-duplicate-detail:popover-open::backdrop {
+    background: rgb(0 0 0 / 0);
+  }
 }
 .flow-detail-heading {
   display: flex;
@@ -1910,15 +1975,73 @@ header nav button {
   font-size: 14px;
   line-height: 1.6;
 }
-.flow-duplicate-detail .flow-detail-heading + p {
+/* The match: today's finding, a pine "Same story" link, then the earlier post it repeats. */
+.flow-match {
+  display: grid;
+  margin-top: 20px;
+}
+.flow-match-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+}
+.flow-match-card.is-previous {
+  border-color: var(--color-pine);
+  background: var(--color-tint);
+}
+.flow-match-label {
   font-size: 12px;
   color: var(--color-muted);
 }
-.flow-duplicate-detail blockquote {
-  margin: 20px 0;
+.flow-match-card strong {
+  font-size: 16px;
+  font-weight: 500;
+}
+.flow-duplicate-detail .flow-match-card blockquote {
+  margin: 0;
   padding: 0;
-  font-size: 17px;
-  line-height: 1.6;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.flow-duplicate-detail p.flow-match-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 0 10px 28px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-pine);
+}
+.flow-match-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14px;
+  width: 2px;
+  background: var(--color-pine);
+}
+/* Inside the explainer, the two cards and their link arrive one after the other. */
+.flow-match > * {
+  transition:
+    opacity 240ms ease-out,
+    transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+.flow-match > :nth-child(2) {
+  transition-delay: 90ms;
+}
+.flow-match > :nth-child(3) {
+  transition-delay: 160ms;
+}
+@starting-style {
+  .flow-duplicate-detail:popover-open .flow-match > * {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 @media (max-height: 899px) {
   .is-overview .flow-channel-posts {

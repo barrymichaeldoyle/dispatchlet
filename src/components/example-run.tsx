@@ -812,8 +812,20 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           <Icon kind="close" />
                         </button>
                       </div>
-                      <p>Previous post, illustrative example</p>
-                      <blockquote>{PREVIOUS_POST}</blockquote>
+                      {/* The match itself: what research found today, and the post it repeats. */}
+                      <div className="flow-match">
+                        <div className="flow-match-card">
+                          <span className="flow-match-label">Found today, {CANDIDATES[3][2]}</span>
+                          <strong>{CANDIDATES[3][0]}</strong>
+                        </div>
+                        <p className="flow-match-link">Same story</p>
+                        <div className="flow-match-card is-previous">
+                          <span className="flow-match-label">
+                            Previous post, illustrative example
+                          </span>
+                          <blockquote>{PREVIOUS_POST}</blockquote>
+                        </div>
+                      </div>
                       <p>
                         The agent matched this finding to the urban garden story in its posting
                         history. It keeps the three new stories and leaves this repeat out.
