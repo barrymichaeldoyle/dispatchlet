@@ -3335,22 +3335,22 @@ header nav button {
 /* Channel posts are cards too: the post as it will look, and a card per finished story. */
 .flow-writing .flow-channel-posts {
   display: grid;
-  gap: 10px;
+  gap: 6px;
 }
 .flow-writing .flow-post-preview {
-  padding: 12px 14px 14px;
+  padding: 8px 12px 9px;
 }
 .flow-writing .flow-post-preview p {
   margin-bottom: 0;
 }
 .is-overview .flow-writing .flow-story-results {
-  margin-top: 14px;
+  margin-top: 8px;
   padding-top: 0;
   border-top: 0;
 }
 .is-overview .flow-writing .flow-story-results li,
 .flow-writing .flow-story-results li {
-  padding: 10px 12px;
+  padding: 6px 12px;
   border-bottom: 0;
 }
 .flow-writing .flow-story-results li .flow-story-link {
