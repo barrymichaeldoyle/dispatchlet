@@ -267,7 +267,7 @@ function Home() {
           <h2 id="closing-title">OK, seriously. Watch the demo.</h2>
           <p>
             <BrandText>
-              {`${RUN_SECONDS} seconds, from one paragraph to six posts in Buffer. We’ll wait.`}
+              {`${RUN_SECONDS} seconds, from one paragraph to six posts in Buffer. We’ll\u00a0wait.`}
             </BrandText>
           </p>
           <div className="landing-closing-actions">
