@@ -191,7 +191,7 @@ const STEPS: {
   {
     art: 'schedule',
     title: 'It schedules them in Buffer.',
-    text: 'Spread through the day, or saved as drafts for you to approve. Tomorrow it runs again.',
+    text: 'Spread through the day, or saved as drafts for you to approve. Then it runs again on your schedule.',
     figure: <ScheduleFragment />,
   },
 ]

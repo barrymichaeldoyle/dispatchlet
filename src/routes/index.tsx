@@ -21,7 +21,7 @@ const WaitlistCount = lazy(() =>
 const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
 const DESCRIPTION =
-  'Describe your topic once. Dispatchlet finds new stories every day, skips what you’ve already posted, and drafts posts in your Buffer queue. Sign-up opens 7 November.'
+  'Describe your topic once. On the schedule you choose, Dispatchlet finds new stories, skips what you’ve already posted, and drafts posts in your Buffer queue. Sign-up opens 7 November.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -130,8 +130,9 @@ function Home() {
             <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
-                Tell Dispatchlet your topic once. Every day it finds new stories, skips anything
-                you’ve already posted, and writes a post for each of your channels.
+                Tell Dispatchlet your topic once. Twice a day, daily or weekly, it finds new
+                stories, skips anything you’ve already posted, and writes a post for each of your
+                channels.
               </BrandText>
             </p>
             <p className="landing-control">
@@ -174,14 +175,14 @@ function Home() {
           <div>
             <p>
               I run <a href="https://grandprixpicks.com">GrandPrixPicks</a>, an F1 predictions game.
-              Keeping its X account current meant the same research every morning. What happened?
-              Have we posted it already? Is it worth a post? So I wrote a cron job and a
-              hand-written skill file to do it for me.
+              Keeping its X account current meant the same research twice a day. What happened? Have
+              we posted it already? Is it worth a post? So I wrote a cron job and a hand-written
+              skill file to do it for me.
             </p>
             <p>
               <BrandText>
                 Dispatchlet is that setup, rebuilt so anyone with a Buffer account can describe a
-                topic once and get the same daily run.
+                topic once and get the same run on their own schedule.
               </BrandText>
             </p>
             <p className="landing-origin-name">Barry Michael Doyle</p>

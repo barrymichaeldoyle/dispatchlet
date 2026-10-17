@@ -76,7 +76,7 @@ const NOTES = [
   'Sources, voice and schedule from your brief. You can edit it any time.',
   'It checks what you’ve already posted before choosing stories.',
   'Three stories, with a post for X and LinkedIn for each.',
-  'Three stories, three hours apart. Then it runs again tomorrow.',
+  'Three stories, three hours apart. This one runs daily. Yours can run twice a day or weekly.',
 ]
 const EVENTS = [
   [
