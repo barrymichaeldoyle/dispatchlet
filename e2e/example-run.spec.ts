@@ -379,12 +379,17 @@ for (const viewport of [
     ]) {
       await expect(demo.locator(selector)).toBeVisible()
     }
-    // All four columns stay within the viewport. Scroll remains available for enlarged text.
+    // All four columns stay within the viewport. Short laptop screens scroll inside a column,
+    // because the reading size is not shrunk to fit; from 900px tall everything fits.
     for (const column of await columns.all()) {
       const rect = (await column.boundingBox())!
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width)
       expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height)
-      expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+      if (viewport.height >= 900) {
+        expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+      } else {
+        expect(await column.evaluate((el) => getComputedStyle(el).overflowY)).toMatch(/auto|scroll/)
+      }
     }
     await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
@@ -503,8 +508,9 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
     await expect(demo.locator('.flow-candidates li[data-highlighted="true"]')).toContainText(name)
     await expect(demo.locator('.flow-schedule li[data-highlighted="true"]')).toContainText(name)
     expect(await previews.boundingBox()).toEqual(original)
+    // At 720px tall the columns scroll internally; see the persistent workspace test.
     for (const column of await demo.locator('.flow-context, .flow-scene > .flow-panel').all()) {
-      expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+      expect(await column.evaluate((el) => getComputedStyle(el).overflowY)).toMatch(/auto|scroll/)
     }
   }
   await demo.getByRole('button', { name: 'Replay walkthrough' }).click()

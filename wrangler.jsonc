@@ -4,6 +4,8 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "main": "@tanstack/react-start/server-entry",
+  // Serve prerendered /privacy/index.html at /privacy, matching canonical URLs and the sitemap.
+  "assets": { "html_handling": "drop-trailing-slash" },
   "routes": [
     { "pattern": "dispatchlet.com", "custom_domain": true },
     { "pattern": "www.dispatchlet.com", "custom_domain": true },

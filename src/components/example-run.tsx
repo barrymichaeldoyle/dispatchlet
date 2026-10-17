@@ -791,11 +791,19 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                             </button>
                           ) : (
                             <span
-                              className={`flow-tag ${selectedStory !== null || elapsed >= POSTS_READY ? 'is-ready' : ''}`}
+                              className={`flow-tag flow-status-tag ${selectedStory !== null || elapsed >= POSTS_READY ? 'is-ready' : ''}`}
                             >
-                              {selectedStory !== null || elapsed >= POSTS_READY
-                                ? '2 posts ready'
-                                : 'Writing'}
+                              {/* Both labels share one cell, so the tag never changes width or wraps. */}
+                              {(['Writing', '2 posts ready'] as const).map((label, index) => {
+                                const active =
+                                  (selectedStory !== null || elapsed >= POSTS_READY) ===
+                                  (index === 1)
+                                return (
+                                  <span key={label} aria-hidden={!active} data-active={active}>
+                                    {label}
+                                  </span>
+                                )
+                              })}
                             </span>
                           )}
                         </div>

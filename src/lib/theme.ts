@@ -33,7 +33,7 @@ function preferenceFromDocument(): ThemePreference {
   return 'system'
 }
 
-export function getTheme(): Theme {
+function getTheme(): Theme {
   const preference = getPreference()
   if (preference === 'light' || preference === 'dark') return preference
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'

@@ -425,6 +425,15 @@ html {
   color: var(--color-pine);
   background: var(--color-tint);
 }
+.flow-status-tag {
+  display: inline-grid;
+}
+.flow-status-tag > span {
+  grid-area: 1 / 1;
+}
+.flow-status-tag > [data-active='false'] {
+  visibility: hidden;
+}
 .flow-post-heading strong {
   font-size: 15px;
   font-weight: 500;
