@@ -1792,7 +1792,7 @@ header nav button {
 }
 /*
  * Switching stories swaps the posts in two beats: the old set fades out quickly, then the new one
- * rises in, so two sets of text never overlap. Hidden posts keep everything inside hidden, but
+ * fades in, so two sets of text never overlap. Hidden posts keep everything inside hidden, but
  * only once the fade has ended.
  */
 .flow-post-previews > .flow-post {
@@ -1800,10 +1800,8 @@ header nav button {
   min-width: 0;
   opacity: 0;
   visibility: hidden;
-  transform: translateY(-4px);
   transition:
     opacity 120ms ease-in,
-    transform 120ms ease-in,
     visibility 0s 120ms;
 }
 .flow-post-previews > .flow-post[data-selected='false'] * {
@@ -1813,10 +1811,8 @@ header nav button {
 .flow-post-previews > .flow-post[data-selected='true'] {
   opacity: 1;
   visibility: visible;
-  transform: none;
   transition:
     opacity 240ms ease-out 130ms,
-    transform 340ms cubic-bezier(0.2, 0.9, 0.3, 1) 130ms,
     visibility 0s;
 }
 /* Picking a story moves its highlight smoothly between rows. */
@@ -1912,7 +1908,7 @@ header nav button {
 .flow-preview-reset:hover {
   color: var(--color-ink);
 }
-/* The skipped-story explainer rises in over a fading backdrop and drops back out when closed. */
+/* The skipped-story explainer fades in over a fading backdrop and fades out when closed. */
 .flow-duplicate-detail {
   position: fixed;
   inset: 0;
@@ -1926,23 +1922,19 @@ header nav button {
   background: var(--color-paper);
   box-shadow: 0 18px 48px rgb(0 0 0 / 0.18);
   opacity: 1;
-  transform: none;
   transition:
     opacity 200ms ease-out,
-    transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1.15),
-    overlay 280ms allow-discrete,
-    display 280ms allow-discrete;
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
 }
 .flow-duplicate-detail:not(:popover-open) {
   opacity: 0;
-  transform: translateY(6px) scale(0.98);
   transition-duration: 140ms;
   transition-timing-function: ease-in;
 }
 @starting-style {
   .flow-duplicate-detail:popover-open {
     opacity: 0;
-    transform: translateY(12px) scale(0.96);
   }
 }
 .flow-duplicate-detail::backdrop {
@@ -2045,9 +2037,7 @@ header nav button {
 }
 /* Inside the explainer, the two cards and their link arrive one after the other. */
 .flow-match > * {
-  transition:
-    opacity 240ms ease-out,
-    transform 300ms cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  transition: opacity 240ms ease-out;
 }
 .flow-match > :nth-child(2) {
   transition-delay: 90ms;
@@ -2058,7 +2048,6 @@ header nav button {
 @starting-style {
   .flow-duplicate-detail:popover-open .flow-match > * {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 @media (max-height: 899px) {
@@ -2751,14 +2740,11 @@ header nav button {
   transition-delay: 600ms;
 }
 .step-figure .flow-rule {
-  transition:
-    opacity 500ms,
-    transform 650ms;
+  transition: opacity 500ms;
   transition-delay: calc(var(--step-index) * 160ms + 150ms);
 }
 .step-figure[data-state='waiting'] .flow-rule {
   opacity: 0;
-  transform: translateY(10px);
 }
 .step-figure .flow-candidates li .step-swap > span {
   transition-delay: calc(var(--step-index) * 240ms + 300ms);
@@ -2773,14 +2759,11 @@ header nav button {
   color: var(--color-muted);
 }
 .step-figure .step-match {
-  transition:
-    opacity 500ms,
-    transform 650ms;
+  transition: opacity 500ms;
   transition-delay: 1650ms;
 }
 .step-figure[data-state='waiting'] .step-match {
   opacity: 0;
-  transform: translateY(10px);
 }
 .step-figure .flow-channel-posts > div p {
   clip-path: inset(0 0 0 0);
@@ -2806,14 +2789,11 @@ header nav button {
   background: var(--color-paper);
 }
 .step-figure .flow-schedule li {
-  transition:
-    opacity 450ms,
-    transform 600ms;
+  transition: opacity 450ms;
   transition-delay: calc(var(--step-index) * 300ms + 200ms);
 }
 .step-figure[data-state='waiting'] .flow-schedule li {
   opacity: 0;
-  transform: translateY(10px);
 }
 .step-figure .flow-check path {
   animation-delay: calc(var(--step-index, 0) * 300ms + 500ms);
@@ -3039,13 +3019,10 @@ header nav button {
   font-weight: 500;
   letter-spacing: -0.01em;
   color: var(--color-pine);
-  transition:
-    opacity 500ms ease-out,
-    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 500ms ease-out;
 }
 .flow-nudge[data-state='waiting'] {
   opacity: 0;
-  transform: translateY(10px);
 }
 @media (prefers-reduced-motion: reduce) {
   .step-art svg *,
@@ -3397,8 +3374,7 @@ header nav button {
 /*
  * Cards in the demo (Barry's call, 2026-10-17): found stories and channel posts are things the
  * agent made, so each one sits on its own card. Square corners and the palette still apply.
- * The card face is drawn on ::before so it can pop in without moving the row, which keeps the
- * streaming layout test steady.
+ * The card face is drawn on ::before, and cards simply fade in with their row.
  */
 .flow-research .flow-candidates ul,
 .flow-writing .flow-story-results {
@@ -3424,14 +3400,8 @@ header nav button {
   background: var(--color-card);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   transition:
-    transform 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
     border-color 300ms ease-out,
     background 300ms ease-out;
-}
-.flow-research .flow-candidates li[data-revealed='false']::before,
-.flow-writing .flow-story-results li[data-revealed='false']::before,
-.flow-writing .flow-reveal[data-revealed='false'] .flow-post-preview::before {
-  transform: translateY(6px) scale(0.94);
 }
 
 /* A found story: where it came from and what happened to it, then the headline. */
@@ -3559,10 +3529,5 @@ header nav button {
   .flow-writing .flow-story-results li::before,
   .flow-writing .flow-post-preview::before {
     transition: none;
-  }
-  .flow-research .flow-candidates li[data-revealed='false']::before,
-  .flow-writing .flow-story-results li[data-revealed='false']::before,
-  .flow-writing .flow-reveal[data-revealed='false'] .flow-post-preview::before {
-    transform: none;
   }
 }
