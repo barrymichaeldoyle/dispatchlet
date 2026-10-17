@@ -131,7 +131,10 @@ function Home() {
             </p>
             <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
             <a href="#run" className="landing-demo-link" onClick={playDemo}>
-              Watch the demo<span aria-hidden="true">→</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="m6 3 15 9-15 9Z" fill="currentColor" />
+              </svg>
+              Watch the demo
             </a>
           </div>
           <div className="landing-signup">
@@ -159,9 +162,10 @@ function Home() {
           <h2 id="origin-title">Why I built it</h2>
           <div>
             <p>
-              I run GrandPrixPicks, an F1 predictions game. Keeping its X account current meant the
-              same research every morning: what happened, have we posted it already, is it worth a
-              post. So I wrote a cron job and a hand-written skill file to do it for me.
+              I run <a href="https://grandprixpicks.com">GrandPrixPicks</a>, an F1 predictions game.
+              Keeping its X account current meant the same research every morning. What happened?
+              Have we posted it already? Is it worth a post? So I wrote a cron job and a
+              hand-written skill file to do it for me.
             </p>
             <p>
               <BrandText>
@@ -220,10 +224,10 @@ function Home() {
         </section>
 
         <section className="landing-closing" aria-labelledby="closing-title">
-          <h2 id="closing-title">Watch a full run.</h2>
+          <h2 id="closing-title">OK, seriously. Watch the demo.</h2>
           <p>
             <BrandText>
-              {`It takes ${RUN_SECONDS} seconds and goes from one paragraph to six posts in Buffer. If you scrolled past it, it’s worth the time.`}
+              {`${RUN_SECONDS} seconds, from one paragraph to six posts in Buffer. We’ll wait.`}
             </BrandText>
           </p>
           <div className="landing-closing-actions">

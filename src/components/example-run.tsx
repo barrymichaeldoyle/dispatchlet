@@ -12,6 +12,7 @@ import { BrandText } from './brand-text'
 import { ThemeToggle } from './theme-toggle'
 import { Icon } from './flow-icon'
 import { RunPoster } from './run-steps'
+import { useOnceInView } from '../lib/use-once-in-view'
 import { CANDIDATES, PREVIOUS_POST, PROMPT, RULES, RUN_SECONDS, STORIES } from '../lib/example-run'
 
 const TYPE_START = 600
@@ -158,6 +159,16 @@ const subscribeLayout = (onChange: () => void) => {
   return () => layout.removeEventListener('change', onChange)
 }
 const getOverview = () => window.matchMedia(OVERVIEW_QUERY).matches
+
+/** Appears as people scroll past the demo without playing it. */
+function DemoNudge() {
+  const [ref, state] = useOnceInView<HTMLParagraphElement>()
+  return (
+    <p ref={ref} className="flow-nudge" data-state={state}>
+      Seriously, watch the demo. It’s {RUN_SECONDS} seconds.
+    </p>
+  )
+}
 
 export type ExampleRunHandle = { play: (opener: HTMLElement) => void }
 
@@ -949,6 +960,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </p>
       </noscript>
       <p className="flow-disclaimer">Illustrative example.</p>
+      {started ? null : <DemoNudge />}
     </section>
   )
 }

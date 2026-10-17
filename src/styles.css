@@ -793,11 +793,30 @@ html {
 .landing-demo-link {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   min-height: 44px;
-  margin-top: 12px;
+  margin-top: 28px;
+  padding: 0 18px;
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
   font-size: 15px;
   font-weight: 500;
+  text-decoration: none;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+.landing-demo-link svg {
+  color: var(--color-pine);
+  transition: color 150ms;
+}
+.landing-demo-link:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  text-decoration: none;
+}
+.landing-demo-link:hover svg {
+  color: var(--color-paper);
 }
 .waitlist-confirmation {
   min-height: 144px;
@@ -2079,6 +2098,21 @@ header nav button {
 }
 .landing-questions details {
   border-bottom: 1px solid var(--color-rule);
+  interpolate-size: allow-keywords;
+}
+/* Answers slide open where the browser can animate to auto height, and simply open elsewhere. */
+.landing-questions details::details-content {
+  height: 0;
+  overflow: clip;
+  opacity: 0;
+  transition:
+    height 360ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 240ms ease-out,
+    content-visibility 360ms allow-discrete;
+}
+.landing-questions details[open]::details-content {
+  height: auto;
+  opacity: 1;
 }
 .landing-questions summary {
   padding: 16px 0;
@@ -2305,7 +2339,7 @@ header nav button {
 /* The demo's own pieces, frozen at the moment each step of a run happens. "done" is the default,
    so the page reads correctly without JavaScript; "waiting" shows until a piece scrolls into view. */
 .steps {
-  padding: 64px 0 8px;
+  padding: 96px 0 24px;
   scroll-margin-top: 24px;
 }
 .steps-heading h2 {
@@ -2335,7 +2369,7 @@ header nav button {
   grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
   gap: 72px;
   align-items: start;
-  padding: 56px 0;
+  padding: 112px 0;
   border-top: 1px solid var(--color-rule);
 }
 .step.is-wide {
@@ -2345,13 +2379,37 @@ header nav button {
   position: sticky;
   top: 32px;
 }
-.step-number {
+.step-art {
   display: block;
-  margin-bottom: 14px;
-  color: var(--color-pine);
-  font-size: 15px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 20px;
+  color: var(--color-ink);
+}
+.step-art svg {
+  display: block;
+  overflow: visible;
+}
+.step-art svg * {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 900ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.step-art svg .is-accent {
+  stroke: var(--color-pine);
+  stroke-width: 2;
+  transition-delay: 450ms;
+}
+.step-art svg circle.is-accent {
+  fill: var(--color-pine);
+}
+.step-art[data-state='waiting'] svg * {
+  stroke-dashoffset: 1;
 }
 .step-copy h3 {
   max-width: 16ch;
@@ -2635,7 +2693,7 @@ header nav button {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: 48px;
-  padding: 56px 0;
+  padding: 96px 0;
   border-top: 1px solid var(--color-rule);
 }
 .landing-origin h2 {
@@ -2664,7 +2722,7 @@ header nav button {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 20px 48px;
   align-items: end;
-  padding: 72px 0 80px;
+  padding: 112px 0 120px;
   border-top: 1px solid var(--color-rule);
 }
 .landing-closing h2 {
@@ -2733,7 +2791,7 @@ header nav button {
   .step.is-wide {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
-    padding: 40px 0;
+    padding: 72px 0;
   }
   .step-copy {
     position: static;
@@ -2761,17 +2819,40 @@ header nav button {
   .landing-origin {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-    padding: 40px 0;
+    padding: 64px 0;
   }
   .landing-origin p {
     font-size: 17px;
   }
   .landing-closing {
     grid-template-columns: minmax(0, 1fr);
-    padding: 48px 0 56px;
+    padding: 72px 0 80px;
   }
   .landing-closing-actions {
     grid-column: 1;
     grid-row: auto;
+  }
+}
+
+/* The cheeky nudge under the demo, for people scrolling straight past it. */
+.flow-nudge {
+  margin: 28px 0 0;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--color-pine);
+  transition:
+    opacity 500ms ease-out,
+    transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.flow-nudge[data-state='waiting'] {
+  opacity: 0;
+  transform: translateY(10px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-art svg *,
+  .flow-nudge,
+  .landing-questions details::details-content {
+    transition: none !important;
   }
 }

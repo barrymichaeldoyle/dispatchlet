@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { BrandText } from './brand-text'
 import { Icon } from './flow-icon'
+import { StepArt, type StepArtKind } from './step-art'
 import { CANDIDATES, PREVIOUS_POST, PROMPT, RULES, STORIES } from '../lib/example-run'
+import { useOnceInView } from '../lib/use-once-in-view'
 
 /**
  * Pieces of the real demo UI, frozen at the moment that explains each step. "done" is the
  * finished state and the default, so the page reads correctly without JavaScript; "waiting"
  * is the state just before it, shown only until the piece scrolls into view.
  */
-type FragmentState = 'waiting' | 'done'
-
 function Swap({ before, after }: { before: ReactNode; after: ReactNode }) {
   return (
     <span className="step-swap">
@@ -135,27 +135,7 @@ function ScheduleFragment() {
 
 /** Holds a fragment in its "before" state until it scrolls into view, then plays once. */
 function StepFigure({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [state, setState] = useState<FragmentState>('done')
-
-  useEffect(() => {
-    const element = ref.current
-    if (!element || typeof IntersectionObserver === 'undefined') return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    // Anything already on screen stays finished; only pieces still below the fold animate.
-    if (element.getBoundingClientRect().top < window.innerHeight) return
-    setState('waiting')
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) return
-        setState('done')
-        observer.disconnect()
-      },
-      { rootMargin: '0px 0px -30% 0px' },
-    )
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
+  const [ref, state] = useOnceInView<HTMLDivElement>()
 
   return (
     <div ref={ref} className={`step-figure ${wide ? 'is-wide' : ''}`} data-state={state}>
@@ -164,30 +144,42 @@ function StepFigure({ children, wide = false }: { children: ReactNode; wide?: bo
   )
 }
 
-const STEPS = [
+const STEPS: {
+  art: StepArtKind
+  title: string
+  text: string
+  figure: ReactNode
+  wide?: boolean
+  more?: boolean
+}[] = [
   {
+    art: 'brief',
     title: 'Describe what you want to post.',
     text: 'One paragraph sets the topic, what to skip, the channels and the schedule.',
     figure: <BriefFragment />,
   },
   {
+    art: 'playbook',
     title: 'Check the playbook it writes.',
     text: 'Sources, voice, rules and timing, in plain words you can edit before the first run.',
     figure: <PlaybookFragment />,
   },
   {
+    art: 'research',
     title: 'It finds new stories and skips repeats.',
     text: 'Every run checks what you’ve already posted. A story you’ve shared before stays out of the queue, and so does company PR.',
     figure: <ResearchFragment />,
     wide: true,
   },
   {
+    art: 'posts',
     title: 'Each story gets a post for every channel.',
     text: 'An X post and a LinkedIn post, each written for its channel.',
     figure: <PostsFragment />,
     more: true,
   },
   {
+    art: 'schedule',
     title: 'The posts land in Buffer.',
     text: 'Spread through the day, or saved as drafts for you to approve. Tomorrow it runs again.',
     figure: <ScheduleFragment />,
@@ -199,17 +191,15 @@ export function RunSteps() {
     <section className="steps" aria-labelledby="run-steps-title">
       <div className="steps-heading">
         <h2 id="run-steps-title" tabIndex={-1}>
-          A run, step by step.
+          Fine, you’d rather read about it.
         </h2>
-        <p>The same example as the demo, one step at a time.</p>
+        <p>Here’s the same run, one step at a time.</p>
       </div>
       <ol className="steps-list">
-        {STEPS.map((step, index) => (
+        {STEPS.map((step) => (
           <li key={step.title} className={`step ${step.wide ? 'is-wide' : ''}`}>
             <div className="step-copy">
-              <span className="step-number" aria-hidden="true">
-                {index + 1}
-              </span>
+              <StepArt kind={step.art} />
               <h3>
                 <BrandText>{step.title}</BrandText>
               </h3>
