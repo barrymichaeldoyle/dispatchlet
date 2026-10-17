@@ -99,7 +99,10 @@ function PostsFragment() {
       <div className="flow-channel-posts">
         {story.posts.map(([channel, text], index) => (
           <div key={channel} style={{ '--step-index': index } as CSSProperties}>
-            <span className="flow-channel">{channel}</span>
+            <span className="flow-channel">
+              {channel}
+              {channel === 'X' ? <span className="flow-count">{text.length} of 280</span> : null}
+            </span>
             <p>{text}</p>
           </div>
         ))}
@@ -112,7 +115,7 @@ function ScheduleFragment() {
   return (
     <div className="step-schedule">
       <p className="step-schedule-status">
-        <BrandText>6 posts scheduled in Buffer · X + LinkedIn</BrandText>
+        <BrandText>6 posts scheduled in Buffer for X and LinkedIn</BrandText>
       </p>
       <ol className="flow-schedule">
         {STORIES.map((story, index) => (
@@ -120,14 +123,14 @@ function ScheduleFragment() {
             <time>{story.time}</time>
             <div>
               <strong>{story.title}</strong>
-              <span>X + LinkedIn · Scheduled</span>
+              <span>Scheduled for X and LinkedIn</span>
             </div>
             <Icon kind="check" />
           </li>
         ))}
       </ol>
       <p className="flow-next">
-        <Icon kind="check" /> Tomorrow, the playbook runs again.
+        <Icon kind="check" /> Next run tomorrow at 08:00.
       </p>
     </div>
   )

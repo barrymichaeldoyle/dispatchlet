@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { TIMING as T, resolveAt } from '../src/lib/example-run'
 
 test('full-screen walkthrough plays from brief to scheduled posts, pauses, and replays', async ({
   page,
@@ -13,7 +14,13 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await page.mouse.click(icon.x + icon.width / 2, icon.y + icon.height / 2)
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
   await expect(demo).toBeVisible()
-  await page.clock.runFor(2000)
+  // Playback time only advances while playing, so track it separately from the clock.
+  let played = 0
+  const playTo = async (time: number) => {
+    await page.clock.runFor(time - played)
+    played = time
+  }
+  await playTo(T.TYPE_START + 1000)
   const brief = demo.getByLabel('Example brief').locator('.flow-stream')
   await expect(brief).toContainText('Find three positive')
   await expect(brief).not.toContainText('schedule each story three hours apart.')
@@ -22,33 +29,31 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await page.clock.runFor(3000)
   await expect(brief).toHaveText(pausedBrief ?? '')
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
-  await page.clock.runFor(10000)
-  await expect(
-    demo.getByRole('heading', { name: 'Set the sources, voice and schedule.' }),
-  ).toBeVisible()
-  await page.clock.runFor(6000)
+  await playTo(T.PLAYBOOK + 600)
+  await expect(demo.getByRole('heading', { name: 'It writes a playbook.' })).toBeVisible()
+  await playTo(T.EVENT_STARTS[1] + 600)
   await expect(demo.getByText('Searching trusted sources')).toBeVisible()
   await expect(
     demo
       .locator('.flow-event p')
-      .filter({ hasText: '5 searches · 4 pages read. Original reporting verified.' }),
+      .filter({ hasText: '5 searches and 4 pages read. Original reporting verified.' }),
   ).toBeVisible()
-  await page.clock.runFor(11000)
+  await playTo(T.POSTS_READY + 300)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await expect(
     demo.locator('.flow-post[data-selected="true"]').getByText('2 posts ready', { exact: true }),
   ).toBeVisible()
-  await page.clock.runFor(5000)
+  await playTo(T.SLOT_START + 2 * T.SLOT_INTERVAL + 300)
   await expect(demo.locator('.flow-schedule li[data-revealed="true"]')).toHaveCount(3)
-  await page.clock.runFor(3000)
+  await playTo(T.DURATION - 1000)
   await expect(demo.locator('.flow-schedule')).toBeVisible()
   await expect(demo.locator('.flow-player')).not.toContainText('Walkthrough complete')
-  await page.clock.runFor(1000)
+  await playTo(T.DURATION + 100)
   await expect(demo.locator('.flow-player')).toContainText('Walkthrough complete')
-  await expect(demo.getByText('6 posts scheduled', { exact: true })).toBeVisible()
+  await expect(demo.locator('.flow-receipt')).toContainText('Scheduled 6 posts.')
   await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
   await expect(demo.getByRole('heading', { name: 'Describe what you want to post.' })).toBeVisible()
-  await expect(demo.getByText('6 posts scheduled', { exact: true })).toHaveCount(0)
+  await expect(demo.locator('.flow-receipt')).not.toBeVisible()
 })
 
 test('closing pauses playback, restores focus and page position, and allows resuming', async ({
@@ -193,9 +198,35 @@ for (const viewport of [
     const recorded = new Map<string, { y: number; height: number }>()
     let previous = 0
     for (const time of [
-      1000, 3000, 6200, 7000, 7600, 8500, 10000, 12000, 14000, 15500, 17500, 19000, 21000, 23000,
-      24500, 26500, 28500, 30500, 32200, 34000, 36000, 38000,
+      1000,
+      2500,
+      3600,
+      4400,
+      5000,
+      6000,
+      7500,
+      8500,
+      9500,
+      11000,
+      12500,
+      13500,
+      14500,
+      15500,
+      16500,
+      17500,
+      19000,
+      20500,
+      22000,
+      23500,
+      24500,
+      25500,
+      26500,
+      27500,
+      30000,
+      T.DURATION,
     ]) {
+      // Opening out from the brief is the one deliberate layout change; measure from there.
+      if (previous < T.EXPAND && time >= T.EXPAND) recorded.clear()
       await page.clock.fastForward(time - previous)
       previous = time
       await expect(demo.getByRole('progressbar')).toHaveAttribute(
@@ -258,24 +289,24 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.runFor(22000)
   const candidates = demo.locator('.flow-candidates')
+  const garden = candidates.locator('li').filter({ hasText: 'The urban garden story' })
+  // The repeat pauses on its match before it is skipped.
+  await page.clock.runFor(T.MATCH + 300)
+  await expect(garden).toHaveAttribute('data-state', 'matching')
+  await expect(garden.locator('[data-active="true"]')).toHaveText('Matches an earlier post')
+  await expect(candidates).toContainText('matches a post you’ve already shared')
+  await page.clock.runFor(resolveAt(4) + 300 - (T.MATCH + 300))
   await expect(candidates.locator('li')).toHaveCount(5)
   await expect(candidates.locator('.is-selected')).toHaveCount(3)
-  await expect(
-    candidates.locator('li').filter({ hasText: 'The urban garden story' }),
-  ).toContainText('Already posted · skipped')
-  await expect(candidates).toContainText('matches a previous post')
-  // Hold the duplicate decision before moving to writing.
-  await page.clock.runFor(1500)
-  await expect(candidates).toBeVisible()
-  await page.clock.runFor(7500)
+  await expect(garden.locator('[data-active="true"]')).toHaveText('Already posted, skipped')
+  await page.clock.runFor(T.WRITING_SETTLED + 500 - (resolveAt(4) + 300))
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toContainText(
     'Wildlife makes a comeback',
   )
   await expect(demo.locator('.flow-post[data-selected="true"] .flow-channel')).toHaveText([
-    'X',
+    /^X\d+ of 280$/,
     'LinkedIn',
   ])
   await expect(demo.locator('.flow-story-results li[data-revealed="true"]')).toHaveCount(2)
@@ -289,7 +320,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await expect(demo.locator('.flow-schedule li')).toHaveCount(3)
   await expect(demo.locator('.flow-schedule')).not.toContainText('urban garden')
   await expect(demo.locator('.flow-schedule')).not.toContainText('company')
-  await expect(demo.getByText('6 posts scheduled', { exact: true })).toBeVisible()
+  await expect(demo.locator('.flow-receipt')).toContainText('Scheduled 6 posts.')
 })
 
 test('restart begins a fresh run from playing, paused and partially typed states', async ({
@@ -302,7 +333,7 @@ test('restart begins a fresh run from playing, paused and partially typed states
   const demo = page.getByRole('dialog')
   const restart = demo.getByRole('button', { name: 'Restart walkthrough' })
   const progress = demo.getByRole('progressbar')
-  await page.clock.runFor(22000)
+  await page.clock.runFor(T.CANDIDATE_START + 1000)
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
@@ -321,12 +352,10 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.locator('.flow-player')).toContainText('Playing · Your brief')
+  await expect(demo.locator('.flow-player')).toContainText('Your brief playing')
   expect(await demo.locator('.flow-workspace').evaluate((el) => el.scrollTop)).toBe(0)
-  await page.clock.runFor(12000)
-  await expect(
-    demo.getByRole('heading', { name: 'Set the sources, voice and schedule.' }),
-  ).toBeVisible()
+  await page.clock.runFor(T.PLAYBOOK + 600)
+  await expect(demo.getByRole('heading', { name: 'It writes a playbook.' })).toBeVisible()
 })
 
 for (const viewport of [
@@ -343,6 +372,12 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+    // The run opens on the brief alone, then opens out once the brief is submitted.
+    await expect(demo.locator('.flow-workspace')).toHaveClass(/is-intro/)
+    await expect(demo.locator('.flow-scene > .flow-panel').first()).toBeHidden()
+    await page.clock.fastForward(T.EXPAND + 150)
+    await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-intro/)
     const brief = demo.getByLabel('Example brief')
     const original = await brief.elementHandle()
     const bounds = await brief.boundingBox()
@@ -356,8 +391,14 @@ for (const viewport of [
     expect(initialColumns).toHaveLength(4)
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
     await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
-    let previous = 0
-    for (const time of [7000, 14000, 22000, 30000, 38000]) {
+    let previous = T.EXPAND + 150
+    for (const time of [
+      T.PLAYBOOK + 1000,
+      T.RESEARCH + 3000,
+      T.POSTS + 2000,
+      T.BUFFER + 2000,
+      T.DURATION,
+    ]) {
       await page.clock.fastForward(time - previous)
       previous = time
       expect(await original!.evaluate((el) => el.isConnected)).toBe(true)
@@ -400,7 +441,7 @@ for (const viewport of [
     await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
     await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
-    await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
+    await expect(demo.locator('.flow-workspace')).toHaveClass(/is-intro/)
   })
 }
 
@@ -412,19 +453,22 @@ test('resizing preserves progress while switching between overview and focused c
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.fastForward(30000)
+  await page.clock.fastForward(T.POSTS + 2000)
   await demo.getByRole('button', { name: 'Pause walkthrough' }).click()
+  const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-overview/)
-  await expect(demo.getByRole('heading', { name: 'Write for each channel.' })).toBeVisible()
+  await expect(
+    demo.getByRole('heading', { name: 'It writes a post for each channel.' }),
+  ).toBeVisible()
   await expect(demo.locator('.flow-playbook')).toHaveCount(0)
   await page.setViewportSize({ width: 1440, height: 900 })
   await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
   await expect(demo.locator('.flow-playbook')).toBeVisible()
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await expect(demo.locator('.flow-post[data-selected="true"]')).toBeVisible()
-  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '30')
+  await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
 })
 
 test('feedback confirms completed work without an elapsed-seconds counter', async ({ page }) => {
@@ -434,11 +478,15 @@ test('feedback confirms completed work without an elapsed-seconds counter', asyn
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
   await expect(demo.locator('.flow-player')).not.toContainText(/\d+.*sec/)
-  await page.clock.fastForward(7000)
+  // The button never claims the playbook exists before it does.
+  await page.clock.fastForward(T.CLICK - 300)
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Create playbook')
-  await page.clock.fastForward(800)
+  await page.clock.fastForward(600)
+  await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Creating playbook')
+  await expect(demo.getByText('Your part’s done. The rest is automatic.')).toBeVisible()
+  await page.clock.fastForward(T.CREATED + 200 - (T.CLICK + 300))
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Playbook created')
-  await page.clock.fastForward(25600)
+  await page.clock.fastForward(T.RECEIPT - 1000 - (T.CREATED + 200))
   await expect(demo.locator('.flow-finish-status .is-active')).toContainText('Scheduling in Buffer')
   await expect(demo.locator('.flow-receipt')).not.toBeVisible()
   await expect(demo.getByRole('button', { name: 'Notify me at launch' })).toHaveCount(0)
@@ -466,7 +514,7 @@ for (const viewport of [
     await page.goto('/')
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
-    await page.clock.fastForward(38000)
+    await page.clock.fastForward(T.DURATION)
     const join = demo.getByRole('button', { name: 'Notify me at launch' })
     await expect(join).toBeInViewport()
     await join.focus()
@@ -490,14 +538,14 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-  await page.clock.fastForward(28000)
+  await page.clock.fastForward(T.POSTS_READY)
   await demo
     .locator('.flow-candidates')
     .getByRole('button', { name: 'Community solar funds local projects' })
     .click()
   const active = demo.locator('.flow-post[data-selected="true"]')
   await expect(active).toContainText('Community-owned solar')
-  await expect(demo.locator('.flow-player')).toContainText('Paused')
+  await expect(demo.locator('.flow-player')).toContainText(/paused/i)
   const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
   await page.clock.fastForward(5000)
   await expect(demo.getByRole('progressbar')).toHaveAttribute('aria-valuenow', progress!)
@@ -542,7 +590,9 @@ test('phone story previews are keyboard accessible and resume the original examp
   const active = demo.locator('.flow-post[data-selected="true"]')
   await expect(active).toBeFocused()
   await expect(active).toContainText('Community-owned solar')
-  await expect(demo.getByRole('heading', { name: 'Write for each channel.' })).toBeVisible()
+  await expect(
+    demo.getByRole('heading', { name: 'It writes a post for each channel.' }),
+  ).toBeVisible()
   await active.getByRole('button', { name: 'First story' }).click()
   await expect(active).toBeFocused()
   await expect(active).toContainText('Wildlife makes a comeback')
@@ -554,7 +604,7 @@ test('phone story previews are keyboard accessible and resume the original examp
   await expect(active).toContainText('Volunteers share their skills')
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await expect(active).toContainText('Wildlife makes a comeback')
-  await expect(demo.locator('.flow-player')).toContainText('Playing')
+  await expect(demo.locator('.flow-player')).toContainText(/playing/i)
 })
 
 test('duplicate evidence pauses playback and Escape returns to the same run', async ({ page }) => {
@@ -563,12 +613,12 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
-  await page.clock.fastForward(22000)
+  await page.clock.fastForward(resolveAt(3) + 300)
   const trigger = demo.getByRole('button', { name: 'The urban garden story: why it was skipped' })
   await trigger.click()
   const detail = page.getByRole('dialog', { name: 'Already shared. Skipped this time.' })
   await expect(detail).toBeVisible()
-  await expect(detail).toContainText('Previous post · illustrative example')
+  await expect(detail).toContainText('Previous post, illustrative example')
   await expect(detail).toContainText('A neighbourhood garden')
   await expect(detail.getByRole('button', { name: 'Close duplicate explanation' })).toBeFocused()
   const progress = await demo.getByRole('progressbar').getAttribute('aria-valuenow')
@@ -578,7 +628,7 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await expect(detail).not.toBeVisible()
   await expect(demo).toBeVisible()
   await expect(trigger).toBeFocused()
-  await expect(demo.locator('.flow-player')).toContainText('Paused')
+  await expect(demo.locator('.flow-player')).toContainText(/paused/i)
 })
 
 for (const viewport of [
@@ -624,7 +674,7 @@ for (const viewport of [
     await watch.click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await expect(demo).toBeVisible()
-    await page.clock.runFor(11000)
+    await page.clock.runFor(T.PLAYBOOK + 1000)
     await demo.getByRole('button', { name: 'Close walkthrough' }).click()
     await expect(watch).toBeFocused()
     await watch.click()
@@ -646,13 +696,14 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-    await page.clock.runFor(4500)
+    await page.clock.runFor(T.TYPE_START + T.TYPE_DURATION - 600)
     await expect(demo.locator('.flow-cursor')).toHaveCount(0)
     await expect(demo.locator('.flow-input .flow-stream')).not.toContainText(
       'schedule each story three hours apart.',
     )
     const cursor = demo.locator('.flow-cursor')
-    const submit = demo.locator('.flow-submit')
+    // The pointer lands on the button's arrow, so the label stays readable.
+    const submit = demo.locator('.flow-submit-icon')
     for (let step = 0; step < 30; step++) {
       if (await cursor.isVisible()) break
       await page.clock.runFor(100)
@@ -662,15 +713,19 @@ for (const viewport of [
       'schedule each story three hours apart.',
     )
     let arrived = false
+    let travelled = false
     for (let step = 0; step < 16; step++) {
       const button = (await submit.boundingBox())!
       const pointer = (await cursor.boundingBox())!
       const dx = Math.abs(pointer.x + 3 - (button.x + button.width / 2))
       const dy = Math.abs(pointer.y + 2 - (button.y + button.height / 2))
-      const clicked = ((await submit.getAttribute('class')) ?? '').includes('is-clicked')
-      // The cursor moves about 7px per sample, so before the click it is only required to still be travelling.
-      if (!clicked) expect(dx).toBeGreaterThan(1)
-      else {
+      const clicked = ((await demo.locator('.flow-submit').getAttribute('class')) ?? '').includes(
+        'is-clicked',
+      )
+      // The cursor moves about 7px per sample, so the test checks it travelled, then sits on the arrow at the click.
+      if (!clicked) {
+        if (dx > 10) travelled = true
+      } else {
         expect(dx).toBeLessThan(2)
         expect(dy).toBeLessThan(2)
         arrived = true
@@ -678,9 +733,10 @@ for (const viewport of [
       }
       await page.clock.runFor(50)
     }
+    expect(travelled).toBe(true)
     expect(arrived).toBe(true)
     const second = Number(await demo.getByRole('progressbar').getAttribute('aria-valuenow'))
-    await page.clock.runFor((18 - second) * 1000)
+    await page.clock.runFor(T.CANDIDATE_START - 1000 - second * 1000)
     const rows = demo.locator('.flow-candidates li')
     const geometry = await rows.evaluateAll((nodes) =>
       nodes.map((n) => n.getBoundingClientRect().y),
@@ -695,7 +751,7 @@ for (const viewport of [
       expect(
         await rows.evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().y)),
       ).toEqual(geometry)
-      if (count < 5) await page.clock.runFor(550)
+      if (count < 5) await page.clock.runFor(T.CANDIDATE_INTERVAL)
     }
   })
 }

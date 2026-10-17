@@ -29,7 +29,7 @@ test('chapters allow inspection without waiting, and Read instead leaves the pla
   const demo = page.getByRole('dialog')
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
-  await expect(demo.locator('.flow-player')).toContainText('Paused · Your posts')
+  await expect(demo.locator('.flow-player')).toContainText('Your posts paused')
   await demo.getByRole('button', { name: 'The playbook', exact: true }).click()
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await demo.getByRole('button', { name: 'Read instead' }).click()

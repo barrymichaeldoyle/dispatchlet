@@ -299,6 +299,10 @@ html {
 .flow-submit.is-clicked {
   transform: scale(0.96);
 }
+.flow-submit-icon {
+  position: relative;
+  display: inline-flex;
+}
 .flow-cursor {
   position: absolute;
   top: calc(50% - 2px);
@@ -327,14 +331,13 @@ html {
   border-bottom: 1px solid var(--color-ink);
   font-weight: 500;
 }
+/* Status is a word in the text, not a badge (§23). */
 .flow-tag {
   display: inline-block;
-  padding: 4px 8px;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   font-weight: 500;
   color: var(--color-pine);
-  background: var(--color-tint);
   white-space: nowrap;
 }
 .flow-rule {
@@ -418,16 +421,11 @@ html {
 }
 .flow-post-heading .flow-tag {
   color: var(--color-muted);
-  background: var(--color-paper);
-  transition:
-    color 200ms,
-    background 200ms;
-  min-width: 76px;
-  text-align: center;
+  transition: color 200ms;
+  text-align: right;
 }
 .flow-post-heading .flow-tag.is-ready {
   color: var(--color-pine);
-  background: var(--color-tint);
 }
 .flow-status-tag {
   display: inline-grid;
@@ -481,14 +479,11 @@ html {
   line-height: 1.65;
 }
 .flow-receipt {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   margin-top: 24px;
   padding: 16px 0;
   border-block: 1px solid var(--color-rule);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
 }
 .flow-player {
   display: flex;
@@ -2880,4 +2875,137 @@ header nav button {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+}
+
+/* Research candidates settle one at a time; the repeat pauses on its match before it is skipped. */
+.flow-candidate-status {
+  display: inline-grid;
+  justify-items: end;
+  flex-shrink: 0;
+}
+.flow-candidate-status > span {
+  grid-area: 1 / 1;
+  transition: opacity 220ms ease-out;
+}
+.flow-candidate-status > [data-active='false'] {
+  opacity: 0;
+}
+.flow-candidates li[data-state='checking'] > span.flow-candidate-status {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+.flow-candidates li.is-duplicate {
+  transition: background 300ms ease-out;
+}
+.flow-candidates li.is-duplicate[data-state='checking'] {
+  background: transparent;
+}
+.flow-candidates li.is-duplicate[data-state='matching'] > span.flow-candidate-status {
+  color: var(--color-pine);
+  font-weight: 500;
+}
+.flow-candidates li.is-selected[data-state='resolved'] > .flow-candidate-status,
+.flow-candidates li.is-duplicate[data-state='resolved'] > .flow-candidate-status {
+  color: var(--color-pine);
+}
+.flow-candidates > p.flow-match-note {
+  color: var(--color-pine);
+}
+.flow-count {
+  margin-left: 10px;
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
+}
+.flow-player-state {
+  color: var(--color-muted);
+}
+
+/* On phones the key moments (the matched repeat, the run summary) must land above the player. */
+.flow-workspace:not(.is-overview) .flow-event:not(.is-informative) p,
+.flow-workspace:not(.is-overview) .flow-success {
+  display: none;
+}
+.flow-workspace:not(.is-overview) .flow-event {
+  min-height: 0;
+}
+
+/* The run opens on the brief alone; submitting it opens out into the full workspace. */
+.flow-workspace.is-overview.is-intro .flow-scene {
+  grid-template-columns: minmax(0, 1fr);
+}
+.is-intro .flow-scene > .flow-panel,
+.is-intro .flow-context > .flow-panel:not(.flow-panel-0) {
+  display: none;
+}
+.flow-workspace.is-intro .flow-context {
+  align-self: center;
+  justify-self: center;
+  width: min(100%, 640px);
+  overflow: visible;
+}
+.is-intro .flow-panel-0 > .flow-panel-title {
+  display: none;
+}
+/* Scoped like the overview rules it overrides: the question leads, the brief reads large. */
+.flow-dialog .is-overview.is-intro .flow-field-label {
+  display: block;
+  margin-bottom: 20px;
+  font-size: 28px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+.flow-dialog .is-overview.is-intro .flow-input {
+  min-height: 150px;
+  padding: 20px;
+  font-size: 19px;
+  line-height: 1.6;
+}
+.flow-dialog .is-overview.is-intro .flow-submit-row {
+  margin-top: 16px;
+}
+.is-overview .flow-panel-0 {
+  view-transition-name: flow-brief;
+}
+::view-transition-group(flow-brief) {
+  animation-duration: 650ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 420ms;
+}
+.flow-handoff {
+  margin: 16px 0 0;
+  color: var(--color-pine);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+.flow-submit .flow-spinner {
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-color: color-mix(in srgb, var(--color-on-pine) 35%, transparent);
+  border-top-color: var(--color-on-pine);
+}
+
+/* Once the workspace is open, the column title names the brief, so the question above it goes. */
+.flow-workspace.is-overview:not(.is-intro) .flow-field-label {
+  display: none;
+}
+
+.is-overview .flow-handoff {
+  margin-top: 10px;
+  font-size: 14px;
+}
+.flow-workspace.is-overview:not(.is-intro) .flow-context {
+  gap: 12px;
+}
+.flow-workspace.is-overview:not(.is-intro) .flow-input {
+  padding: 14px 16px;
+}
+
+.flow-workspace:not(.is-overview) .flow-finish h4,
+.flow-workspace:not(.is-overview) .flow-finish-status {
+  display: none;
 }

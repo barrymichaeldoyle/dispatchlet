@@ -110,7 +110,7 @@ test('the step-by-step run reads in full without JavaScript', async ({ browser }
   await expect(page.locator('.step')).toHaveCount(5)
   await expect(page.locator('.step-figure[data-state="done"]')).toHaveCount(5)
   const steps = page.locator('.steps')
-  await expect(steps.getByText('Already posted · skipped')).toBeVisible()
+  await expect(steps.getByText('Already posted, skipped')).toBeVisible()
   await expect(steps.getByText('Matched in your posting history')).toBeVisible()
   await context.close()
 })
