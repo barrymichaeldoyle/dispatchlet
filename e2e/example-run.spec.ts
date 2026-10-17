@@ -386,7 +386,11 @@ for (const viewport of [
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width)
       expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height)
       if (viewport.height >= 900) {
-        expect(await column.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+        const overflow = await column.evaluate((el) => el.scrollHeight - el.clientHeight)
+        expect(
+          overflow,
+          `${await column.getAttribute('aria-label')} overflows by ${overflow}px`,
+        ).toBeLessThanOrEqual(1)
       } else {
         expect(await column.evaluate((el) => getComputedStyle(el).overflowY)).toMatch(/auto|scroll/)
       }

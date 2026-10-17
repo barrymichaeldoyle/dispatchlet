@@ -1458,7 +1458,7 @@ header nav button {
 }
 .is-overview .flow-event {
   min-height: 0;
-  padding-bottom: 8px;
+  padding-bottom: 4px;
   gap: 8px;
 }
 .is-overview .flow-event strong {
@@ -1468,10 +1468,10 @@ header nav button {
   font-size: 14px;
 }
 .is-overview .flow-candidates {
-  padding-top: 8px;
+  padding-top: 4px;
 }
 .is-overview .flow-candidates ul {
-  margin-block: 8px;
+  margin-block: 4px;
 }
 .is-overview .flow-candidates li {
   flex-direction: column;
@@ -1483,7 +1483,7 @@ header nav button {
   font-size: 13px;
 }
 .is-overview .flow-candidates > p {
-  margin-top: 8px;
+  margin-top: 4px;
 }
 .is-overview .flow-post {
   padding-top: 0;
