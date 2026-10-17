@@ -585,13 +585,15 @@ html {
 }
 
 /*
- * The progress bar is a scrubber. It sits on the bottom edge of the clipped player, so the hit
- * area and the playhead both rise above the line rather than spreading below it.
+ * The progress bar is a scrubber with a permanent round handle, like a video player. The player
+ * clips at its bottom edge, so the bar sits 7px up from it (net height unchanged) to leave room
+ * for the handle below the line.
  */
 .flow-progress {
   position: relative;
   z-index: 1;
   height: 3px;
+  margin: -7px 0 7px;
   background: var(--color-rule);
   cursor: pointer;
   touch-action: none;
@@ -599,9 +601,8 @@ html {
 .flow-progress::before {
   content: '';
   position: absolute;
-  inset: -16px 0 0;
+  inset: -12px 0 -7px;
 }
-/* A ring around a 3px line reads as a double rule, so focus darkens the track and raises a taller playhead. */
 .flow-progress:focus-visible {
   outline: none;
   background: var(--color-muted);
@@ -615,25 +616,25 @@ html {
 }
 .flow-progress-thumb {
   position: absolute;
-  bottom: 0;
-  width: 4px;
-  height: 14px;
-  margin-left: -2px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
   background: var(--color-pine);
+  box-shadow: 0 0 0 2px var(--color-paper);
   pointer-events: none;
-  transform: scaleY(0);
-  transform-origin: bottom;
   transition: transform 120ms ease-out;
 }
 .flow-progress:hover > .flow-progress-thumb,
-.flow-progress:focus-visible > .flow-progress-thumb,
 .flow-progress:active > .flow-progress-thumb {
-  transform: scaleY(1);
+  transform: scale(1.3);
 }
 .flow-progress:focus-visible > .flow-progress-thumb {
-  width: 6px;
-  height: 18px;
-  margin-left: -3px;
+  transform: scale(1.3);
+  box-shadow:
+    0 0 0 2px var(--color-paper),
+    0 0 0 4px var(--color-pine);
 }
 .flow-disclaimer {
   margin: 14px 0 0;
@@ -1304,6 +1305,11 @@ header nav button {
 .flow-demo:not(.is-playing) .flow-progress > .flow-progress-fill {
   transition: none;
 }
+.flow-demo.is-playing .flow-progress-thumb {
+  transition:
+    left 70ms linear,
+    transform 120ms ease-out;
+}
 @keyframes flow-caption-in {
   from {
     opacity: 0.35;
@@ -1817,6 +1823,7 @@ header nav button {
 .flow-schedule li {
   transition:
     background 220ms ease-out,
+    box-shadow 220ms ease-out,
     outline-color 220ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1861,11 +1868,22 @@ header nav button {
   position: absolute;
   inset: 0;
 }
-.flow-candidates li[data-highlighted='true'],
-.flow-schedule li[data-highlighted='true'] {
+.flow-candidates li[data-highlighted='true'] {
   background: var(--color-tint);
   outline: 1px solid var(--color-pine);
   outline-offset: -1px;
+}
+/* The story being inspected looks like its focus ring, filled with tint right out to the ring. */
+.flow-schedule li[data-highlighted='true'] {
+  background: var(--color-tint);
+  box-shadow: 0 0 0 3px var(--color-tint);
+  outline: 2px solid var(--color-pine);
+  outline-offset: 3px;
+}
+/* Its own rule and the next row's would show through the tint, so both step aside. */
+.flow-schedule li[data-highlighted='true'],
+.flow-schedule li[data-highlighted='true'] + li {
+  border-top-color: transparent;
 }
 /*
  * A row whose title is a stretched link gets one ring around the whole row, never a second one on

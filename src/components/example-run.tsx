@@ -1131,9 +1131,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
               className="flow-progress-fill"
               style={{ transform: `scaleX(${elapsed / DURATION})` }}
             />
+            {/* The handle stays fully on the bar at both ends. */}
             <span
               className="flow-progress-thumb"
-              style={{ left: `${(elapsed / DURATION) * 100}%` }}
+              style={{ left: `calc(6px + (100% - 12px) * ${elapsed / DURATION})` }}
             />
           </div>
         </div>
