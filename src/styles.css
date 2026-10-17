@@ -2185,6 +2185,9 @@ header nav button {
     gap: 20px;
     padding: 24px;
   }
+  .flow-poster {
+    margin: -24px -24px 0;
+  }
   .flow-launch-action {
     gap: 8px;
   }
@@ -2297,4 +2300,478 @@ header nav button {
 }
 .flow-launch-action:focus-visible {
   outline: none;
+}
+
+/* The demo's own pieces, frozen at the moment each step of a run happens. "done" is the default,
+   so the page reads correctly without JavaScript; "waiting" shows until a piece scrolls into view. */
+.steps {
+  padding: 64px 0 8px;
+  scroll-margin-top: 24px;
+}
+.steps-heading h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.steps-heading h2 {
+  scroll-margin-top: 24px;
+}
+.steps-heading h2:focus:not(:focus-visible) {
+  outline: none;
+}
+.steps-heading p {
+  margin: 8px 0 0;
+  color: var(--color-muted);
+  font-size: 15px;
+}
+.steps-list {
+  list-style: none;
+  margin: 32px 0 0;
+  padding: 0;
+}
+.step {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  gap: 72px;
+  align-items: start;
+  padding: 56px 0;
+  border-top: 1px solid var(--color-rule);
+}
+.step.is-wide {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 8fr);
+}
+.step-copy {
+  position: sticky;
+  top: 32px;
+}
+.step-number {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--color-pine);
+  font-size: 15px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.step-copy h3 {
+  max-width: 16ch;
+  margin: 0;
+  font-size: clamp(24px, 2.4vw, 31px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  text-wrap: balance;
+}
+.step-copy p {
+  max-width: 38ch;
+  margin: 16px 0 0;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.step-copy .flow-written-posts {
+  margin-top: 20px;
+  font-size: 14px;
+}
+.step-copy .flow-written-posts summary {
+  min-height: 44px;
+  padding: 12px 0;
+  width: fit-content;
+  cursor: pointer;
+  color: var(--color-pine);
+}
+.step-copy .flow-written-posts h4 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.step-copy .flow-written-posts p {
+  max-width: 60ch;
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.step-figure {
+  min-width: 0;
+}
+.step-figure .flow-input {
+  min-height: 0;
+}
+.step-figure .flow-submit {
+  cursor: default;
+}
+.step-figure .flow-channel-posts p,
+.flow-poster .flow-channel-posts p {
+  margin-bottom: 0;
+  font-size: 16px;
+  line-height: 1.65;
+}
+.step-figure .flow-post,
+.flow-poster .flow-post {
+  padding-top: 14px;
+}
+.step-research {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+  gap: 40px;
+  align-items: start;
+}
+.step-research.is-solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.step-research .flow-candidates {
+  border-top-color: var(--color-ink);
+}
+.step-research .flow-candidates li > span:first-child {
+  min-width: 0;
+}
+.flow-candidates li.is-skipped > span:last-child {
+  color: var(--color-muted);
+}
+.step-match {
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-pine);
+}
+.step-match figcaption {
+  color: var(--color-pine);
+  font-size: 15px;
+  font-weight: 500;
+}
+.step-match blockquote {
+  margin: 16px 0 0;
+  font-size: 18px;
+  line-height: 1.55;
+  letter-spacing: -0.01em;
+}
+.step-match p {
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.step-schedule-status {
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--color-ink);
+  font-weight: 500;
+}
+.step-schedule .flow-schedule {
+  margin-top: 0;
+}
+.step-schedule .flow-schedule li:first-child {
+  border-top: 0;
+}
+
+/* One label in a fixed slot: the before and after text share a cell, so nothing reflows. */
+.step-swap {
+  display: inline-grid;
+}
+.step-swap > span {
+  grid-area: 1 / 1;
+  transition: opacity 280ms ease-out;
+}
+[data-state='done'] .step-swap > [data-phase='before'],
+[data-state='waiting'] .step-swap > [data-phase='after'] {
+  opacity: 0;
+}
+
+/* The single state change each piece makes when it arrives. */
+.step-figure .step-swap > span,
+.step-figure .flow-rule,
+.step-figure .flow-candidates li,
+.step-figure .step-match,
+.step-figure .flow-channel-posts p,
+.step-figure .flow-status-tag,
+.step-figure .flow-schedule li,
+.step-figure .flow-next {
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+.step-figure[data-state='waiting'] .flow-submit .flow-check {
+  opacity: 0;
+}
+.step-figure .flow-submit .flow-check {
+  transition: opacity 300ms ease-out 700ms;
+}
+.step-figure .flow-submit .step-swap > span {
+  transition-delay: 600ms;
+}
+.step-figure .flow-rule {
+  transition:
+    opacity 500ms,
+    transform 650ms;
+  transition-delay: calc(var(--step-index) * 160ms + 150ms);
+}
+.step-figure[data-state='waiting'] .flow-rule {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.step-figure .flow-candidates li .step-swap > span {
+  transition-delay: calc(var(--step-index) * 240ms + 300ms);
+}
+.step-figure .flow-candidates li.is-duplicate {
+  transition: background 500ms ease-out 1260ms;
+}
+.step-figure[data-state='waiting'] .flow-candidates li.is-duplicate {
+  background: transparent;
+}
+.step-figure[data-state='waiting'] .flow-candidates li > span:last-child {
+  color: var(--color-muted);
+}
+.step-figure .step-match {
+  transition:
+    opacity 500ms,
+    transform 650ms;
+  transition-delay: 1650ms;
+}
+.step-figure[data-state='waiting'] .step-match {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.step-figure .flow-channel-posts > div p {
+  clip-path: inset(0 0 0 0);
+  transition: clip-path 1100ms;
+  transition-delay: calc(var(--step-index) * 650ms + 200ms);
+}
+.step-figure[data-state='waiting'] .flow-channel-posts > div p {
+  clip-path: inset(0 100% 0 0);
+}
+.step-figure .flow-status-tag {
+  color: var(--color-pine);
+  background: var(--color-tint);
+  transition:
+    color 300ms,
+    background 300ms;
+  transition-delay: 1600ms;
+}
+.step-figure .flow-status-tag .step-swap > span {
+  transition-delay: 1600ms;
+}
+.step-figure[data-state='waiting'] .flow-status-tag {
+  color: var(--color-muted);
+  background: var(--color-paper);
+}
+.step-figure .flow-schedule li {
+  transition:
+    opacity 450ms,
+    transform 600ms;
+  transition-delay: calc(var(--step-index) * 300ms + 200ms);
+}
+.step-figure[data-state='waiting'] .flow-schedule li {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.step-figure .flow-check path {
+  animation-delay: calc(var(--step-index, 0) * 300ms + 500ms);
+}
+.step-figure[data-state='waiting'] .flow-check path {
+  animation: none;
+  stroke-dashoffset: 24;
+}
+.step-figure .flow-next {
+  transition: opacity 400ms 1300ms;
+}
+.step-figure[data-state='waiting'] .flow-next {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-figure *,
+  .step-figure .flow-check path {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* A still of the finished run behind the play button, built from the same pieces. */
+.flow-launch {
+  grid-template-rows: auto auto;
+}
+.flow-poster {
+  position: relative;
+  container-type: inline-size;
+  grid-column: 1 / -1;
+  height: 280px;
+  margin: -28px -28px 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-rule);
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+.flow-poster-canvas {
+  display: grid;
+  grid-template-columns: repeat(4, 400px);
+  gap: 48px;
+  padding: 40px;
+  zoom: 0.6;
+}
+.flow-poster .flow-poster-column {
+  min-width: 0;
+}
+.flow-poster .is-brief .flow-playbook {
+  margin-top: 28px;
+}
+.flow-poster .flow-candidates {
+  border-top: 0;
+  padding-top: 0;
+}
+@container (max-width: 1000px) {
+  .flow-poster-canvas {
+    grid-template-columns: repeat(3, 400px);
+  }
+  .flow-poster .is-brief {
+    display: none;
+  }
+}
+@container (max-width: 700px) {
+  .flow-poster-canvas {
+    grid-template-columns: repeat(2, 400px);
+    zoom: 0.5;
+  }
+  .flow-poster .is-posts {
+    display: none;
+  }
+}
+
+/* Why it exists, in the builder's words. */
+.landing-origin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 48px;
+  padding: 56px 0;
+  border-top: 1px solid var(--color-rule);
+}
+.landing-origin h2 {
+  margin: 4px 0 0;
+  font-size: 19px;
+  font-weight: 500;
+}
+.landing-origin p {
+  max-width: 60ch;
+  margin: 0 0 16px;
+  font-size: 18px;
+  line-height: 1.65;
+}
+.landing-origin .landing-origin-name {
+  margin: 20px 0 0;
+  color: var(--color-muted);
+  font-size: 15px;
+}
+.landing-questions {
+  border-top: 1px solid var(--color-rule);
+}
+
+/* The last thing on the page sends people back to the run. */
+.landing-closing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 48px;
+  align-items: end;
+  padding: 72px 0 80px;
+  border-top: 1px solid var(--color-rule);
+}
+.landing-closing h2 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 500;
+}
+.landing-closing p {
+  grid-column: 1;
+  max-width: 46ch;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.landing-closing-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.landing-closing-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 0 24px 0 10px;
+  background: var(--color-pine);
+  color: var(--color-on-pine);
+  font-size: 17px;
+  font-weight: 500;
+  transition:
+    background 150ms,
+    color 150ms;
+}
+.landing-closing-play:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+.landing-closing-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-on-pine);
+  color: var(--color-pine);
+}
+.landing-closing-play:hover .landing-closing-icon {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+.landing-closing-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 15px;
+}
+
+@media (max-width: 900px) {
+  .step,
+  .step.is-wide {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+    padding: 40px 0;
+  }
+  .step-copy {
+    position: static;
+  }
+  .step-copy h3 {
+    max-width: 22ch;
+  }
+}
+@media (max-width: 680px) {
+  .steps {
+    padding-top: 48px;
+  }
+  .step-research {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+  .step-figure .flow-input {
+    padding: 16px;
+    font-size: 16px;
+  }
+  .flow-poster {
+    height: 200px;
+    margin: -20px -20px 0;
+  }
+  .landing-origin {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 40px 0;
+  }
+  .landing-origin p {
+    font-size: 17px;
+  }
+  .landing-closing {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 48px 0 56px;
+  }
+  .landing-closing-actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
 }

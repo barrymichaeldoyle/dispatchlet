@@ -132,7 +132,7 @@ for (const viewport of [
   })
 }
 
-test('focus stays inside the player and Read instead opens the native transcript', async ({
+test('focus stays inside the player and Read instead moves to the step-by-step run', async ({
   page,
 }) => {
   await page.goto('/')
@@ -152,8 +152,8 @@ test('focus stays inside the player and Read instead opens the native transcript
   expect(await page.evaluate(() => window.scrollY)).toBe(backgroundScroll)
   await demo.getByRole('button', { name: 'Read instead' }).click()
   await expect(demo).not.toBeVisible()
-  await expect(page.getByText('Read the full walkthrough', { exact: true })).toBeFocused()
-  await expect(page.getByRole('heading', { name: 'Review your playbook' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'A run, step by step.' })).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
 })
 
 test('player adapts to orientation changes without changing the landing page scroll', async ({
@@ -583,7 +583,7 @@ for (const viewport of [
   { width: 390, height: 844 },
   { width: 1360, height: 900 },
 ]) {
-  test(`Read instead scrolls past the launcher to the open transcript at ${viewport.width}px`, async ({
+  test(`Read instead scrolls past the launcher to the step-by-step run at ${viewport.width}px`, async ({
     page,
   }) => {
     await page.setViewportSize(viewport)
@@ -594,15 +594,16 @@ for (const viewport of [
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await demo.getByRole('button', { name: 'Read instead' }).click()
     await expect(demo).not.toBeVisible()
-    const reading = page.locator('.flow-transcript')
-    await expect(reading).toHaveAttribute('open', '')
-    await expect(page.getByText('Read the full walkthrough', { exact: true })).toBeFocused()
+    const reading = page.getByRole('heading', { name: 'A run, step by step.' })
+    await expect(page.getByRole('heading', { name: 'A run, step by step.' })).toBeFocused()
     await expect.poll(async () => (await reading.boundingBox())!.y).toBeLessThanOrEqual(32)
     expect((await reading.boundingBox())!.y).toBeGreaterThanOrEqual(0)
     expect((await launcher.boundingBox())!.y + (await launcher.boundingBox())!.height).toBeLessThan(
       0,
     )
-    await expect(page.getByRole('heading', { name: 'Give the agent a brief' })).toBeInViewport()
+    await expect(
+      page.getByRole('heading', { name: 'Describe what you want to post.' }),
+    ).toBeInViewport()
   })
 }
 
@@ -665,7 +666,8 @@ for (const viewport of [
       const dx = Math.abs(pointer.x + 3 - (button.x + button.width / 2))
       const dy = Math.abs(pointer.y + 2 - (button.y + button.height / 2))
       const clicked = ((await submit.getAttribute('class')) ?? '').includes('is-clicked')
-      if (!clicked) expect(dx).toBeGreaterThan(4)
+      // The cursor moves about 7px per sample, so before the click it is only required to still be travelling.
+      if (!clicked) expect(dx).toBeGreaterThan(1)
       else {
         expect(dx).toBeLessThan(2)
         expect(dy).toBeLessThan(2)

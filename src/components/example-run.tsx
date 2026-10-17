@@ -10,6 +10,9 @@ import {
 import { Wordmark } from './wordmark'
 import { BrandText } from './brand-text'
 import { ThemeToggle } from './theme-toggle'
+import { Icon } from './flow-icon'
+import { RunPoster } from './run-steps'
+import { CANDIDATES, PREVIOUS_POST, PROMPT, RULES, RUN_SECONDS, STORIES } from '../lib/example-run'
 
 const TYPE_START = 600
 const TYPE_DURATION = 5800
@@ -37,11 +40,9 @@ const BUFFER = 31900
 const SLOT_START = 32200
 const SLOT_INTERVAL = 900
 const RECEIPT = 34000
-const DURATION = 38000
+const DURATION = RUN_SECONDS * 1000
 const WRITING_SETTLED = 30800
 const TOTAL_SECONDS = DURATION / 1000
-const PROMPT =
-  'Find three positive stories each morning about conservation and communities. Skip company PR and anything we’ve posted before. Write for X and LinkedIn, and schedule each story three hours apart.'
 const STAGES = ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']
 const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
@@ -58,95 +59,11 @@ const NOTES = [
   'Three stories, with a post for X and LinkedIn for each.',
   'Three stories, scheduled three hours apart.',
 ]
-const RULES = [
-  ['Sources', 'Positive News, Good News Network, BBC and The Guardian.'],
-  ['Voice', 'Warm and factual. Specific details, no hype.'],
-  ['Rules', 'Verify the source. Skip company PR and stories already covered.'],
-  ['Delivery', '3 stories each morning · X + LinkedIn · Spread 3 hours apart'],
-]
 const EVENTS = [
   [15400, 'Searching trusted sources', 'Finding fresh conservation and community reporting.'],
   [17100, 'Reading the sources', '5 searches · 4 pages read. Original reporting verified.'],
   [18800, 'Checking what you’ve already covered', 'Matching candidates against previous posts.'],
 ] as const
-const STORIES = [
-  {
-    title: 'Wildlife makes a comeback',
-    time: '09:00',
-    posts: [
-      [
-        'X',
-        'Wildlife is making a comeback after a decade of habitat restoration. Patient conservation pays off. [Source link]',
-      ],
-      [
-        'LinkedIn',
-        'A decade of local conservation work is helping wildlife recover. A reminder that long-term investment in restoring habitats can make a difference. [Source link]',
-      ],
-    ],
-  },
-  {
-    title: 'A repair café brings neighbours together',
-    time: '12:00',
-    posts: [
-      [
-        'X',
-        'A community repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. [Source link]',
-      ],
-      [
-        'LinkedIn',
-        'A neighbourhood repair café turns everyday repairs into community connections. Volunteers share their skills, keeping useful things out of landfill. [Source link]',
-      ],
-    ],
-  },
-  {
-    title: 'Community solar funds local projects',
-    time: '15:00',
-    posts: [
-      [
-        'X',
-        'A community solar project puts its proceeds back into neighbourhood projects. Clean energy, with a local return. [Source link]',
-      ],
-      [
-        'LinkedIn',
-        'Community-owned solar can do more than generate electricity. By reinvesting proceeds locally, this project helps fund the neighbourhood’s own priorities. [Source link]',
-      ],
-    ],
-  },
-]
-const CANDIDATES = [
-  ...STORIES.map(({ title }) => [title, 'Fresh · selected']),
-  ['The urban garden story', 'Already posted · skipped'],
-  ['A company’s new product launch', 'Company PR · skipped'],
-]
-
-function Icon({ kind }: { kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close' }) {
-  return (
-    <svg
-      className={kind === 'check' ? 'flow-check' : undefined}
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {kind === 'play' ? <path d="m9 5 11 7-11 7Z" fill="currentColor" stroke="none" /> : null}
-      {kind === 'pause' ? <path d="M9 5v14M16 5v14" /> : null}
-      {kind === 'replay' ? (
-        <>
-          <path d="M3 10a9 9 0 1 1 2 8M3 4v6h6" />
-        </>
-      ) : null}
-      {kind === 'check' ? <path d="m5 12 4 4L19 6" /> : null}
-      {kind === 'close' ? <path d="m6 6 12 12M6 18 18 6" /> : null}
-      {kind === 'arrow' ? <path d="M5 12h14m-5-5 5 5-5 5" /> : null}
-    </svg>
-  )
-}
-
 function cursorMotion(elapsed: number) {
   const travel = Math.min(1, Math.max(0, (elapsed - CURSOR_START) / CURSOR_TRAVEL))
   return {
@@ -259,7 +176,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   const duplicateDetail = useRef<HTMLDivElement>(null)
   const focusPreview = useRef(false)
   const opener = useRef<HTMLElement | null>(null)
-  const transcript = useRef<HTMLDetailsElement>(null)
   const readAfterClose = useRef(false)
   const joinAfterClose = useRef(false)
   const [focused, setFocused] = useState(false)
@@ -317,10 +233,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   useEffect(() => {
     if (focused || !readAfterClose.current) return
     readAfterClose.current = false
-    if (!transcript.current) return
-    transcript.current.open = true
-    transcript.current.querySelector('summary')?.focus({ preventScroll: true })
-    transcript.current.scrollIntoView({ block: 'start', behavior: reduced ? 'instant' : 'smooth' })
+    const steps = document.getElementById('run-steps-title')
+    if (!steps) return
+    steps.focus({ preventScroll: true })
+    steps.scrollIntoView({ block: 'start', behavior: reduced ? 'instant' : 'smooth' })
   }, [focused, reduced])
 
   useEffect(() => {
@@ -402,12 +318,15 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </div>
       </div>
       <div className="flow-launch">
+        <RunPoster />
         <span className="flow-launch-icon" aria-hidden="true">
           <Icon kind={complete ? 'replay' : 'play'} />
         </span>
         <span id="flow-launch-description" className="flow-launch-copy">
           <strong>Good News Today</strong>
-          <span>A daily news run for X and LinkedIn.</span>
+          <span>
+            A daily news run for X and LinkedIn, start to finish in {RUN_SECONDS} seconds.
+          </span>
         </span>
         <button
           type="button"
@@ -735,10 +654,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                         </button>
                       </div>
                       <p>Previous post · illustrative example</p>
-                      <blockquote>
-                        A neighbourhood garden is turning an unused plot into a place for neighbours
-                        to grow food together.
-                      </blockquote>
+                      <blockquote>{PREVIOUS_POST}</blockquote>
                       <p>
                         The agent matched this finding to the urban garden story in its posting
                         history. It keeps the three fresh stories and leaves this repeat out.
@@ -1029,71 +945,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
       </dialog>
       <noscript>
         <p className="flow-disclaimer">
-          The animation needs JavaScript. You can read the full walkthrough below.
+          The animation needs JavaScript. The steps below show the same run.
         </p>
       </noscript>
       <p className="flow-disclaimer">Illustrative example.</p>
-      <details
-        ref={transcript}
-        className="flow-transcript"
-        onToggle={(event) => {
-          if (event.currentTarget.open) setPlaying(false)
-        }}
-      >
-        <summary>Read the full walkthrough</summary>
-        <ol>
-          <li>
-            <h3>Give the agent a brief</h3>
-            <p>{PROMPT}</p>
-          </li>
-          <li>
-            <h3>Review your playbook</h3>
-            <dl>
-              {RULES.map(([name, value]) => (
-                <div key={name}>
-                  <dt>{name}</dt>
-                  <dd>{value}</dd>
-                </div>
-              ))}
-            </dl>
-          </li>
-          <li>
-            <h3>Follow the research</h3>
-            <p>
-              The agent searches trusted sources, checks original reporting and compares findings
-              with past posts. It keeps three fresh stories and skips both company PR and the
-              previously posted garden story.
-            </p>
-          </li>
-          <li>
-            <h3>See the channel-specific posts</h3>
-            <p>Each fresh story gets its own X and LinkedIn posts.</p>
-            <details className="flow-written-posts">
-              <summary>Read all six example posts</summary>
-              {STORIES.map((story) => (
-                <div key={story.title}>
-                  <h4>{story.title}</h4>
-                  {story.posts.map(([channel, text]) => (
-                    <p key={channel}>
-                      <strong>{channel}:</strong> {text}
-                    </p>
-                  ))}
-                </div>
-              ))}
-            </details>
-          </li>
-          <li>
-            <h3>
-              <BrandText>See the schedule in Buffer</BrandText>
-            </h3>
-            <p>
-              The three stories are scheduled at 09:00, 12:00 and 15:00 for X and LinkedIn. Six
-              posts, three hours apart. The repeated story is left out, and the agent runs again
-              tomorrow. You can also save drafts for review.
-            </p>
-          </li>
-        </ol>
-      </details>
     </section>
   )
 }

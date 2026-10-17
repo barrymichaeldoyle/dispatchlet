@@ -7,6 +7,7 @@ export function SiteFooter() {
   return (
     <footer className="landing-footer">
       <span>
+        <a href={BARRY_URL}>Built in public for Buffer Commit</a>.{' '}
         <BrandText>Built with the Buffer API. Not a Buffer product.</BrandText>
       </span>
       <span>

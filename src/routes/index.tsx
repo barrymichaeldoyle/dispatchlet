@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useRef, useSyncExternalStore } from 'react'
+import { lazy, Suspense, useEffect, useRef, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
 import { SiteFooter } from '../components/site-footer'
+import { RunSteps } from '../components/run-steps'
+import { RUN_SECONDS } from '../lib/example-run'
 import { ThemeToggle } from '../components/theme-toggle'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
@@ -99,6 +101,11 @@ function useNotice(): { notice: Notice; mounted: boolean } {
 function Home() {
   const { notice, mounted } = useNotice()
   const demo = useRef<ExampleRunHandle>(null)
+  const playDemo = (event: MouseEvent<HTMLElement>) => {
+    if (!demo.current) return
+    event.preventDefault()
+    demo.current.play(event.currentTarget)
+  }
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -123,15 +130,7 @@ function Home() {
               </BrandText>
             </p>
             <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
-            <a
-              href="#run"
-              className="landing-demo-link"
-              onClick={(event) => {
-                if (!demo.current) return
-                event.preventDefault()
-                demo.current.play(event.currentTarget)
-              }}
-            >
+            <a href="#run" className="landing-demo-link" onClick={playDemo}>
               Watch the demo<span aria-hidden="true">→</span>
             </a>
           </div>
@@ -154,6 +153,25 @@ function Home() {
         </section>
 
         <ExampleRun ref={demo} />
+        <RunSteps />
+
+        <section className="landing-origin" aria-labelledby="origin-title">
+          <h2 id="origin-title">Why I built it</h2>
+          <div>
+            <p>
+              I run GrandPrixPicks, an F1 predictions game. Keeping its X account current meant the
+              same research every morning: what happened, have we posted it already, is it worth a
+              post. So I wrote a cron job and a hand-written skill file to do it for me.
+            </p>
+            <p>
+              <BrandText>
+                Dispatchlet is that setup, rebuilt so anyone with a Buffer account can describe a
+                topic once and get the same daily run.
+              </BrandText>
+            </p>
+            <p className="landing-origin-name">Barry Michael Doyle</p>
+          </div>
+        </section>
 
         <section className="landing-questions" aria-labelledby="questions-title">
           <h2 id="questions-title">Before you join</h2>
@@ -162,10 +180,26 @@ function Home() {
               <summary>Can I review posts before they go out?</summary>
               <p>
                 <BrandText>
-                  Yes. Save drafts in Buffer for review, or choose automatic scheduling. You set the
-                  sources, voice and rules, and can see what the agent researched and why it kept or
-                  skipped a story.
+                  Yes. By default every post is saved as a draft in Buffer for you to approve.
+                  Switch to automatic scheduling when you trust it. You set the sources, voice and
+                  rules, and can see what the agent researched and why it kept or skipped a story.
                 </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>Which channels does it support?</summary>
+              <p>
+                <BrandText>
+                  X, LinkedIn, Threads, Bluesky and Mastodon, through your Buffer account. Channels
+                  that need an image with every post, like Instagram, are not supported yet.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>What does it cost?</summary>
+              <p>
+                Your first 10 runs are free. After that you can add your own Anthropic API key and
+                keep running on it.
               </p>
             </details>
             <details>
@@ -182,6 +216,39 @@ function Home() {
                 collected and who handles it.
               </p>
             </details>
+          </div>
+        </section>
+
+        <section className="landing-closing" aria-labelledby="closing-title">
+          <h2 id="closing-title">Watch a full run.</h2>
+          <p>
+            <BrandText>
+              {`It takes ${RUN_SECONDS} seconds and goes from one paragraph to six posts in Buffer. If you scrolled past it, it’s worth the time.`}
+            </BrandText>
+          </p>
+          <div className="landing-closing-actions">
+            <button type="button" className="landing-closing-play" onClick={playDemo}>
+              <span aria-hidden="true" className="landing-closing-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m9 5 11 7-11 7Z" fill="currentColor" />
+                </svg>
+              </span>
+              Watch the full run
+            </button>
+            <a
+              href="#waitlist-email"
+              onClick={(event) => {
+                const target =
+                  document.getElementById('waitlist-email') ??
+                  document.querySelector<HTMLElement>('.waitlist-confirmation')
+                if (!target) return
+                event.preventDefault()
+                target.focus({ preventScroll: true })
+                target.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }}
+            >
+              Get the launch email
+            </a>
           </div>
         </section>
       </main>

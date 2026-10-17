@@ -20,7 +20,7 @@ test('keyboard users can skip navigation and keep focus when starting the demo',
   await expect(demo.locator('.flow-launch-action')).toBeFocused()
 })
 
-test('chapters allow inspection without waiting, and the transcript pauses playback', async ({
+test('chapters allow inspection without waiting, and Read instead leaves the player', async ({
   page,
 }) => {
   await page.goto('/')
@@ -33,7 +33,7 @@ test('chapters allow inspection without waiting, and the transcript pauses playb
   await demo.getByRole('button', { name: 'The playbook', exact: true }).click()
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await demo.getByRole('button', { name: 'Read instead' }).click()
-  await expect(page.getByRole('heading', { name: 'Review your playbook' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
   await expect(demo).not.toBeVisible()
 })
 
@@ -154,8 +154,7 @@ test('search and social metadata are rendered on the server', async ({
     url: 'https://dispatchlet.com/',
   })
   await expect(page.getByRole('button', { name: 'Play the demo', exact: true })).toBeDisabled()
-  await page.getByText('Read the full walkthrough', { exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Review your playbook' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
   expect(await robots.text()).toContain('Sitemap: https://dispatchlet.com/sitemap.xml')
