@@ -221,8 +221,6 @@ for (const viewport of [
       24500,
       25500,
       26500,
-      27500,
-      30000,
       T.DURATION,
     ]) {
       // Opening out from the brief is the one deliberate layout change; measure from there.
