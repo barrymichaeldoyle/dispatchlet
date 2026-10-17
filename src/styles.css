@@ -2877,7 +2877,7 @@ header nav button {
   min-height: 44px;
 }
 
-/* Research candidates settle one at a time; the repeat pauses on its match before it is skipped. */
+/* Stories settle one at a time; the repeat pauses on its match before it is skipped. */
 .flow-candidate-status {
   display: inline-grid;
   justify-items: end;
@@ -3010,7 +3010,7 @@ header nav button {
   display: none;
 }
 
-/* Research candidates read at a glance: a mark, the story, and what happened to it. */
+/* Found stories read at a glance: a mark, the story, and what happened to it. */
 .flow-candidates li {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;

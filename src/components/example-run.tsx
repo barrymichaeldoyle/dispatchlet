@@ -88,7 +88,7 @@ const EVENTS = [
   [
     EVENT_STARTS[2],
     'Checking what you’ve already covered',
-    'Matching candidates against previous posts.',
+    'Matching each story against your previous posts.',
   ],
 ] as const
 function cursorMotion(elapsed: number) {
@@ -654,7 +654,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                     data-revealed={elapsed >= CANDIDATE_START}
                     aria-hidden={elapsed < CANDIDATE_START || undefined}
                   >
-                    <strong>Research candidates</strong>
+                    <strong>Stories found</strong>
                     <ul>
                       {CANDIDATES.map(([title, status], index) => (
                         <li
@@ -892,10 +892,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 waiting="Posts will be spaced through the day."
               >
                 <div className="flow-finish">
-                  <div className="flow-success">
-                    <Icon kind="check" />
-                  </div>
-                  <h4>Three stories. A full day covered.</h4>
                   <p className="flow-finish-status">
                     <span
                       className={elapsed < RECEIPT ? 'is-active' : ''}

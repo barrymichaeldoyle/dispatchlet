@@ -242,8 +242,8 @@ function Home() {
             <details>
               <summary>What does it cost?</summary>
               <p>
-                Your first 10 runs are free. After that you can add your own Anthropic API key and
-                keep running on it.
+                Your first 10 runs are free. After that, add your own Anthropic API key and
+                Dispatchlet runs on your key.
               </p>
             </details>
             <details>

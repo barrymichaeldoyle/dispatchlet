@@ -59,7 +59,7 @@ export const RULES = [
   ['Sources', 'Positive News, Good News Network, BBC and The Guardian.'],
   ['Voice', 'Warm and factual. Specific details, no hype.'],
   ['Rules', 'Verify the source. Skip company PR and stories already covered.'],
-  ['Delivery', '3 stories each morning for X and LinkedIn, 3 hours apart.'],
+  ['Delivery', 'Research at 08:00. Post from 09:00, 3 hours apart.'],
 ]
 export const STORIES = [
   {

@@ -61,7 +61,7 @@ function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
   return (
     <div className={`step-research ${withMatch ? '' : 'is-solo'}`}>
       <div className="flow-candidates">
-        <strong>Research candidates</strong>
+        <strong>Stories found</strong>
         <ul>
           {CANDIDATES.map(([title, status], index) => (
             <li
