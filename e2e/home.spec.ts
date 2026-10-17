@@ -5,7 +5,7 @@ test('home page loads with the tagline and the waiting list', async ({ page }) =
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await expect(page).toHaveTitle(/Dispatchlet/)
   await expect(page.getByRole('heading', { level: 1 })).toContainText(
-    'An agent that researches and writes your social posts.',
+    'An agent that researches and writes your Buffer posts.',
   )
   await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeVisible()

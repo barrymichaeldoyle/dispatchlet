@@ -2309,12 +2309,18 @@ header nav button {
   display: inline-block;
   white-space: nowrap;
 }
-.inline-wordmark > span {
-  font-size: 1em !important;
+/* The drawing's baseline sits at 18.5 of 24 units, so it hangs 0.229 of its height below the text baseline. */
+.inline-wordmark .wordmark {
+  height: 1.31em;
+  width: auto;
+  vertical-align: -0.3em;
 }
-.inline-wordmark svg {
-  width: 0.8em;
-  height: 0.771em;
+.wordmark {
+  display: block;
+  flex-shrink: 0;
+}
+.inline-wordmark .wordmark {
+  display: inline-block;
 }
 .buffer-wordmark {
   display: inline-block;
@@ -2855,4 +2861,23 @@ header nav button {
   .landing-questions details::details-content {
     transition: none !important;
   }
+}
+
+/* Buffer Commit context: a quiet line in the hero, links in the section further down. */
+.landing-commit-line {
+  max-width: 48ch;
+  margin: 20px 0 0;
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.landing-commit-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 28px;
+}
+.landing-commit-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }

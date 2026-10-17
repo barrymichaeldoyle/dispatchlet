@@ -26,7 +26,7 @@ export function BrandText({ children }: { children: string }) {
   return children.split(/\b(Dispatchlet|Buffer)\b/).map((part, index) =>
     part === 'Dispatchlet' ? (
       <span key={index} className="inline-wordmark">
-        <Wordmark />
+        <Wordmark inline />
       </span>
     ) : part === 'Buffer' ? (
       <BufferWordmark key={index} />

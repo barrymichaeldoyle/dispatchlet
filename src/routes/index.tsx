@@ -70,6 +70,9 @@ export const Route = createFileRoute('/')({
 
 type Notice = 'confirmed' | 'unsubscribed' | null
 
+const BUILD_LOG_URL = 'https://x.com/barrymdoyle'
+const COMMITS_URL = 'https://github.com/barrymichaeldoyle/dispatchlet/commits/main'
+
 const noop = () => () => {}
 
 /** True after hydration only, so the server and the first client render agree. */
@@ -114,7 +117,7 @@ function Home() {
       </a>
       <header className="landing-header">
         <div className="landing-header-inner">
-          <Wordmark size="sm" />
+          <Wordmark size="md" />
           <ThemeToggle name="theme" />
         </div>
       </header>
@@ -122,7 +125,7 @@ function Home() {
       <main id="main-content" tabIndex={-1} className="landing-main">
         <section className="landing-hero" aria-labelledby="product-title">
           <div className="landing-message">
-            <h1 id="product-title">An agent that researches and writes your social posts.</h1>
+            <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
                 Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared
@@ -136,6 +139,10 @@ function Home() {
               </svg>
               Watch the demo
             </a>
+            <p className="landing-commit-line">
+              Built in public for Buffer Commit, Buffer’s API hackathon.{' '}
+              <a href={BUILD_LOG_URL}>Follow the build</a>
+            </p>
           </div>
           <div className="landing-signup">
             <h2>Get the launch email.</h2>
@@ -177,6 +184,26 @@ function Home() {
           </div>
         </section>
 
+        <section className="landing-origin" aria-labelledby="commit-title">
+          <h2 id="commit-title">Built for Buffer Commit</h2>
+          <div>
+            <p>
+              Dispatchlet is my entry for Buffer Commit, Buffer’s API hackathon. It runs entirely on
+              the public Buffer API. You’ll sign in with your Buffer account, and every post lands
+              in your own Buffer queue or drafts.
+            </p>
+            <p>
+              The build window runs from 28 October to 13 November. The landing page and tooling
+              came first. Everything after the pre-window tag in the repository is written during
+              the window, in public.
+            </p>
+            <p className="landing-commit-links">
+              <a href={COMMITS_URL}>See every commit</a>
+              <a href={BUILD_LOG_URL}>Follow the build on X</a>
+            </p>
+          </div>
+        </section>
+
         <section className="landing-questions" aria-labelledby="questions-title">
           <h2 id="questions-title">Before you join</h2>
           <div>
@@ -187,6 +214,15 @@ function Home() {
                   Yes. By default every post is saved as a draft in Buffer for you to approve.
                   Switch to automatic scheduling when you trust it. You set the sources, voice and
                   rules, and can see what the agent researched and why it kept or skipped a story.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>Do I need a Buffer account?</summary>
+              <p>
+                <BrandText>
+                  Yes. You sign in with Buffer, so there is no separate account to create, and posts
+                  go straight to the channels you already have connected there.
                 </BrandText>
               </p>
             </details>

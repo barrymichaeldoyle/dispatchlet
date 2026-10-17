@@ -38,7 +38,7 @@ export function LegalPage({
       <header className="landing-header">
         <div className="landing-header-inner">
           <a href="/" className="legal-home">
-            <Wordmark size="sm" />
+            <Wordmark size="md" />
           </a>
           <ThemeToggle name="theme" />
         </div>
