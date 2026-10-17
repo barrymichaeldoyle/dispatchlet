@@ -64,6 +64,7 @@ export const RULES = [
 export const STORIES = [
   {
     title: 'Wildlife makes a comeback',
+    source: 'BBC',
     time: '09:00',
     posts: [
       [
@@ -78,6 +79,7 @@ export const STORIES = [
   },
   {
     title: 'A repair café brings neighbours together',
+    source: 'Positive News',
     time: '12:00',
     posts: [
       [
@@ -92,6 +94,7 @@ export const STORIES = [
   },
   {
     title: 'Community solar funds local projects',
+    source: 'The Guardian',
     time: '15:00',
     posts: [
       [
@@ -106,9 +109,9 @@ export const STORIES = [
   },
 ]
 export const CANDIDATES = [
-  ...STORIES.map(({ title }) => [title, 'New, selected']),
-  ['The urban garden story', 'Already posted, skipped'],
-  ['A company’s new product launch', 'Company PR, skipped'],
+  ...STORIES.map(({ title, source }) => [title, 'New, selected', source]),
+  ['The urban garden story', 'Already posted, skipped', 'Good News Network'],
+  ['A company’s new product launch', 'Company PR, skipped', 'Press release'],
 ]
 
 export const PREVIOUS_POST =

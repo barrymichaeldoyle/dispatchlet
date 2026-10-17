@@ -659,7 +659,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   >
                     <strong>Stories found</strong>
                     <ul>
-                      {CANDIDATES.map(([title, status], index) => (
+                      {CANDIDATES.map(([title, status, source], index) => (
                         <li
                           key={title}
                           data-highlighted={selectedStory === index}
@@ -708,6 +708,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           ) : (
                             <span>{title}</span>
                           )}
+                          <span className="flow-candidate-source">{source}</span>
                           <span className="flow-candidate-status">
                             {/* Every label this row can show shares one cell, so its width never changes. */}
                             {(index === 3

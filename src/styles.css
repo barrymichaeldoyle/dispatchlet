@@ -19,6 +19,7 @@
   --color-pine: #0f6e56;
   --color-tint: #e3f0eb;
   --color-on-pine: #f4f4f1;
+  --color-card: #fbfbf9;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,6 +31,7 @@
     --color-pine: #5cc9a8;
     --color-tint: #1a2a25;
     --color-on-pine: #161616;
+    --color-card: #1d1d1c;
     color-scheme: dark;
   }
 }
@@ -46,6 +48,7 @@
   --color-pine: #5cc9a8;
   --color-tint: #1a2a25;
   --color-on-pine: #161616;
+  --color-card: #1d1d1c;
   color-scheme: dark;
 }
 
@@ -3195,4 +3198,177 @@ header nav button {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 18px;
+}
+
+/*
+ * Cards in the demo (Barry's call, 2026-10-17): found stories and channel posts are things the
+ * agent made, so each one sits on its own card. Square corners and the palette still apply.
+ * The card face is drawn on ::before so it can pop in without moving the row, which keeps the
+ * streaming layout test steady.
+ */
+.flow-research .flow-candidates ul,
+.flow-writing .flow-story-results {
+  display: grid;
+  gap: 6px;
+}
+.flow-research .flow-candidates li,
+.flow-writing .flow-story-results li,
+.flow-writing .flow-post-preview {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+}
+.flow-research .flow-candidates li::before,
+.flow-writing .flow-story-results li::before,
+.flow-writing .flow-post-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  transition:
+    transform 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2),
+    border-color 300ms ease-out,
+    background 300ms ease-out;
+}
+.flow-research .flow-candidates li[data-revealed='false']::before,
+.flow-writing .flow-story-results li[data-revealed='false']::before,
+.flow-writing .flow-reveal[data-revealed='false'] .flow-post-preview::before {
+  transform: translateY(6px) scale(0.94);
+}
+
+/* A found story: where it came from and what happened to it, then the headline. */
+.is-overview .flow-research .flow-candidates li,
+.flow-research .flow-candidates li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'source mark status'
+    'title title title';
+  align-items: center;
+  column-gap: 6px;
+  row-gap: 1px;
+  padding: 7px 12px 8px;
+  font-size: 14px;
+}
+.flow-research .flow-candidates li > .flow-candidate-mark {
+  grid-area: mark;
+  width: 14px;
+  height: 14px;
+}
+.flow-research .flow-candidates li > .flow-candidate-mark svg {
+  width: 14px;
+  height: 14px;
+}
+.flow-research .flow-candidates li > :nth-child(2) {
+  grid-area: title;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-ink);
+  text-decoration: none;
+}
+.flow-research .flow-candidates li > .flow-candidate-source {
+  grid-area: source;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--color-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-overview .flow-research .flow-candidates li > .flow-candidate-status,
+.flow-research .flow-candidates li > .flow-candidate-status {
+  grid-area: status;
+  justify-self: end;
+  font-size: 12px;
+  font-weight: 500;
+}
+.flow-research .flow-candidates li .flow-story-link:hover {
+  color: var(--color-pine);
+}
+.flow-research .flow-candidates li:has(.flow-story-link:hover)::before {
+  border-color: var(--color-pine);
+}
+
+/* Kept stories get a pine status; the one that matches an earlier post is tinted while it is checked. */
+.flow-research .flow-candidates li[data-state='checking'] > .flow-candidate-status {
+  color: var(--color-muted);
+}
+.flow-research .flow-candidates li.is-duplicate[data-state='matching']::before {
+  border-color: var(--color-pine);
+  background: var(--color-tint);
+}
+.flow-research .flow-candidates li[data-highlighted='true'] {
+  outline: 0;
+  background: transparent;
+}
+.flow-research .flow-candidates li[data-highlighted='true']::before {
+  border-color: var(--color-pine);
+  background: var(--color-tint);
+}
+
+/* Skipped stories stay in the list as flat, dashed cards in grey: same parts, clearly not going out. */
+.flow-research .flow-candidates li:not(.is-selected)[data-state='resolved'] {
+  background: transparent;
+}
+.flow-research .flow-candidates li:not(.is-selected)[data-state='resolved']::before {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+}
+.flow-research .flow-candidates li:not(.is-selected)[data-state='resolved'] > :nth-child(2) {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.flow-research
+  .flow-candidates
+  li:not(.is-selected)[data-state='resolved']
+  > .flow-candidate-status,
+.flow-research .flow-candidates li:not(.is-selected)[data-state='resolved'] > .flow-candidate-mark {
+  color: var(--color-muted);
+}
+
+/* Channel posts are cards too: the post as it will look, and a card per finished story. */
+.flow-writing .flow-channel-posts {
+  display: grid;
+  gap: 10px;
+}
+.flow-writing .flow-post-preview {
+  padding: 12px 14px 14px;
+}
+.flow-writing .flow-post-preview p {
+  margin-bottom: 0;
+}
+.is-overview .flow-writing .flow-story-results {
+  margin-top: 14px;
+  padding-top: 0;
+  border-top: 0;
+}
+.is-overview .flow-writing .flow-story-results li,
+.flow-writing .flow-story-results li {
+  padding: 10px 12px;
+  border-bottom: 0;
+}
+.flow-writing .flow-story-results li .flow-story-link {
+  text-decoration: none;
+}
+.flow-writing .flow-story-results li:has(.flow-story-link:hover)::before {
+  border-color: var(--color-pine);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-research .flow-candidates li::before,
+  .flow-writing .flow-story-results li::before,
+  .flow-writing .flow-post-preview::before {
+    transition: none;
+  }
+  .flow-research .flow-candidates li[data-revealed='false']::before,
+  .flow-writing .flow-story-results li[data-revealed='false']::before,
+  .flow-writing .flow-reveal[data-revealed='false'] .flow-post-preview::before {
+    transform: none;
+  }
 }
