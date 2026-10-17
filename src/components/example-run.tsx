@@ -506,6 +506,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   stage={viewStage}
                   overview={overview}
                   title="Your brief"
+                  icon={<Icon kind="brief" />}
                   waiting=""
                 >
                   <div className="flow-prompt">
@@ -582,6 +583,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   stage={viewStage}
                   overview={overview}
                   title="The playbook"
+                  icon={<Icon kind="playbook" />}
                   waiting="Your brief will become an editable playbook."
                 >
                   <div className="flow-playbook">
@@ -617,6 +619,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 stage={viewStage}
                 overview={overview}
                 title="Research"
+                icon={<Icon kind="research" />}
                 waiting="The agent will search and check previous posts."
               >
                 <div className="flow-research">
@@ -781,6 +784,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 stage={viewStage}
                 overview={overview}
                 title="Channel posts"
+                icon={<Icon kind="posts" />}
                 waiting="The stories it keeps will become posts for each channel."
               >
                 <div className="flow-writing">

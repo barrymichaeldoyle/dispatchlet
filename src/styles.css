@@ -3112,8 +3112,8 @@ header nav button {
   margin-left: 0;
 }
 
-/* The Buffer column carries Buffer's mark and a picture of the day. */
-.flow-panel-title .brand-mark {
+/* Each column title carries an icon; the Buffer column uses Buffer's mark and a picture of the day. */
+.flow-panel-title svg {
   display: inline-block;
   margin-right: 8px;
   vertical-align: -2px;
