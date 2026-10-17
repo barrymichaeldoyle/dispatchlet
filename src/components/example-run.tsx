@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -495,7 +496,12 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           </div>
         </header>
         <div className={`flow-demo ${playing ? 'is-playing' : ''}`}>
-          <ol className="flow-stages" aria-label="Demo progress">
+          <ol
+            className="flow-stages"
+            aria-label="Demo progress"
+            data-started={started}
+            style={{ '--stage': viewStage } as CSSProperties}
+          >
             {STAGES.map((name, index) => (
               <li
                 key={name}
