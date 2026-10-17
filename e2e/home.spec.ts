@@ -9,7 +9,7 @@ test('home page loads with the tagline and the waiting list', async ({ page }) =
   )
   await expect(page.getByLabel('Email', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeVisible()
-  await expect(page.getByText('Opens 28 October.')).toBeVisible()
+  await expect(page.getByText('Sign-up opens 7 November.')).toBeVisible()
 })
 
 test('joining the waiting list shows a position', async ({ page }) => {

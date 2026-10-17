@@ -794,13 +794,13 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                               className={`flow-tag flow-status-tag ${selectedStory !== null || elapsed >= POSTS_READY ? 'is-ready' : ''}`}
                             >
                               {/* Both labels share one cell, so the tag never changes width or wraps. */}
-                              {(['Writing', '2 posts ready'] as const).map((label, index) => {
+                              {(['Writing', '2 posts ready'] as const).map((text, index) => {
                                 const active =
                                   (selectedStory !== null || elapsed >= POSTS_READY) ===
                                   (index === 1)
                                 return (
-                                  <span key={label} aria-hidden={!active} data-active={active}>
-                                    {label}
+                                  <span key={text} aria-hidden={!active} data-active={active}>
+                                    {text}
                                   </span>
                                 )
                               })}

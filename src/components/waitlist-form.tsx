@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type FormEvent,
-  type MouseEventHandler,
-} from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { isValidEmail } from '../../convex/lib/email'
 import { track } from '../integrations/posthog/track'
 import { WAITLIST_ACTION } from '../lib/waitlist'
@@ -36,11 +29,7 @@ function readAttribution() {
 
 const subscribe = () => () => {}
 
-export function WaitlistForm({
-  onWatchDemo,
-}: {
-  onWatchDemo?: MouseEventHandler<HTMLAnchorElement>
-}) {
+export function WaitlistForm() {
   const enhanced = useSyncExternalStore(
     subscribe,
     () => true,
@@ -157,9 +146,6 @@ export function WaitlistForm({
           </div>
         </form>
       )}
-      <a href="#run" className="waitlist-demo-link" onClick={onWatchDemo}>
-        Watch the demo<span aria-hidden="true"> →</span>
-      </a>
     </div>
   )
 }

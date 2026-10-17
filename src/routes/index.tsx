@@ -19,7 +19,7 @@ const WaitlistCount = lazy(() =>
 const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet — Research and social posts, ready for Buffer'
 const DESCRIPTION =
-  'Dispatchlet researches trusted sources, writes social posts for each channel, and sends drafts or scheduled posts to Buffer. Opens 28 October.'
+  'Dispatchlet researches trusted sources, writes social posts for each channel, and sends drafts or scheduled posts to Buffer. Sign-up opens 7 November.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -123,22 +123,27 @@ function Home() {
               </BrandText>
             </p>
             <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
-          </div>
-          <div className="landing-signup">
-            <h2>Get the launch email.</h2>
-            <WaitlistForm
-              onWatchDemo={(event) => {
+            <a
+              href="#run"
+              className="landing-demo-link"
+              onClick={(event) => {
                 if (!demo.current) return
                 event.preventDefault()
                 demo.current.play(event.currentTarget)
               }}
-            />
+            >
+              Watch the demo<span aria-hidden="true">→</span>
+            </a>
+          </div>
+          <div className="landing-signup">
+            <h2>Get the launch email.</h2>
+            <WaitlistForm />
             <p className="landing-notice" aria-live="polite">
               {notice === 'confirmed'
                 ? 'Thanks, you are on the list.'
                 : notice === 'unsubscribed'
                   ? 'You are off the list and will not get the launch email.'
-                  : 'Opens 28 October. One launch email.'}
+                  : 'Sign-up opens 7 November. One launch email.'}
               {mounted && convexConfigured ? (
                 <Suspense fallback={null}>
                   <WaitlistCount />

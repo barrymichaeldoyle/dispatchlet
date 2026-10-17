@@ -63,7 +63,11 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-feature-settings: 'tnum';
+}
+
+/* Tabular figures widen punctuation in this face, so they apply only where numbers line up. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 @layer base {
@@ -730,7 +734,7 @@ html {
   outline: none;
 }
 .waitlist-slot {
-  min-height: 204px;
+  min-height: 156px;
 }
 .waitlist-label {
   display: block;
@@ -786,11 +790,14 @@ html {
   font-size: 13px;
   line-height: 20px;
 }
-.waitlist-demo-link {
+.landing-demo-link {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 44px;
-  font-size: 14px;
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 500;
 }
 .waitlist-confirmation {
   min-height: 144px;
@@ -1156,7 +1163,6 @@ header nav button {
 .flow-schedule time {
   font-size: 21px;
   letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
   color: var(--color-pine);
 }
 .flow-schedule li > div {
@@ -1974,7 +1980,7 @@ header nav button {
   flex-direction: column;
 }
 .landing-signup .waitlist-slot {
-  min-height: 204px;
+  min-height: 156px;
 }
 .landing-signup .waitlist-fields input {
   flex: none;
@@ -2256,9 +2262,6 @@ header nav button {
   .flow-launch {
     transition: none;
   }
-}
-.waitlist-demo-link {
-  gap: 6px;
 }
 .landing-questions summary::marker {
   color: var(--color-pine);

@@ -8,7 +8,12 @@ const SHOW_FROM = 25
 function Count() {
   const count = useQuery(api.waitlist.count)
   if (count === undefined || count < SHOW_FROM) return null
-  return <> {count} people are waiting.</>
+  return (
+    <>
+      {' '}
+      <span className="tabular">{count}</span> people are waiting.
+    </>
+  )
 }
 
 class CountBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
