@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { BrandText } from './brand-text'
 import { Icon } from './flow-icon'
+import { ChannelMark } from './brand-icons'
+import { PostPreview } from './post-preview'
 import { StepArt, type StepArtKind } from './step-art'
 import { CANDIDATES, PREVIOUS_POST, PROMPT, RULES, STORIES } from '../lib/example-run'
 import { useOnceInView } from '../lib/use-once-in-view'
@@ -67,6 +69,9 @@ function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
               className={index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : 'is-skipped'}
               style={{ '--step-index': index } as CSSProperties}
             >
+              <span className="flow-candidate-mark" aria-hidden="true">
+                <Icon kind={index < 3 ? 'check' : 'skip'} />
+              </span>
               <span>{title}</span>
               <span>
                 <Swap before="Checking" after={status} />
@@ -99,11 +104,9 @@ function PostsFragment() {
       <div className="flow-channel-posts">
         {story.posts.map(([channel, text], index) => (
           <div key={channel} style={{ '--step-index': index } as CSSProperties}>
-            <span className="flow-channel">
-              {channel}
-              {channel === 'X' ? <span className="flow-count">{text.length} of 280</span> : null}
-            </span>
-            <p>{text}</p>
+            <PostPreview channel={channel} length={text.length}>
+              {text}
+            </PostPreview>
           </div>
         ))}
       </div>
@@ -123,7 +126,11 @@ function ScheduleFragment() {
             <time>{story.time}</time>
             <div>
               <strong>{story.title}</strong>
-              <span>Scheduled for X and LinkedIn</span>
+              <span className="flow-slot-channels">
+                <ChannelMark channel="X" size={12} />
+                <ChannelMark channel="LinkedIn" size={12} />
+                Scheduled
+              </span>
             </div>
             <Icon kind="check" />
           </li>

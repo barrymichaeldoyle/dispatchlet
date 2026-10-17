@@ -34,9 +34,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await playTo(T.EVENT_STARTS[1] + 600)
   await expect(demo.getByText('Searching trusted sources')).toBeVisible()
   await expect(
-    demo
-      .locator('.flow-event p')
-      .filter({ hasText: '5 searches and 4 pages read. Original reporting verified.' }),
+    demo.locator('.flow-event p').filter({ hasText: '4 pages read, original reporting verified.' }),
   ).toBeVisible()
   await playTo(T.POSTS_READY + 300)
   await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
@@ -255,8 +253,11 @@ for (const viewport of [
                 : element.classList.contains('flow-document-title')
                   ? 'document'
                   : element.matches('.flow-candidates li')
-                    ? element.querySelector('button, span')?.textContent
-                    : (element.querySelector('strong')?.textContent ??
+                    ? element.children[1]?.textContent
+                    : (element
+                        .querySelector('.flow-channel [role="img"]')
+                        ?.getAttribute('aria-label') ??
+                      element.querySelector('strong')?.textContent ??
                       element.querySelector(':scope > span')?.textContent ??
                       element.className)
               return {
@@ -305,10 +306,14 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await expect(demo.locator('.flow-post[data-selected="true"]')).toContainText(
     'Wildlife makes a comeback',
   )
-  await expect(demo.locator('.flow-post[data-selected="true"] .flow-channel')).toHaveText([
-    /^X\d+ of 280$/,
-    'LinkedIn',
-  ])
+  const selectedPost = demo.locator('.flow-post[data-selected="true"]')
+  await expect(selectedPost.locator('.flow-channel [role="img"]')).toHaveCount(2)
+  expect(
+    await selectedPost
+      .locator('.flow-channel [role="img"]')
+      .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('aria-label'))),
+  ).toEqual(['X', 'LinkedIn'])
+  await expect(selectedPost.locator('.flow-count')).toHaveText(/^\d+ of 280$/)
   await expect(demo.locator('.flow-story-results li[data-revealed="true"]')).toHaveCount(2)
   const example = await demo
     .locator('.flow-post[data-selected="true"] .flow-stream')

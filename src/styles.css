@@ -673,7 +673,7 @@ html {
     padding: 12px;
   }
   .flow-rule {
-    grid-template-columns: 57px 1fr;
+    grid-template-columns: 66px 1fr;
     gap: 12px;
   }
   .flow-post p {
@@ -1467,8 +1467,8 @@ header nav button {
   font-size: 14px;
 }
 .is-overview .flow-rule {
-  grid-template-columns: 48px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
   padding-block: 8px;
   font-size: 14px;
 }
@@ -2921,7 +2921,7 @@ header nav button {
 }
 
 /* On phones the key moments (the matched repeat, the run summary) must land above the player. */
-.flow-workspace:not(.is-overview) .flow-event:not(.is-informative) p,
+.flow-event:not(.is-informative) p,
 .flow-workspace:not(.is-overview) .flow-success {
   display: none;
 }
@@ -3008,4 +3008,184 @@ header nav button {
 .flow-workspace:not(.is-overview) .flow-finish h4,
 .flow-workspace:not(.is-overview) .flow-finish-status {
   display: none;
+}
+
+/* Research candidates read at a glance: a mark, the story, and what happened to it. */
+.flow-candidates li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+}
+.is-overview .flow-candidates li {
+  grid-template-columns: 18px minmax(0, 1fr);
+  row-gap: 0;
+}
+.is-overview .flow-candidates li > span:last-child {
+  grid-column: 2;
+  justify-self: start;
+}
+.flow-candidate-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--color-pine);
+}
+.flow-candidate-mark svg {
+  width: 16px;
+  height: 16px;
+}
+.flow-candidates li:not(.is-selected) .flow-candidate-mark {
+  color: var(--color-muted);
+}
+.flow-candidate-pending {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--color-rule);
+  border-radius: 50%;
+}
+.flow-candidates li[data-state='matching'] .flow-candidate-pending {
+  border-color: var(--color-pine);
+  background: var(--color-pine);
+}
+.flow-candidates li.is-duplicate[data-state='resolved'] .flow-candidate-mark,
+.flow-candidates li.is-duplicate[data-state='matching'] .flow-candidate-mark {
+  color: var(--color-pine);
+}
+/* Skipped stories are struck through, so what goes out and what stays out is obvious. */
+.flow-candidates
+  li:not(.is-selected):not([data-state='checking']):not([data-state='matching'])
+  > :nth-child(2) {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--color-muted);
+}
+
+/* Posts look like posts: who, where, and the words. */
+.flow-post-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.flow-avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-pine);
+  color: var(--color-on-pine);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.flow-post-author {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.flow-post-author strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.flow-post-author span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+.flow-post-head .flow-count {
+  margin-left: auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.flow-post-head .flow-channel {
+  display: flex;
+  margin-left: auto;
+  color: var(--color-ink);
+}
+.flow-post-head .flow-count + .flow-channel {
+  margin-left: 0;
+}
+
+/* The Buffer column carries Buffer's mark and a picture of the day. */
+.flow-panel-title .brand-mark {
+  display: inline-block;
+  margin-right: 8px;
+  vertical-align: -2px;
+}
+.flow-day {
+  position: relative;
+  height: 36px;
+  margin: 14px 8px 0;
+}
+.flow-day::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: -8px;
+  left: -8px;
+  height: 1px;
+  background: var(--color-rule);
+}
+.flow-day-slot {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transform: translateX(-50%);
+  transition:
+    opacity 300ms ease-out,
+    transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.flow-day-slot[data-revealed='false'] {
+  opacity: 0;
+  transform: translateX(-50%) scale(0.6);
+}
+.flow-day-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--color-pine);
+}
+.flow-day-time {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.flow-schedule li span.flow-slot-channels {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* The sources it reads, named in the playbook. Desktop only; phones keep the key moments in view. */
+.flow-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 6px;
+}
+.flow-sources span {
+  padding: 1px 5px;
+  border: 1px solid var(--color-rule);
+  color: var(--color-ink);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.flow-workspace:not(.is-overview) .flow-sources {
+  display: none;
+}
+.flow-workspace:not(.is-overview) .flow-day,
+.flow-workspace:not(.is-overview) .flow-candidates > strong {
+  display: none;
+}
+.flow-workspace:not(.is-overview) .flow-candidates li {
+  padding-block: 6px;
 }

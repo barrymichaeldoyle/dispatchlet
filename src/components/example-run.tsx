@@ -12,6 +12,8 @@ import { Wordmark } from './wordmark'
 import { BrandText } from './brand-text'
 import { ThemeToggle } from './theme-toggle'
 import { Icon } from './flow-icon'
+import { BufferMark, ChannelMark } from './brand-icons'
+import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
 import { useOnceInView } from '../lib/use-once-in-view'
 import {
@@ -58,6 +60,8 @@ const {
   DURATION,
 } = TIMING
 const TOTAL_SECONDS = DURATION / 1000
+// The sources named in the playbook, as the agent reads them.
+const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'Guardian']
 const STAGES = ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']
 const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
@@ -80,11 +84,7 @@ const EVENTS = [
     'Searching trusted sources',
     'Finding fresh conservation and community reporting.',
   ],
-  [
-    EVENT_STARTS[1],
-    'Reading the sources',
-    '5 searches and 4 pages read. Original reporting verified.',
-  ],
+  [EVENT_STARTS[1], 'Reading the sources', '4 pages read, original reporting verified.'],
   [
     EVENT_STARTS[2],
     'Checking what you’ve already covered',
@@ -147,6 +147,7 @@ function FlowPanel({
   stage,
   overview,
   title,
+  icon,
   waiting,
   children,
 }: {
@@ -154,6 +155,7 @@ function FlowPanel({
   stage: number
   overview: boolean
   title: string
+  icon?: ReactNode
   waiting: string
   children: ReactNode
 }) {
@@ -168,6 +170,7 @@ function FlowPanel({
       data-pending={stage < index}
     >
       <h3 className="flow-panel-title">
+        {icon}
         <BrandText>{title}</BrandText>
       </h3>
       {visible ? (
@@ -638,6 +641,13 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <div>
                         <strong>{title}</strong>
                         <p>{detail}</p>
+                        {index === 1 ? (
+                          <span className="flow-sources" aria-hidden="true">
+                            {SOURCE_TILES.map((source) => (
+                              <span key={source}>{source}</span>
+                            ))}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -666,6 +676,13 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                                 : 'checking'
                           }
                         >
+                          <span className="flow-candidate-mark" aria-hidden="true">
+                            {selectedStory !== null || elapsed >= resolveAt(index) ? (
+                              <Icon kind={index < 3 ? 'check' : 'skip'} />
+                            ) : (
+                              <span className="flow-candidate-pending" />
+                            )}
+                          </span>
                           {index < 3 ? (
                             <button
                               type="button"
@@ -823,13 +840,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                                 undefined
                               }
                             >
-                              <span className="flow-channel">
-                                {channel}
-                                {channel === 'X' ? (
-                                  <span className="flow-count">{text.length} of 280</span>
-                                ) : null}
-                              </span>
-                              <p>
+                              <PostPreview channel={channel} length={text.length}>
                                 <StreamText
                                   text={text}
                                   elapsed={selectedStory !== null ? DURATION : elapsed}
@@ -837,7 +848,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                                   duration={index === 0 ? X_DURATION : LI_DURATION}
                                   reduced={reduced}
                                 />
-                              </p>
+                              </PostPreview>
                             </div>
                           ))}
                         </div>
@@ -879,6 +890,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 stage={viewStage}
                 overview={overview}
                 title="Buffer schedule"
+                icon={<BufferMark size={16} />}
                 waiting="Posts will be spaced through the day."
               >
                 <div className="flow-finish">
@@ -900,6 +912,20 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <BrandText>6 posts scheduled in Buffer for X and LinkedIn</BrandText>
                     </span>
                   </p>
+                  {/* The day at a glance: three posts spread between 06:00 and 18:00. */}
+                  <div className="flow-day" aria-hidden="true">
+                    {STORIES.map((story, index) => (
+                      <span
+                        key={story.time}
+                        className="flow-day-slot"
+                        data-revealed={elapsed >= SLOT_START + index * SLOT_INTERVAL}
+                        style={{ left: `${((Number(story.time.slice(0, 2)) - 6) / 12) * 100}%` }}
+                      >
+                        <span className="flow-day-dot" />
+                        <span className="flow-day-time">{story.time}</span>
+                      </span>
+                    ))}
+                  </div>
                   <ol className="flow-schedule" aria-label="Scheduled stories">
                     {STORIES.map((story, index) => (
                       <li
@@ -919,7 +945,11 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           >
                             <strong>{story.title}</strong>
                           </button>
-                          <span>Scheduled for X and LinkedIn</span>
+                          <span className="flow-slot-channels">
+                            <ChannelMark channel="X" size={12} />
+                            <ChannelMark channel="LinkedIn" size={12} />
+                            Scheduled
+                          </span>
                         </div>
                         <Icon kind="check" />
                       </li>

@@ -1,7 +1,7 @@
 export function Icon({
   kind,
 }: {
-  kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close'
+  kind: 'play' | 'pause' | 'replay' | 'check' | 'arrow' | 'close' | 'skip'
 }) {
   return (
     <svg
@@ -25,6 +25,18 @@ export function Icon({
       ) : null}
       {kind === 'check' ? <path d="m5 12 4 4L19 6" /> : null}
       {kind === 'close' ? <path d="m6 6 12 12M6 18 18 6" /> : null}
+      {kind === 'skip' ? (
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <path d="m6.5 17.5 11-11" />
+        </>
+      ) : null}
+      {kind === 'skip' ? (
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <path d="m6.5 17.5 11-11" />
+        </>
+      ) : null}
       {kind === 'arrow' ? <path d="M5 12h14m-5-5 5 5-5 5" /> : null}
     </svg>
   )
