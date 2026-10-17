@@ -44,7 +44,7 @@ export const TIMING = {
 
 export const RUN_SECONDS = TIMING.DURATION / 1000
 
-/** When each research candidate settles: the three fresh stories first, then the repeat after its match, then the PR piece. */
+/** When each research candidate settles: the three new stories first, then the repeat after its match, then the PR piece. */
 export function resolveAt(index: number): number {
   const { RESOLVE_START, RESOLVE_INTERVAL, MATCH, MATCH_HOLD } = TIMING
   if (index < 3) return RESOLVE_START + index * RESOLVE_INTERVAL
@@ -106,7 +106,7 @@ export const STORIES = [
   },
 ]
 export const CANDIDATES = [
-  ...STORIES.map(({ title }) => [title, 'Fresh, selected']),
+  ...STORIES.map(({ title }) => [title, 'New, selected']),
   ['The urban garden story', 'Already posted, skipped'],
   ['A company’s new product launch', 'Company PR, skipped'],
 ]

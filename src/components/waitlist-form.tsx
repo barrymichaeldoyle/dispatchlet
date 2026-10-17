@@ -9,7 +9,7 @@ type State =
   | { kind: 'done'; position?: number }
 
 const INVALID = 'That email does not look right.'
-const RATE_LIMITED = 'Too many tries, wait a minute.'
+const RATE_LIMITED = 'Too many tries. Wait a minute and try again.'
 const FAILED = 'Something went wrong. Try again in a minute.'
 
 function readAttribution() {

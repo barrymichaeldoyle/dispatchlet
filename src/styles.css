@@ -3189,3 +3189,10 @@ header nav button {
 .flow-workspace:not(.is-overview) .flow-candidates li {
   padding-block: 6px;
 }
+
+/* Footer links are separated by space, not dots (§23). */
+.landing-footer > span:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}

@@ -158,7 +158,9 @@ test('focus stays inside the player and Read instead moves to the step-by-step r
   await expect(
     page.getByRole('heading', { name: 'Fine, you’d rather read about it.' }),
   ).toBeFocused()
-  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'It writes a playbook you can edit.' }),
+  ).toBeVisible()
 })
 
 test('player adapts to orientation changes without changing the landing page scroll', async ({

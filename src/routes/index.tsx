@@ -19,9 +19,9 @@ const WaitlistCount = lazy(() =>
 )
 
 const SITE_URL = 'https://dispatchlet.com/'
-const TITLE = 'Dispatchlet — Research and social posts, ready for Buffer'
+const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
 const DESCRIPTION =
-  'Dispatchlet researches trusted sources, writes social posts for each channel, and sends drafts or scheduled posts to Buffer. Sign-up opens 7 November.'
+  'Describe your topic once. Dispatchlet finds new stories every day, skips what you’ve already posted, and drafts posts in your Buffer queue. Sign-up opens 7 November.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -40,7 +40,8 @@ export const Route = createFileRoute('/')({
       { property: 'og:image:height', content: '630' },
       {
         property: 'og:image:alt',
-        content: 'Dispatchlet. Your research agent for a fresh Buffer queue.',
+        content:
+          'Dispatchlet: an agent that researches and writes your Buffer posts. Built for Buffer Commit.',
       },
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: TITLE },
@@ -48,7 +49,8 @@ export const Route = createFileRoute('/')({
       { name: 'twitter:image', content: `${SITE_URL}og.png` },
       {
         name: 'twitter:image:alt',
-        content: 'Dispatchlet. Your research agent for a fresh Buffer queue.',
+        content:
+          'Dispatchlet: an agent that researches and writes your Buffer posts. Built for Buffer Commit.',
       },
     ],
     links: [{ rel: 'canonical', href: SITE_URL }],
@@ -128,11 +130,13 @@ function Home() {
             <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
-                Tell Dispatchlet your topic. It finds fresh stories, skips what you’ve shared
-                before, and sends posts to Buffer.
+                Tell Dispatchlet your topic once. Every day it finds new stories, skips anything
+                you’ve already posted, and writes a post for each of your channels.
               </BrandText>
             </p>
-            <p className="landing-control">Review drafts, or let it schedule posts for you.</p>
+            <p className="landing-control">
+              Review every post as a draft in Buffer, or let it schedule posts on its own.
+            </p>
             <a href="#run" className="landing-demo-link" onClick={playDemo}>
               <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="m6 3 15 9-15 9Z" fill="currentColor" />
@@ -152,7 +156,7 @@ function Home() {
                 ? 'Thanks, you are on the list.'
                 : notice === 'unsubscribed'
                   ? 'You are off the list and will not get the launch email.'
-                  : 'Sign-up opens 7 November. One launch email.'}
+                  : 'Sign-up opens 7 November. You’ll get one email when it does.'}
               {mounted && convexConfigured ? (
                 <Suspense fallback={null}>
                   <WaitlistCount />
@@ -194,8 +198,8 @@ function Home() {
             </p>
             <p>
               The build window runs from 28 October to 13 November. The landing page and tooling
-              came first. Everything after the pre-window tag in the repository is written during
-              the window, in public.
+              came first. Every commit after the pre-window tag in the repository is work from the
+              window itself, done in public.
             </p>
             <p className="landing-commit-links">
               <a href={COMMITS_URL}>See every commit</a>
@@ -246,7 +250,7 @@ function Home() {
               <summary>How is my data handled?</summary>
               <p>
                 <BrandText>
-                  Posts are labeled AI-assisted in Buffer. Your Buffer tokens are encrypted and
+                  Posts are labelled AI-assisted in Buffer. Your Buffer tokens are encrypted and
                   deleted when you disconnect.
                 </BrandText>
               </p>

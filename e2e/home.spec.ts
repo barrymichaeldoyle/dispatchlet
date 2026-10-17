@@ -50,7 +50,7 @@ test('signup errors preserve the email and allow a retry', async ({ page }) => {
   const email = page.getByLabel('Email', { exact: true })
   await email.fill('retry@example.com')
   await join.click()
-  await expect(page.getByText('Too many tries, wait a minute.')).toBeVisible()
+  await expect(page.getByText('Too many tries. Wait a minute and try again.')).toBeVisible()
   await expect(email).toHaveValue('retry@example.com')
   await join.click()
   await expect(page.getByRole('status')).toContainText('You are number 7.')

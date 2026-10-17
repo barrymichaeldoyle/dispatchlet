@@ -82,7 +82,7 @@ const EVENTS = [
   [
     EVENT_STARTS[0],
     'Searching trusted sources',
-    'Finding fresh conservation and community reporting.',
+    'Looking for new conservation and community reporting.',
   ],
   [EVENT_STARTS[1], 'Reading the sources', '4 pages read, original reporting verified.'],
   [
@@ -377,9 +377,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </span>
         <span id="flow-launch-description" className="flow-launch-copy">
           <strong>Good News Today</strong>
-          <span>
-            A daily news run for X and LinkedIn, start to finish in {RUN_SECONDS} seconds.
-          </span>
+          <span>An example run for a good-news account on X and LinkedIn.</span>
         </span>
         <button
           type="button"
@@ -764,7 +762,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <blockquote>{PREVIOUS_POST}</blockquote>
                       <p>
                         The agent matched this finding to the urban garden story in its posting
-                        history. It keeps the three fresh stories and leaves this repeat out.
+                        history. It keeps the three new stories and leaves this repeat out.
                       </p>
                     </div>
                     <p
@@ -783,7 +781,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 stage={viewStage}
                 overview={overview}
                 title="Channel posts"
-                waiting="Fresh stories will become posts for each channel."
+                waiting="The stories it keeps will become posts for each channel."
               >
                 <div className="flow-writing">
                   <div ref={previews} className="flow-post-previews">
@@ -1072,7 +1070,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           The animation needs JavaScript. The steps below show the same run.
         </p>
       </noscript>
-      <p className="flow-disclaimer">Illustrative example.</p>
+
       {started ? null : <DemoNudge />}
     </section>
   )

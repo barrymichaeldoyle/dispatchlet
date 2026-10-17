@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "deploy": "pnpm build:deploy && wrangler deploy",
     "generate-routes": "tsr generate",
+    "og": "node scripts/og/render.mjs",
     "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",

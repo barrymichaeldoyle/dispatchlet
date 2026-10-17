@@ -170,8 +170,8 @@ const STEPS: {
   },
   {
     art: 'playbook',
-    title: 'Check the playbook it writes.',
-    text: 'Sources, voice, rules and timing, in plain words you can edit before the first run.',
+    title: 'It writes a playbook you can edit.',
+    text: 'Sources, voice, rules and timing, in plain words. Change anything before the first run.',
     figure: <PlaybookFragment />,
   },
   {
@@ -183,14 +183,14 @@ const STEPS: {
   },
   {
     art: 'posts',
-    title: 'Each story gets a post for every channel.',
-    text: 'An X post and a LinkedIn post, each written for its channel.',
+    title: 'It writes a post for each channel.',
+    text: 'Every story gets an X post and a LinkedIn post, each written for its channel and its length.',
     figure: <PostsFragment />,
     more: true,
   },
   {
     art: 'schedule',
-    title: 'The posts land in Buffer.',
+    title: 'It schedules them in Buffer.',
     text: 'Spread through the day, or saved as drafts for you to approve. Tomorrow it runs again.',
     figure: <ScheduleFragment />,
   },

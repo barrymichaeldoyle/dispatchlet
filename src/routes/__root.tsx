@@ -32,7 +32,7 @@ export const Route = createRootRoute({
       <h1>This page isn’t here.</h1>
       <p>
         <BrandText>
-          Head back to Dispatchlet to see how a brief becomes a fresh Buffer queue.
+          Head back to Dispatchlet to see how one brief becomes a day of posts in Buffer.
         </BrandText>
       </p>
       <a href="/">

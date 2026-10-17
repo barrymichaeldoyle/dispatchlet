@@ -33,7 +33,9 @@ test('chapters allow inspection without waiting, and Read instead leaves the pla
   await demo.getByRole('button', { name: 'The playbook', exact: true }).click()
   await demo.getByRole('button', { name: 'Resume walkthrough', exact: true }).click()
   await demo.getByRole('button', { name: 'Read instead' }).click()
-  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'It writes a playbook you can edit.' }),
+  ).toBeVisible()
   await expect(demo).not.toBeVisible()
 })
 
@@ -126,7 +128,9 @@ test('search and social metadata are rendered on the server', async ({
   const page = await context.newPage()
   const response = await page.goto(baseURL ?? 'http://localhost:3131')
   expect(response?.status()).toBe(200)
-  await expect(page).toHaveTitle('Dispatchlet — Research and social posts, ready for Buffer')
+  await expect(page).toHaveTitle(
+    'Dispatchlet | An agent that researches and writes your Buffer posts',
+  )
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1)
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
@@ -135,7 +139,7 @@ test('search and social metadata are rendered on the server', async ({
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'index, follow')
   await expect(page.locator('meta[name="description"]')).toHaveAttribute(
     'content',
-    /researches trusted sources/,
+    /skips what you’ve already posted/,
   )
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     'content',
@@ -154,7 +158,9 @@ test('search and social metadata are rendered on the server', async ({
     url: 'https://dispatchlet.com/',
   })
   await expect(page.getByRole('button', { name: 'Play the demo', exact: true })).toBeDisabled()
-  await expect(page.getByRole('heading', { name: 'Check the playbook it writes.' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'It writes a playbook you can edit.' }),
+  ).toBeVisible()
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
   expect(await robots.text()).toContain('Sitemap: https://dispatchlet.com/sitemap.xml')

@@ -64,10 +64,10 @@ function launchMessage(email: string, token: string): Message {
     from: FROM,
     to: email,
     subject: 'Dispatchlet is open',
-    text: `You can connect your Buffer account now at https://dispatchlet.com. The first 10 runs are on me. If you try it, reply and tell me what broke.\n\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
+    text: `Sign in with your Buffer account at https://dispatchlet.com to start. The first 10 runs are on me. If you try it, reply and tell me what broke.\n\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
     html: html(
       [
-        'You can connect your Buffer account now at <a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a>. The first 10 runs are on me. If you try it, reply and tell me what broke.',
+        'Sign in with your Buffer account at <a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a> to start. The first 10 runs are on me. If you try it, reply and tell me what broke.',
       ],
       l.unsubscribe,
     ),
