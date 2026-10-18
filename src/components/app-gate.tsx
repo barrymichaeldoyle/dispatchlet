@@ -23,7 +23,7 @@ function Gate() {
   if (isLoading || (isAuthenticated && viewer === undefined)) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
-  return <SignedIn name={viewer.name ?? viewer.email ?? 'you'} />
+  return <SignedIn name={viewer.name} email={viewer.email} />
 }
 
 function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -186,9 +186,17 @@ function Waitlisted({ email }: { email: string | null }) {
   )
 }
 
-function SignedIn({ name }: { name: string }) {
+function SignedIn({ name, email }: { name: string | null; email: string | null }) {
+  // The heading greets by first name, so a long full name never breaks across lines in it.
+  const firstName = name?.trim().split(/\s+/)[0]
+  const account = name && email ? `${name} (${email})` : (name ?? email)
   return (
-    <Screen title={`Signed in as ${name}.`}>
+    <Screen title={firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}>
+      {account ? (
+        <p className="app-gate-account">
+          Signed in with Buffer as <strong>{account}</strong>.
+        </p>
+      ) : null}
       <p>
         Your Buffer account is on the allowlist, so you see the app here while it is built. Everyone
         else sees the launch list until it opens to the public.

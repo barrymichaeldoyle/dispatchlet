@@ -83,6 +83,21 @@ body {
   a:hover {
     text-decoration-thickness: 2px;
   }
+
+  /* Headings break into even lines; prose avoids a lone last word. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+  p,
+  li,
+  dd,
+  blockquote,
+  figcaption {
+    text-wrap: pretty;
+  }
 }
 
 :focus-visible {
@@ -4057,6 +4072,14 @@ header nav button {
   margin: 0 0 20px;
   font-size: 16px;
   line-height: 1.55;
+}
+.app-gate .app-gate-account {
+  color: var(--color-muted);
+}
+.app-gate .app-gate-account strong {
+  font-weight: 500;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
 }
 .app-gate .app-gate-note {
   margin: 20px 0 0;

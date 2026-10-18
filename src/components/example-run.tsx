@@ -441,6 +441,22 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         aria-label="Dispatchlet walkthrough"
         aria-describedby="walkthrough-description"
         onKeyDown={(event) => {
+          // Video-style shortcuts. K always toggles; Space and the arrows defer to focused controls.
+          const target = event.target as HTMLElement
+          const onControl = target.closest(
+            'button, a, input, select, summary, [role="slider"], [popover]',
+          )
+          if (event.metaKey || event.ctrlKey || event.altKey) return
+          if (event.key === 'k' || (event.key === ' ' && !onControl)) {
+            event.preventDefault()
+            play()
+            return
+          }
+          if ((event.key === 'ArrowRight' || event.key === 'ArrowLeft') && !onControl) {
+            event.preventDefault()
+            scrubTo(elapsed + (event.key === 'ArrowRight' ? 5000 : -5000))
+            return
+          }
           if (event.key !== 'Tab') return
           const themeTab =
             themeGroup.current?.querySelector<HTMLInputElement>('input:checked') ??
@@ -1132,6 +1148,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   type="button"
                   className="flow-transport"
                   onClick={play}
+                  aria-keyshortcuts="k"
+                  title={complete ? 'Replay (K)' : playing ? 'Pause (K)' : 'Resume (K)'}
                   aria-label={
                     complete
                       ? 'Replay walkthrough'

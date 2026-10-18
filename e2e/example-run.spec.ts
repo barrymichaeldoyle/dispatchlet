@@ -842,3 +842,26 @@ test('playback speed changes how fast the walkthrough runs and is remembered', a
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Speed' })).toHaveValue('2')
 })
+
+test('K pauses and resumes the walkthrough and the arrow keys skip five seconds', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
+  await progress.press('Home')
+  await page.keyboard.press('k')
+  await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
+  await demo.locator('.flow-workspace').click({ position: { x: 5, y: 5 } })
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowRight')
+  await expect(progress).toHaveAttribute('aria-valuenow', '10')
+  await page.keyboard.press('ArrowLeft')
+  await expect(progress).toHaveAttribute('aria-valuenow', '5')
+  await page.keyboard.press('k')
+  await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
+})
