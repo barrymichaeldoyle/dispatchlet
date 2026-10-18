@@ -28,7 +28,7 @@ function Gate() {
   return <AppShell timezone={viewer.timezone} />
 }
 
-export function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
+function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <main className="app-gate">
       <div className="app-gate-inner">
