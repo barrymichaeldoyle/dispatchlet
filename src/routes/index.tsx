@@ -182,10 +182,15 @@ function Home() {
                 : notice === 'unsubscribed'
                   ? 'You are off the list and will not get the launch email.'
                   : 'Sign-up opens 7 November. You’ll get one email when it does.'}
-              {mounted && convexConfigured ? (
-                <Suspense fallback={null}>
-                  <WaitlistCount />
-                </Suspense>
+              {/* The count gets its own line from the first render, so nothing below moves when it arrives. */}
+              {convexConfigured ? (
+                <span className="landing-count">
+                  {mounted ? (
+                    <Suspense fallback={null}>
+                      <WaitlistCount />
+                    </Suspense>
+                  ) : null}
+                </span>
               ) : null}
             </p>
           </div>

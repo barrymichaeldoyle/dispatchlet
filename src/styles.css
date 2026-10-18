@@ -2286,6 +2286,10 @@ header nav button {
   line-height: 1.6;
   color: var(--color-muted);
 }
+.landing-count {
+  display: block;
+  min-height: 1.6em;
+}
 .flow-launch {
   position: relative;
   display: grid;
