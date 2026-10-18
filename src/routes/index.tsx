@@ -3,10 +3,12 @@ import { lazy, Suspense, useEffect, useRef, useSyncExternalStore, type MouseEven
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
 import { SiteFooter } from '../components/site-footer'
+import { PostPreview } from '../components/post-preview'
 import { RunSteps } from '../components/run-steps'
 import { ThemeToggle } from '../components/theme-toggle'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
+import { STORIES } from '../lib/example-run'
 import { convexConfigured } from '../lib/waitlist'
 import { track } from '../integrations/posthog/track'
 
@@ -70,6 +72,10 @@ export const Route = createFileRoute('/')({
 })
 
 type Notice = 'confirmed' | 'unsubscribed' | null
+
+/** The outcome, above the fold: one post it wrote and scheduled, from the demo's run. */
+const [HERO_STORY] = STORIES
+const [, HERO_POST] = HERO_STORY.posts[0]
 
 const BUILD_LOG_URL = 'https://x.com/barrymdoyle'
 const COMMITS_URL = 'https://github.com/barrymichaeldoyle/dispatchlet/commits/main'
@@ -160,6 +166,14 @@ function Home() {
             </p>
           </div>
           <div className="landing-signup">
+            <figure className="landing-proof flow-writing">
+              <PostPreview channel="X" length={HERO_POST.length}>
+                {HERO_POST}
+              </PostPreview>
+              <figcaption>
+                <BrandText>{`An example post, written from a ${HERO_STORY.source} story and scheduled in Buffer for ${HERO_STORY.time}.`}</BrandText>
+              </figcaption>
+            </figure>
             <h2>Get the launch email.</h2>
             <WaitlistForm />
             <p className="landing-notice" aria-live="polite">

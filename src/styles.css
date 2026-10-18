@@ -2244,6 +2244,24 @@ header nav button {
   font-size: 15px;
   line-height: 1.6;
 }
+/* One post it wrote, so the outcome shows before anyone scrolls. */
+.landing-proof {
+  margin: 0 0 40px;
+}
+.landing-proof .flow-post-preview {
+  padding: 12px 14px 13px;
+}
+.landing-proof .flow-post-preview p {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.landing-proof figcaption {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
 .landing-signup h2 {
   margin: 0 0 20px;
   font-size: 20px;
