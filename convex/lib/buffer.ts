@@ -3,8 +3,8 @@ const BUFFER_API = 'https://api.buffer.com'
 export type BufferAccount = { id: string; email: string | null; name: string | null }
 
 /**
- * Buffer's ID token only carries `sub`, so the email and name come from the GraphQL API with the
- * access token from the same sign-in. Returns null rather than failing the sign-in.
+ * The signed-in Buffer account: its ID, email and name, read with the access token from the same
+ * sign-in. Returns null on any failure so the caller decides what that means.
  */
 export async function fetchBufferAccount(accessToken: string): Promise<BufferAccount | null> {
   try {

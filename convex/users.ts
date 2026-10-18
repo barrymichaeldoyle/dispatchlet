@@ -12,7 +12,7 @@ function listFromEnv(name: string): string[] {
 
 /**
  * Who is signed in, and whether they may use the app yet. Until launch only Buffer accounts on
- * the allowlist get past sign-in: `ALLOWED_BUFFER_SUBS` (Buffer user ids) or `ALLOWED_EMAILS`.
+ * the allowlist get past sign-in: `ALLOWED_BUFFER_IDS` (Buffer account IDs) or `ALLOWED_EMAILS`.
  */
 export const viewer = query({
   args: {},
@@ -37,7 +37,7 @@ export const viewer = query({
     const email = user.email?.toLowerCase() ?? null
     const bufferId = account?.providerAccountId ?? null
     const allowed =
-      (bufferId !== null && listFromEnv('ALLOWED_BUFFER_SUBS').includes(bufferId.toLowerCase())) ||
+      (bufferId !== null && listFromEnv('ALLOWED_BUFFER_IDS').includes(bufferId.toLowerCase())) ||
       (email !== null && listFromEnv('ALLOWED_EMAILS').includes(email))
     return { email, name: user.name ?? null, bufferId, allowed }
   },

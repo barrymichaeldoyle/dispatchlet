@@ -1,33 +1,42 @@
 import { convexAuth } from '@convex-dev/auth/server'
-import type { OIDCConfig } from '@auth/core/providers'
+import type { OAuthConfig } from '@auth/core/providers'
 import type { GenericMutationCtx } from 'convex/server'
 import type { DataModel } from './_generated/dataModel'
-import { fetchBufferAccount } from './lib/buffer'
+import { fetchBufferAccount, type BufferAccount } from './lib/buffer'
 import { isValidEmail, normalizeEmail } from './lib/email'
 import { addSignInToWaitlist } from './waitlist'
 
 /**
- * Sign in with Buffer. Buffer runs an OIDC provider that is not in the Auth.js list, so it is
- * configured by hand: PKCE, client_secret_post, and only `account:read` until the app needs to
- * post (see SPEC §0 on single-use refresh tokens before adding offline_access).
+ * Sign in with Buffer. Buffer's app clients cannot request the `openid` scope, so this is plain
+ * OAuth 2 with PKCE and client_secret_post, asking only for `account:read`. The user is
+ * identified by their Buffer account ID from the GraphQL `account` query, which also gives the
+ * email and name. `issuer` is set because Buffer returns an `iss` parameter that is checked.
  */
-const Buffer: OIDCConfig<{ sub: string }> = {
+const Buffer: OAuthConfig<BufferAccount> = {
   id: 'buffer',
   name: 'Buffer',
-  type: 'oidc',
+  type: 'oauth',
   issuer: 'https://auth.buffer.com',
   clientId: process.env.BUFFER_CLIENT_ID,
   clientSecret: process.env.BUFFER_CLIENT_SECRET,
-  authorization: { params: { scope: 'openid account:read' } },
+  authorization: { url: 'https://auth.buffer.com/auth', params: { scope: 'account:read' } },
+  token: 'https://auth.buffer.com/token',
+  userinfo: {
+    url: 'https://api.buffer.com',
+    async request({ tokens }: { tokens: { access_token?: string } }) {
+      const account = tokens.access_token ? await fetchBufferAccount(tokens.access_token) : null
+      if (!account) throw new Error('Could not read the Buffer account after sign-in')
+      return account
+    },
+  },
   checks: ['pkce', 'state'],
   client: { token_endpoint_auth_method: 'client_secret_post' },
-  async profile(claims, tokens) {
-    const account = tokens.access_token ? await fetchBufferAccount(tokens.access_token) : null
-    const email = account?.email ? normalizeEmail(account.email) : undefined
+  profile(account) {
+    const email = account.email ? normalizeEmail(account.email) : undefined
     return {
-      id: claims.sub,
+      id: account.id,
       email: email && isValidEmail(email) ? email : undefined,
-      name: account?.name ?? undefined,
+      name: account.name ?? undefined,
     }
   },
 }

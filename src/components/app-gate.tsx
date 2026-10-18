@@ -103,7 +103,10 @@ function Waitlisted({ email }: { email: string | null }) {
 function SignedIn({ name }: { name: string }) {
   return (
     <Screen title={`Signed in as ${name}.`}>
-      <p>Your Buffer account is connected. The app starts here on 28 October.</p>
+      <p>
+        Your Buffer account is on the allowlist, so you see the app here while it is built. Everyone
+        else sees the launch list until it opens to the public.
+      </p>
       <div className="app-gate-actions">
         <SignOut />
       </div>
