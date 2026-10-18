@@ -57,11 +57,15 @@ export const TIMING = {
   SLOT_START: 46300,
   SLOT_INTERVAL: 900,
   RECEIPT: 48900,
-  /** The run ends once the receipt has settled; the last frame holds, so nothing runs on after it. */
-  DURATION: 50000,
+  /** The next morning: it runs again without anyone touching it, and skips what it posted. */
+  NEXT_DAY: 51000,
+  NEXT_ROW_START: 52200,
+  NEXT_ROW_INTERVAL: 800,
+  NEXT_RECEIPT: 55600,
+  NEXT_CLOSING: 57000,
+  /** The run ends once the closing line has settled; the last frame holds. */
+  DURATION: 60000,
 } as const
-
-export const RUN_SECONDS = TIMING.DURATION / 1000
 
 /** When each research candidate settles: the three new stories first, then the repeat after its match, then the PR piece. */
 export function resolveAt(index: number): number {
@@ -92,17 +96,9 @@ export const ANSWER_ROWS = [
   ['Posting', 'Scheduled in Buffer'],
 ]
 
-/** The same answers, shorter, once the workspace opens out and they share a column. */
-export const ANSWER_SUMMARY = [
-  ['Research', ANSWERS.topic],
-  ['Avoid', ANSWERS.avoid],
-  ['Runs', `Daily at ${ANSWERS.time}, up to ${ANSWERS.stories} stories`],
-  ['Posting', 'Scheduled in Buffer'],
-]
-
 export const RULES = [
   ['Sources', 'Your 4 sites, plus other reliable outlets.'],
-  ['Voice', 'Warm and factual. Specific details, no hype.'],
+  ['Voice', 'Warm and factual, no hype.'],
   ['Rules', 'Verify the source. Skip company PR, politics and repeats.'],
   ['Delivery', 'From 09:00, 3 hours apart.'],
 ]
@@ -114,11 +110,11 @@ export const STORIES = [
     posts: [
       [
         'X',
-        'Wildlife is making a comeback after a decade of habitat restoration. Patient conservation pays off. [Source link]',
+        'Wildlife is making a comeback after a decade of habitat restoration. Patient conservation pays off. bbc.co.uk/news/…',
       ],
       [
         'LinkedIn',
-        'A decade of local conservation work is helping wildlife recover. A reminder that long-term investment in restoring habitats can make a difference. [Source link]',
+        'A decade of local conservation work is helping wildlife recover. A reminder that long-term investment in restoring habitats can make a difference. bbc.co.uk/news/…',
       ],
     ],
   },
@@ -129,11 +125,11 @@ export const STORIES = [
     posts: [
       [
         'X',
-        'A community repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. [Source link]',
+        'A community repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. positive.news/…',
       ],
       [
         'LinkedIn',
-        'A neighbourhood repair café turns everyday repairs into community connections. Volunteers share their skills, keeping useful things out of landfill. [Source link]',
+        'A neighbourhood repair café turns everyday repairs into community connections. Volunteers share their skills, keeping useful things out of landfill. positive.news/…',
       ],
     ],
   },
@@ -144,11 +140,11 @@ export const STORIES = [
     posts: [
       [
         'X',
-        'A community solar project puts its proceeds back into neighbourhood projects. Clean energy, with a local return. [Source link]',
+        'A community solar project puts its proceeds back into neighbourhood projects. Clean energy, with a local return. theguardian.com/…',
       ],
       [
         'LinkedIn',
-        'Community-owned solar can do more than generate electricity. By reinvesting proceeds locally, this project helps fund the neighbourhood’s own priorities. [Source link]',
+        'Community-owned solar can do more than generate electricity. By reinvesting proceeds locally, this project helps fund the neighbourhood’s own priorities. theguardian.com/…',
       ],
     ],
   },
@@ -157,6 +153,17 @@ export const CANDIDATES = [
   ...STORIES.map(({ title, source }) => [title, 'New, selected', source]),
   ['The urban garden story', 'Already posted, skipped', 'Good News Network'],
   ['A company’s new product launch', 'Company PR, skipped', 'Press release'],
+]
+
+/**
+ * The second run, the next morning. Two stories are new; two are yesterday's stories reported by
+ * other outlets, so they are skipped. With only two worth posting, it schedules fewer.
+ */
+export const NEXT_DAY = [
+  ['Bees return to a city park', 'New, scheduled 09:00', 'BBC'],
+  ['A library lends tools to its town', 'New, scheduled 12:00', 'Positive News'],
+  ['Wildlife makes a comeback', 'Posted yesterday, skipped', 'The Guardian'],
+  ['A repair café brings neighbours together', 'Posted yesterday, skipped', 'Good News Network'],
 ]
 
 export const PREVIOUS_POST =

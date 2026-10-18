@@ -4,7 +4,6 @@ import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
 import { SiteFooter } from '../components/site-footer'
 import { RunSteps } from '../components/run-steps'
-import { RUN_SECONDS } from '../lib/example-run'
 import { ThemeToggle } from '../components/theme-toggle'
 import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
@@ -21,7 +20,7 @@ const WaitlistCount = lazy(() =>
 const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
 const DESCRIPTION =
-  'Describe your topic once. On the schedule you choose, Dispatchlet finds new stories, skips what you’ve already posted, and drafts posts in your Buffer queue. Sign-up opens 7 November.'
+  'Keep your account posting about your topic without doing the research yourself. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Sign-up opens 7 November.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -130,13 +129,19 @@ function Home() {
             <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
-                Answer a few quick questions about what you post. Then, daily or weekly, it finds
-                new stories, skips anything you’ve already posted, and writes a post for each of
-                your channels.
+                Keep your account posting about your topic without doing the research yourself.
+                Daily or weekly, Dispatchlet finds new stories, skips anything you’ve already
+                posted, and writes the posts for Buffer.
               </BrandText>
             </p>
             <p className="landing-control">
-              Review every post as a draft in Buffer, or let it schedule posts on its own.
+              Set it up once with a few quick questions. Review every post as a draft in Buffer, or
+              let it schedule them on its own.
+            </p>
+            <p className="landing-audience">
+              For accounts that share news about a topic, like a local bakery, an F1 fan page or a
+              software company posting industry news. I built it to run the X account for{' '}
+              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game.
             </p>
             <a href="#run" className="landing-demo-link" onClick={playDemo}>
               <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -181,8 +186,8 @@ function Home() {
             </p>
             <p>
               <BrandText>
-                Dispatchlet is that setup, rebuilt so anyone with a Buffer account can describe a
-                topic once and get the same run on their own schedule.
+                Dispatchlet is that setup, rebuilt so anyone with a Buffer account can answer a few
+                questions once and get the same run on their own schedule.
               </BrandText>
             </p>
             <p className="landing-origin-name">Barry Michael Doyle</p>
@@ -268,7 +273,7 @@ function Home() {
           <h2 id="closing-title">OK, seriously. Watch the demo.</h2>
           <p>
             <BrandText>
-              {`${RUN_SECONDS} seconds, from a few answers to six posts in Buffer. We’ll\u00a0wait.`}
+              {'From a few answers to posts in Buffer, today and every day after. We’ll\u00a0wait.'}
             </BrandText>
           </p>
           <div className="landing-closing-actions">

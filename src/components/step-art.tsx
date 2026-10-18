@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { useOnceInView } from '../lib/use-once-in-view'
 
-export type StepArtKind = 'brief' | 'playbook' | 'research' | 'posts' | 'schedule'
+export type StepArtKind = 'brief' | 'playbook' | 'research' | 'posts' | 'schedule' | 'repeat'
 
 /** Each drawing shows the one thing that step does, in a single line weight with pine marking the change. */
 const ART: Record<StepArtKind, ReactNode> = {
@@ -42,6 +42,13 @@ const ART: Record<StepArtKind, ReactNode> = {
       <circle className="is-accent" cx="18" cy="16" r="3" pathLength={1} />
       <circle className="is-accent" cx="18" cy="32" r="3" pathLength={1} />
       <circle className="is-accent" cx="18" cy="48" r="3" pathLength={1} />
+    </>
+  ),
+  repeat: (
+    <>
+      <path d="M50 24a20 20 0 0 0-36 4M14 40a20 20 0 0 0 36-4" pathLength={1} />
+      <path d="M50 12v12H38M14 52V40h12" pathLength={1} />
+      <path className="is-accent" d="M25 32l5 5 10-11" pathLength={1} />
     </>
   ),
 }

@@ -3,7 +3,8 @@ import { BrandText } from './brand-text'
 import { Icon } from './flow-icon'
 import { ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
-import { SetupAnswers, SetupQuestions, SetupSummary } from './setup-form'
+import { NextDay } from './next-day'
+import { SetupAnswers, SetupQuestions } from './setup-form'
 import { StepArt, type StepArtKind } from './step-art'
 import { CANDIDATES, PREVIOUS_POST, RULES, STORIES } from '../lib/example-run'
 import { useOnceInView } from '../lib/use-once-in-view'
@@ -24,7 +25,7 @@ function Swap({ before, after }: { before: ReactNode; after: ReactNode }) {
   )
 }
 
-function BriefFragment({ summary = false }: { summary?: boolean }) {
+function BriefFragment() {
   const submit = (
     <div className="flow-submit-row">
       <span>Good News Today</span>
@@ -34,13 +35,6 @@ function BriefFragment({ summary = false }: { summary?: boolean }) {
       </span>
     </div>
   )
-  if (summary)
-    return (
-      <div className="step-brief">
-        <SetupSummary />
-        {submit}
-      </div>
-    )
   // The question about repeats and slow news days says most about what to expect.
   return (
     <div className="step-brief flow-prompt is-asking">
@@ -186,7 +180,7 @@ const STEPS: {
   {
     art: 'playbook',
     title: 'It writes a playbook you can edit.',
-    text: 'Sources, voice, rules and timing, in plain words. Change anything before the first run.',
+    text: 'The plain-language instructions it follows on every run: sources, voice, rules and timing. Change anything before the first run.',
     figure: <PlaybookFragment />,
   },
   {
@@ -206,8 +200,14 @@ const STEPS: {
   {
     art: 'schedule',
     title: 'It schedules them in Buffer.',
-    text: 'Spread through the day, or saved as drafts for you to approve. Then it runs again on your schedule.',
+    text: 'Spread through the day, or saved as drafts for you to approve.',
     figure: <ScheduleFragment />,
+  },
+  {
+    art: 'repeat',
+    title: 'Then it does it again, without you.',
+    text: 'The next run checks everything it has already posted. Yesterday’s stories stay out, even when another outlet reports them, and on a slow news day it posts less.',
+    figure: <NextDay />,
   },
 ]
 
@@ -260,17 +260,10 @@ export function RunPoster() {
   return (
     <div className="flow-poster" aria-hidden="true" inert>
       <div className="flow-poster-canvas" data-state="done">
-        <div className="flow-poster-column is-brief">
-          <BriefFragment summary />
-          <PlaybookFragment />
-        </div>
         <div className="flow-poster-column">
           <ResearchFragment withMatch={false} />
         </div>
-        <div className="flow-poster-column is-posts">
-          <PostsFragment />
-        </div>
-        <div className="flow-poster-column">
+        <div className="flow-poster-column is-schedule">
           <ScheduleFragment />
         </div>
       </div>

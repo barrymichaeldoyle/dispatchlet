@@ -226,7 +226,7 @@ for (const viewport of [
         ).toBeLessThan(1)
       const items = await demo
         .locator(
-          '.setup-answers, .setup-summary, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
+          '.setup-answers, .setup-summary, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]:not(.flow-next-day)',
         )
         .evaluateAll((elements) =>
           elements
@@ -582,7 +582,8 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
       expect(await column.evaluate((el) => getComputedStyle(el).overflowY)).toMatch(/auto|scroll/)
     }
   }
-  await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
+  // The last step now stops before the next morning, so the run restarts rather than replays.
+  await demo.getByRole('button', { name: 'Restart walkthrough' }).click()
   await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(4)
   await expect(demo.locator('[data-highlighted="true"]')).toHaveCount(0)
 })

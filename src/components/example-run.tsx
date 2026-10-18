@@ -19,19 +19,12 @@ import { Icon } from './flow-icon'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
+import { NextDay } from './next-day'
 import { SetupAnswers, SetupQuestions } from './setup-form'
 import { StreamText } from './stream-text'
 import { useOnceInView } from '../lib/use-once-in-view'
 import { useScrollable } from '../lib/use-scrollable'
-import {
-  CANDIDATES,
-  PREVIOUS_POST,
-  RULES,
-  RUN_SECONDS,
-  STORIES,
-  TIMING,
-  resolveAt,
-} from '../lib/example-run'
+import { CANDIDATES, PREVIOUS_POST, RULES, STORIES, TIMING, resolveAt } from '../lib/example-run'
 
 const {
   CURSOR_START,
@@ -61,6 +54,7 @@ const {
   SLOT_START,
   SLOT_INTERVAL,
   RECEIPT,
+  NEXT_DAY,
   DURATION,
 } = TIMING
 const TOTAL_SECONDS = DURATION / 1000
@@ -79,7 +73,7 @@ const TITLES = [
 ]
 const NOTES = [
   'This is the only part you do. Skip the optional ones if you like.',
-  'Sources, voice and schedule from your answers. You can edit it any time.',
+  'The plain-language instructions it follows on every run. You can edit it any time.',
   'It checks what you’ve already posted before choosing stories.',
   'Three stories, with a post for X and LinkedIn for each.',
   'Three stories, three hours apart. This one runs daily. Yours can run weekly instead.',
@@ -158,7 +152,7 @@ function DemoNudge() {
   const [ref, state] = useOnceInView<HTMLParagraphElement>()
   return (
     <p ref={ref} className="flow-nudge" data-state={state}>
-      Seriously, watch the demo. It’s {RUN_SECONDS} seconds.
+      Seriously, watch the demo.
     </p>
   )
 }
@@ -371,7 +365,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     setSelectedStory(null)
     setStarted(true)
     setPlaying(false)
-    setElapsed(index === STAGES.length - 1 ? DURATION : STARTS[index + 1] - 50)
+    // The last step shows the finished first run; the next morning plays on after it.
+    setElapsed(index === STAGES.length - 1 ? NEXT_DAY - 50 : STARTS[index + 1] - 50)
   }
   // The progress bar scrubs like a video: playback pauses while dragging and resumes on release.
   const resumeAfterScrub = useRef(false)
@@ -422,7 +417,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </span>
         <span id="flow-launch-description" className="flow-launch-copy">
           <strong>Good News Today</strong>
-          <span>An example run for a good-news account on X and LinkedIn.</span>
+          <span>A good-news account on X and LinkedIn: set up once, then two days of runs.</span>
         </span>
         <button
           type="button"
@@ -641,6 +636,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <span>Good News Today</span>
                       <span className="flow-tag">Playbook</span>
                     </div>
+                    <p className="flow-playbook-note">The instructions it follows on every run.</p>
                     {RULES.map(([name, value], index) => (
                       <div
                         className="flow-rule flow-reveal"
@@ -850,7 +846,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 index={3}
                 stage={viewStage}
                 overview={overview}
-                title="Channel posts"
+                title="Your posts"
                 icon={<Icon kind="posts" />}
               >
                 <div className="flow-writing">
@@ -957,7 +953,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 index={4}
                 stage={viewStage}
                 overview={overview}
-                title="Buffer schedule"
+                title="In Buffer"
                 icon={<BufferMark size={16} />}
               >
                 <div className="flow-finish">
@@ -1035,6 +1031,15 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 </div>
               </FlowPanel>
             </div>
+          </div>
+          {/* The second run covers the workspace: the same agent, the next morning, on its own. */}
+          <div
+            className="flow-next-day flow-reveal"
+            data-revealed={elapsed >= NEXT_DAY && selectedStory === null}
+            aria-hidden={elapsed < NEXT_DAY || selectedStory !== null || undefined}
+            inert={elapsed < NEXT_DAY || selectedStory !== null}
+          >
+            <NextDay elapsed={elapsed} onBack={() => seek(STAGES.length - 1)} />
           </div>
           <div className="flow-player">
             <span

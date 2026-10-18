@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { ChannelMark } from './brand-icons'
 import { Icon } from './flow-icon'
 import { StreamText } from './stream-text'
-import { ANSWERS, ANSWER_ROWS, ANSWER_SUMMARY, TIMING } from '../lib/example-run'
+import { ANSWERS, ANSWER_ROWS, TIMING } from '../lib/example-run'
 
 const {
   QUESTION_STARTS,
@@ -208,20 +208,6 @@ export function SetupAnswers({ elapsed = Number.POSITIVE_INFINITY }: { elapsed?:
           >
             {value}
           </dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** The submitted answers, shortened to share a column with the playbook. */
-export function SetupSummary() {
-  return (
-    <dl className="setup-summary" aria-label="Example answers">
-      {ANSWER_SUMMARY.map(([name, value]) => (
-        <div key={name}>
-          <dt>{name}</dt>
-          <dd>{value}</dd>
         </div>
       ))}
     </dl>
