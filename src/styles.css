@@ -2058,14 +2058,16 @@ header nav button {
   font-weight: 500;
 }
 .flow-duplicate-detail .flow-match-card blockquote,
-.flow-match-callout .flow-match-card blockquote {
+.flow-match-callout .flow-match-card blockquote,
+.step-match .flow-match-card blockquote {
   margin: 0;
   padding: 0;
   font-size: 16px;
   line-height: 1.5;
 }
 .flow-duplicate-detail p.flow-match-link,
-.flow-match-callout p.flow-match-link {
+.flow-match-callout p.flow-match-link,
+.step-match p.flow-match-link {
   position: relative;
   display: flex;
   align-items: center;
@@ -2724,32 +2726,21 @@ header nav button {
 .step-research .flow-candidates {
   border-top-color: var(--color-ink);
 }
-.step-research .flow-candidates li > span:first-child {
-  min-width: 0;
-}
-.flow-candidates li.is-skipped > span:last-child {
-  color: var(--color-muted);
-}
-.step-match {
-  margin: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-pine);
-}
-.step-match figcaption {
+.step-match-title {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-pine);
   color: var(--color-pine);
   font-size: 15px;
   font-weight: 500;
 }
-.step-match blockquote {
-  margin: 16px 0 0;
-  font-size: 18px;
-  line-height: 1.55;
-  letter-spacing: -0.01em;
+.step-match .flow-match {
+  margin-top: 0;
 }
-.step-match p {
-  margin: 16px 0 0;
+.step-match > p:last-child {
+  margin: 14px 0 0;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 .step-schedule-status {
   margin: 0;
@@ -2894,8 +2885,8 @@ header nav button {
   grid-template-columns: repeat(2, 440px);
   justify-content: center;
   gap: 64px;
-  padding: 36px 40px;
-  zoom: 0.9;
+  padding: 28px 40px;
+  zoom: 0.78;
 }
 .flow-poster .flow-poster-column {
   min-width: 0;
@@ -2911,6 +2902,12 @@ header nav button {
     zoom: 0.8;
   }
   .flow-poster .is-schedule {
+    display: none;
+  }
+}
+/* Phone posters have room for three stories: start where one is kept and two are skipped. */
+@container (max-width: 520px) {
+  .flow-poster .flow-candidates li:nth-child(-n + 2) {
     display: none;
   }
 }
@@ -3834,7 +3831,7 @@ header nav button {
 
 /* The playbook says what it is in one line. */
 .flow-playbook-note {
-  margin: 0 0 4px;
+  margin: 10px 0 4px;
   font-size: 14px;
   line-height: 1.45;
   color: var(--color-muted);

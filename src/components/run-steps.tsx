@@ -55,6 +55,7 @@ function PlaybookFragment() {
         <span>Good News Today</span>
         <span className="flow-tag">Playbook</span>
       </div>
+      <p className="flow-playbook-note">The instructions it follows on every run.</p>
       {RULES.map(([name, value], index) => (
         <div className="flow-rule" key={name} style={{ '--step-index': index } as CSSProperties}>
           <span>
@@ -69,21 +70,23 @@ function PlaybookFragment() {
 
 function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
   return (
-    <div className={`step-research ${withMatch ? '' : 'is-solo'}`}>
+    <div className={`step-research flow-research ${withMatch ? '' : 'is-solo'}`}>
       <div className="flow-candidates">
         <strong>Stories found</strong>
         <ul>
-          {CANDIDATES.map(([title, status], index) => (
+          {CANDIDATES.map(([title, status, source], index) => (
             <li
               key={title}
-              className={index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : 'is-skipped'}
+              className={index < 3 ? 'is-selected' : index === 3 ? 'is-duplicate' : ''}
+              data-state="resolved"
               style={{ '--step-index': index } as CSSProperties}
             >
               <span className="flow-candidate-mark" aria-hidden="true">
                 <Icon kind={index < 3 ? 'check' : 'skip'} />
               </span>
               <span>{title}</span>
-              <span>
+              <span className="flow-candidate-source">{source}</span>
+              <span className="flow-candidate-status">
                 <Swap before="Checking" after={status} />
               </span>
             </li>
@@ -91,11 +94,21 @@ function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
         </ul>
       </div>
       {withMatch ? (
-        <figure className="step-match">
-          <figcaption>You already posted this</figcaption>
-          <blockquote>{PREVIOUS_POST}</blockquote>
-          <p>You posted this story before, so it isn’t posted again.</p>
-        </figure>
+        <div className="step-match">
+          <p className="step-match-title">Why one story was skipped</p>
+          <div className="flow-match">
+            <div className="flow-match-card">
+              <span className="flow-match-label">Found today, {CANDIDATES[3][2]}</span>
+              <strong>{CANDIDATES[3][0]}</strong>
+            </div>
+            <p className="flow-match-link">Same story</p>
+            <div className="flow-match-card is-previous">
+              <span className="flow-match-label">Already posted by you</span>
+              <blockquote>{PREVIOUS_POST}</blockquote>
+            </div>
+          </div>
+          <p>You shared this one before, so it’s skipped.</p>
+        </div>
       ) : null}
     </div>
   )
@@ -104,7 +117,7 @@ function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
 function PostsFragment() {
   const story = STORIES[0]
   return (
-    <article className="flow-post step-posts">
+    <article className="flow-post flow-writing step-posts">
       <div className="flow-post-heading">
         <strong>{story.title}</strong>
         <span className="flow-tag flow-status-tag">
@@ -130,6 +143,19 @@ function ScheduleFragment() {
       <p className="step-schedule-status">
         <BrandText>6 posts scheduled in Buffer for X and LinkedIn</BrandText>
       </p>
+      <div className="flow-day" aria-hidden="true">
+        {STORIES.map((story) => (
+          <span
+            key={story.time}
+            className="flow-day-slot"
+            data-revealed="true"
+            style={{ left: `${((Number(story.time.slice(0, 2)) - 6) / 12) * 100}%` }}
+          >
+            <span className="flow-day-dot" />
+            <span className="flow-day-time">{story.time}</span>
+          </span>
+        ))}
+      </div>
       <ol className="flow-schedule">
         {STORIES.map((story, index) => (
           <li key={story.title} style={{ '--step-index': index } as CSSProperties}>
@@ -146,6 +172,7 @@ function ScheduleFragment() {
           </li>
         ))}
       </ol>
+      <p className="flow-receipt">Found 5 stories. Skipped 2. Scheduled 6 posts.</p>
       <p className="flow-next">
         <Icon kind="check" /> Next run tomorrow at 08:00.
       </p>

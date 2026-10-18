@@ -111,7 +111,7 @@ test('the step-by-step run reads in full without JavaScript', async ({ browser }
   await expect(page.locator('.step-figure[data-state="done"]')).toHaveCount(6)
   const steps = page.locator('.steps')
   await expect(steps.locator('.flow-candidates').getByText('Already posted, skipped')).toBeVisible()
-  await expect(steps.getByText('You already posted this')).toBeVisible()
+  await expect(steps.getByText('Why one story was skipped')).toBeVisible()
   await expect(
     steps.getByRole('heading', { name: 'It runs again on its own.', exact: true }),
   ).toBeVisible()
