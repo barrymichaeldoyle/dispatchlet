@@ -19,7 +19,7 @@ import { Icon } from './flow-icon'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
-import { SetupAnswers, SetupQuestions, SetupSummary } from './setup-form'
+import { SetupAnswers, SetupQuestions } from './setup-form'
 import { StreamText } from './stream-text'
 import { useOnceInView } from '../lib/use-once-in-view'
 import { useScrollable } from '../lib/use-scrollable'
@@ -64,6 +64,8 @@ const {
   DURATION,
 } = TIMING
 const TOTAL_SECONDS = DURATION / 1000
+const SPEEDS = [0.5, 0.75, 1, 1.5, 2]
+const SPEED_KEY = 'dispatchlet-demo-speed'
 // The sources named in the playbook, as the agent reads them.
 const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'Guardian']
 const STAGES = ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']
@@ -219,17 +221,36 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     return () => preference.removeEventListener('change', update)
   }, [])
 
+  // Playback speed is a per-viewer preference, so it is remembered in this browser only.
+  const [speed, setSpeed] = useState(1)
+  const restoreSpeed = () => {
+    try {
+      const saved = Number(localStorage.getItem(SPEED_KEY))
+      if (SPEEDS.includes(saved)) setSpeed(saved)
+    } catch {
+      // Storage can be blocked; the default speed is fine.
+    }
+  }
+  const changeSpeed = (value: number) => {
+    setSpeed(value)
+    try {
+      localStorage.setItem(SPEED_KEY, String(value))
+    } catch {
+      // Storage can be blocked; the choice still applies to this visit.
+    }
+  }
+
   useEffect(() => {
     if (!playing) return
     let previous = performance.now()
     const timer = window.setInterval(() => {
       const now = performance.now()
-      const delta = now - previous
+      const delta = (now - previous) * speed
       setElapsed((value) => Math.min(DURATION, value + delta))
       previous = now
     }, 50)
     return () => window.clearInterval(timer)
-  }, [playing])
+  }, [playing, speed])
 
   useEffect(() => {
     const pauseWhenHidden = () => {
@@ -320,6 +341,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
 
   const launch = (button: HTMLElement) => {
     opener.current = button
+    restoreSpeed()
     setSelectedStory(null)
     if (complete) setElapsed(0)
     setStarted(true)
@@ -548,7 +570,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       <SetupQuestions elapsed={elapsed} reduced={reduced} />
                     )}
                     <div className="setup-side">
-                      {overview && expanded ? <SetupSummary /> : <SetupAnswers elapsed={elapsed} />}
+                      <SetupAnswers elapsed={elapsed} />
                       <div className="flow-submit-row">
                         <span>Good News Today</span>
                         <span
@@ -1017,7 +1039,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             <span
               aria-live="polite"
               aria-atomic="true"
-              className={complete ? 'sr-only' : undefined}
+              className={complete ? 'sr-only' : 'flow-player-status'}
             >
               {!started ? (
                 'Ready when you are'
@@ -1045,6 +1067,20 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
               </button>
             ) : null}
             <div className="flow-player-actions">
+              <label className="flow-speed">
+                <span className="flow-speed-label">Speed</span>
+                <select
+                  value={speed}
+                  onChange={(event) => changeSpeed(Number(event.target.value))}
+                  aria-controls="flow-workspace"
+                >
+                  {SPEEDS.map((value) => (
+                    <option key={value} value={value}>
+                      {value}×
+                    </option>
+                  ))}
+                </select>
+              </label>
               {!complete ? (
                 <button
                   type="button"

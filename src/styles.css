@@ -524,6 +524,55 @@ html {
   align-items: center;
   gap: 16px;
 }
+/* Playback speed: a plain native select, so it works with every input method. */
+.flow-speed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.flow-speed select {
+  min-height: 36px;
+  padding: 4px 6px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.flow-dialog .flow-speed {
+  font-size: 14px;
+}
+.flow-dialog .flow-speed select {
+  min-height: 44px;
+  padding-inline: 10px;
+}
+/* The narrowest phones need the room for the controls; the status is still announced. */
+@media (max-width: 420px) {
+  .flow-player-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .flow-dialog .flow-speed select {
+    padding-inline: 4px;
+  }
+}
+@media (max-width: 680px) {
+  .flow-speed-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
 .flow-transport {
   display: inline-flex;
   align-items: center;
@@ -3115,12 +3164,28 @@ header nav button {
 .flow-dialog .is-overview.is-intro .flow-submit-row {
   margin-top: 16px;
 }
-.is-overview .flow-panel-0 {
-  view-transition-name: flow-brief;
+/* In the open workspace the answers block heads its column itself, in tighter rows. */
+.is-overview:not(.is-intro) .flow-panel-0 > .flow-panel-title {
+  display: none;
 }
-::view-transition-group(flow-brief) {
+.is-overview:not(.is-intro) .setup-answers > div {
+  min-height: 0;
+  padding: 4px 0;
+}
+/* Opening out, the answers travel from beside the questions to the top of the first column. */
+.is-overview .setup-side {
+  view-transition-name: flow-answers;
+}
+::view-transition-group(flow-answers) {
   animation-duration: 650ms;
   animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* Only the settled answers move; crossfading two layouts of the same rows would ghost. */
+::view-transition-old(flow-answers) {
+  display: none;
+}
+::view-transition-new(flow-answers) {
+  animation: none;
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {

@@ -412,7 +412,7 @@ for (const viewport of [
     }
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(0)
     for (const selector of [
-      '.setup-summary',
+      '.setup-answers',
       '.flow-playbook',
       '.is-duplicate',
       '.flow-post[data-selected="true"]',
@@ -818,4 +818,22 @@ test('demo columns are tab stops only when they have something to scroll', async
   // On a short screen the columns scroll, so keyboard users can reach and scroll them.
   await page.setViewportSize({ width: 1280, height: 720 })
   await expect(columns.and(page.locator('[tabindex="0"]'))).not.toHaveCount(0)
+})
+
+test('playback speed changes how fast the walkthrough runs and is remembered', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.clock.install()
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  const demo = page.getByRole('dialog')
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
+  await progress.press('Home')
+  await demo.getByRole('combobox', { name: 'Speed' }).selectOption('2')
+  await page.clock.runFor(5000)
+  await expect(progress).toHaveAttribute('aria-valuenow', '10')
+  await demo.getByRole('button', { name: 'Close walkthrough' }).click()
+  await page.reload()
+  await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('combobox', { name: 'Speed' })).toHaveValue('2')
 })
