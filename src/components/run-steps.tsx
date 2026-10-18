@@ -3,7 +3,7 @@ import { BrandText } from './brand-text'
 import { Icon } from './flow-icon'
 import { ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
-import { SetupForm, SetupSummary } from './setup-form'
+import { SetupAnswers, SetupQuestions, SetupSummary } from './setup-form'
 import { StepArt, type StepArtKind } from './step-art'
 import { CANDIDATES, PREVIOUS_POST, RULES, STORIES } from '../lib/example-run'
 import { useOnceInView } from '../lib/use-once-in-view'
@@ -25,15 +25,29 @@ function Swap({ before, after }: { before: ReactNode; after: ReactNode }) {
 }
 
 function BriefFragment({ summary = false }: { summary?: boolean }) {
+  const submit = (
+    <div className="flow-submit-row">
+      <span>Good News Today</span>
+      <span className="flow-submit">
+        <Swap before="Create playbook" after="Playbook created" />
+        <Icon kind="check" />
+      </span>
+    </div>
+  )
+  if (summary)
+    return (
+      <div className="step-brief">
+        <SetupSummary />
+        {submit}
+      </div>
+    )
+  // The question about repeats and slow news days says most about what to expect.
   return (
-    <div className="step-brief">
-      {summary ? <SetupSummary /> : <SetupForm />}
-      <div className="flow-submit-row">
-        <span>Good News Today</span>
-        <span className="flow-submit">
-          <Swap before="Create playbook" after="Playbook created" />
-          <Icon kind="check" />
-        </span>
+    <div className="step-brief flow-prompt is-asking">
+      <SetupQuestions still={5} />
+      <div className="setup-side">
+        <SetupAnswers />
+        {submit}
       </div>
     </div>
   )

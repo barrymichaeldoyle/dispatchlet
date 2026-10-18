@@ -6,53 +6,56 @@
  * of the product.
  */
 export const TIMING = {
-  /** The questions are answered in order; each one holds the focus ring while it is filled in. */
-  QUESTION_STARTS: [300, 2000, 2600, 3400, 4700, 5500, 6100],
-  TYPE_START: 400,
-  TYPE_DURATION: 1400,
-  CHANNEL_TICKS: [2150, 2350],
-  AVOID_START: 2700,
+  /** One question at a time. Each answer lands in the summary just before the next question. */
+  QUESTION_STARTS: [300, 2100, 3100, 4300, 6000, 7100, 7900],
+  ANSWERED: [1950, 2950, 4150, 5850, 6900, 7750, 8550],
+  TYPE_START: 500,
+  TYPE_DURATION: 1200,
+  CHANNEL_TICKS: [2400, 2650],
+  AVOID_START: 3300,
   AVOID_DURATION: 600,
-  SOURCE_START: 3500,
+  SOURCE_START: 4500,
   SOURCE_INTERVAL: 280,
-  DAILY: 4850,
-  RUN_TIME: 5150,
-  STORY_COUNT: 5750,
-  POSTING: 6300,
-  CURSOR_START: 6800,
+  DAILY: 6300,
+  RUN_TIME: 6650,
+  STORY_COUNT: 7450,
+  POSTING: 8250,
+  /** Every question is answered; the cursor goes to the button. */
+  DONE: 8700,
+  CURSOR_START: 8800,
   CURSOR_TRAVEL: 500,
-  CLICK: 7300,
+  CLICK: 9300,
   /** The workspace opens out from the answers once they are submitted. */
-  EXPAND: 7800,
-  PLAYBOOK: 8200,
-  RULE_START: 8400,
+  EXPAND: 9800,
+  PLAYBOOK: 10200,
+  RULE_START: 10400,
   RULE_INTERVAL: 600,
-  READY: 10600,
+  READY: 12600,
   /** "Playbook created" only once the playbook is actually ready. */
-  CREATED: 10600,
-  RESEARCH: 11000,
-  EVENT_STARTS: [11200, 12400, 13600],
-  CANDIDATE_START: 14800,
+  CREATED: 12600,
+  RESEARCH: 13000,
+  EVENT_STARTS: [13200, 14400, 15600],
+  CANDIDATE_START: 16800,
   CANDIDATE_INTERVAL: 300,
-  RESOLVE_START: 16200,
+  RESOLVE_START: 18200,
   RESOLVE_INTERVAL: 450,
-  MATCH: 17550,
+  MATCH: 19550,
   MATCH_HOLD: 1300,
-  POSTS: 20500,
-  X_START: 20700,
+  POSTS: 22500,
+  X_START: 22700,
   X_DURATION: 1400,
-  LI_START: 22300,
+  LI_START: 24300,
   LI_DURATION: 1800,
-  POSTS_READY: 24400,
-  STORY_2: 25200,
-  STORY_3: 25900,
-  WRITING_SETTLED: 26200,
-  BUFFER: 27000,
-  SLOT_START: 27300,
+  POSTS_READY: 26400,
+  STORY_2: 27200,
+  STORY_3: 27900,
+  WRITING_SETTLED: 28200,
+  BUFFER: 29000,
+  SLOT_START: 29300,
   SLOT_INTERVAL: 700,
-  RECEIPT: 29400,
+  RECEIPT: 31400,
   /** The run ends once the receipt has settled; the last frame holds, so nothing runs on after it. */
-  DURATION: 30000,
+  DURATION: 32000,
 } as const
 
 export const RUN_SECONDS = TIMING.DURATION / 1000
@@ -75,7 +78,18 @@ export const ANSWERS = {
   stories: 3,
 } as const
 
-/** The answers as the workspace shows them once they are submitted. */
+/** The answers as they build up beside the questions, one row per question. */
+export const ANSWER_ROWS = [
+  ['Research', ANSWERS.topic],
+  ['Channels', 'X and LinkedIn'],
+  ['Avoid', ANSWERS.avoid],
+  ['Sources', '4 sites, others allowed'],
+  ['Runs', `Daily at ${ANSWERS.time}`],
+  ['Stories', `Up to ${ANSWERS.stories} a day`],
+  ['Posting', 'Scheduled in Buffer'],
+]
+
+/** The same answers, shorter, once the workspace opens out and they share a column. */
 export const ANSWER_SUMMARY = [
   ['Research', ANSWERS.topic],
   ['Avoid', ANSWERS.avoid],

@@ -3105,7 +3105,7 @@ header nav button {
 .flow-workspace.is-intro .flow-context {
   align-self: safe center;
   justify-self: center;
-  width: min(100%, 860px);
+  width: min(100%, 980px);
   max-height: 100%;
   padding-right: 4px;
 }
@@ -3502,135 +3502,165 @@ header nav button {
   }
 }
 
-/* The setup questions: one ruled row each, the question on the left and its answer on the right. */
-.setup-form {
-  border-top: 1px solid var(--color-rule);
-}
-.setup-question {
+/*
+ * The setup questions, one at a time in big blocks, with the answers building up beside them.
+ * Selected blocks look like their focus ring, filled with tint.
+ */
+.flow-prompt.is-asking {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr);
-  gap: 6px 24px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-rule);
+  gap: 32px;
 }
-.setup-label {
+@media (min-width: 900px) {
+  .flow-prompt.is-asking {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 56px;
+  }
+}
+.setup-stage {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding-top: 7px;
-  font-size: 15px;
-  font-weight: 500;
-  line-height: 1.35;
+  min-width: 0;
+  min-height: 340px;
 }
-.setup-optional {
-  font-size: 13px;
-  font-weight: 400;
+.setup-progress {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 28px;
+}
+.setup-progress > span {
+  height: 4px;
+  background: var(--color-rule);
+  transition: background-color 300ms ease-out;
+}
+.setup-progress > span[data-done='true'] {
+  background: var(--color-pine);
+}
+.setup-question {
+  animation: flow-caption-in 260ms ease-out both;
+}
+.setup-count {
+  margin: 0 0 8px;
+  font-size: 14px;
   color: var(--color-muted);
 }
-.setup-answer {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  min-width: 0;
+.setup-title {
+  margin: 0 0 20px;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.setup-hint {
+  max-width: 48ch;
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-muted);
 }
 .setup-input {
-  min-height: 36px;
-  padding: 7px 10px;
-  border: 1px solid var(--color-ink);
-  font-size: 15px;
+  display: block;
+  min-height: 60px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-pine);
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
+  background: var(--color-card);
+  font-size: 20px;
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
-.setup-input.is-short {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 64px;
-  min-height: 32px;
-  padding: 4px 8px;
-}
-.setup-choices {
+.setup-blocks {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 20px;
-  min-height: 36px;
-  font-size: 15px;
+  gap: 12px;
 }
-.setup-choice,
-.setup-inline {
+.setup-block {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 120px;
+  min-height: 64px;
+  padding: 14px 20px;
+  border: 1px solid var(--color-rule);
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  background: var(--color-card);
+  font-size: 18px;
+  font-weight: 500;
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    outline-color 200ms ease-out;
+}
+.setup-block[data-checked='true'] {
+  border-color: var(--color-pine);
+  outline-color: var(--color-pine);
+  background: var(--color-tint);
+}
+.setup-block-title {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
-.setup-checkbox,
-.setup-radio {
-  position: relative;
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+.setup-block-detail {
+  max-width: 24ch;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--color-muted);
+}
+.setup-blocks.is-numbers .setup-block {
+  min-width: 72px;
+  align-items: center;
+  font-size: 24px;
+}
+.setup-block.is-wide {
+  display: flex;
+  min-height: 52px;
+  margin-top: 16px;
+  font-size: 16px;
+}
+.setup-box {
+  width: 18px;
+  height: 18px;
   border: 1px solid var(--color-ink);
-  transition: background-color 150ms ease-out;
 }
-.setup-radio {
-  border-radius: 50%;
+.setup-done > svg {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 12px;
+  color: var(--color-pine);
 }
-.setup-checkbox::after,
-.setup-radio::after {
-  content: '';
-  position: absolute;
-  opacity: 0;
-  transition: opacity 150ms ease-out;
+
+/* The answers so far: a row per question, the one being asked named in green. */
+.setup-side {
+  min-width: 0;
 }
-.setup-checkbox::after {
-  top: 1px;
-  left: 4px;
-  width: 4px;
-  height: 8px;
-  border: solid var(--color-paper);
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-.setup-radio::after {
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--color-ink);
-}
-.setup-choice[data-checked='true'] .setup-checkbox {
-  background: var(--color-ink);
-}
-.setup-choice[data-checked='true'] .setup-checkbox::after,
-.setup-choice[data-checked='true'] .setup-radio::after {
-  opacity: 1;
-}
-.setup-note {
-  font-size: 13px;
-  color: var(--color-muted);
-}
-.setup-hint {
-  max-width: 60ch;
+.setup-answers {
   margin: 0;
-  font-size: 13px;
+  border-top: 1px solid var(--color-rule);
+}
+.setup-answers > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 38px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: 14px;
   line-height: 1.45;
+}
+.setup-answers dt {
   color: var(--color-muted);
+  transition: color 200ms ease-out;
 }
-/* The question being answered shows the focus ring on its control, as a real form would. */
-.setup-answer > :first-child,
-.setup-input.is-short {
-  outline: 2px solid transparent;
-  outline-offset: 3px;
-  transition: outline-color 200ms ease-out;
+.setup-answers > div[data-current='true'] dt {
+  color: var(--color-pine);
 }
-.setup-question[data-active='true'] .setup-answer > :first-child,
-.setup-question[data-active='true'] .setup-choices:not(:has(.setup-choice)) .setup-input {
-  outline-color: var(--color-pine);
-}
-.setup-question[data-active='true'] .setup-answer > .setup-choices:not(:has(.setup-choice)) {
-  outline-color: transparent;
-}
-/* Choice groups hug their contents, so the ring sits close around them. */
-.setup-answer > .setup-choices {
-  justify-self: start;
+.setup-answers dd {
+  margin: 0;
 }
 
 /* Once submitted, the answers shrink to short rows above the playbook. */
@@ -3653,27 +3683,53 @@ header nav button {
   margin: 0;
 }
 
-.step-figure .setup-question {
-  transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1);
-  transition-delay: calc(var(--step-index) * 120ms + 150ms);
+/* The step section shows one answered question; it is not being answered, so no ring. */
+.step-figure .setup-stage {
+  min-height: 0;
 }
-.step-figure[data-state='waiting'] .setup-question {
-  opacity: 0;
+.step-figure .setup-question {
+  animation: none;
 }
 
 @media (max-width: 680px) {
-  .setup-question {
-    grid-template-columns: minmax(0, 1fr);
+  /* Tall enough for the longest question at 320px, so the answers below never shift. */
+  .setup-stage {
+    min-height: 340px;
   }
-  .setup-label {
-    flex-direction: row;
-    align-items: baseline;
-    gap: 8px;
-    padding-top: 0;
+  /* Once everything is answered, phones keep only the progress bar so the answers and button fit. */
+  .setup-stage:has(.setup-done) {
+    min-height: 0;
+  }
+  .setup-done {
+    display: none;
+  }
+  .setup-progress {
+    margin-bottom: 20px;
+  }
+  .setup-title {
+    font-size: 24px;
+  }
+  .setup-input {
+    min-height: 0;
+    padding: 12px 14px;
+    font-size: 17px;
+  }
+  .setup-blocks {
+    gap: 10px;
+  }
+  .setup-block {
+    min-width: 0;
+    min-height: 52px;
+    padding: 12px 16px;
+    font-size: 16px;
+  }
+  .setup-blocks.is-numbers .setup-block {
+    min-width: 60px;
+    font-size: 20px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .step-figure .setup-question {
-    transition: none;
+  .setup-question {
+    animation: none;
   }
 }

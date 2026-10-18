@@ -1,10 +1,12 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { ChannelMark } from './brand-icons'
+import { Icon } from './flow-icon'
 import { StreamText } from './stream-text'
-import { ANSWERS, ANSWER_SUMMARY, TIMING } from '../lib/example-run'
+import { ANSWERS, ANSWER_ROWS, ANSWER_SUMMARY, TIMING } from '../lib/example-run'
 
 const {
   QUESTION_STARTS,
+  ANSWERED,
   TYPE_START,
   TYPE_DURATION,
   CHANNEL_TICKS,
@@ -16,166 +18,204 @@ const {
   RUN_TIME,
   STORY_COUNT,
   POSTING,
-  CURSOR_START,
+  DONE,
 } = TIMING
 const SOURCES = ANSWERS.sources.join(', ')
 
-function Question({
-  index,
-  active,
-  label,
-  optional = false,
-  hint,
-  children,
-}: {
-  index: number
-  active: number
-  label: string
-  optional?: boolean
-  hint?: string
-  children: ReactNode
-}) {
-  return (
-    <div
-      className="setup-question"
-      data-active={active === index}
-      style={{ '--step-index': index } as CSSProperties}
-    >
-      <div className="setup-label">
-        <span>{label}</span>
-        {optional ? <span className="setup-optional">Optional</span> : null}
-      </div>
-      <div className="setup-answer">
-        {children}
-        {hint ? <p className="setup-hint">{hint}</p> : null}
-      </div>
-    </div>
-  )
-}
-
-function Choice({
-  kind,
+/** A big selectable block, the demo's stand-in for a checkbox or radio button. */
+function Block({
   checked,
+  detail,
+  className = '',
   children,
 }: {
-  kind: 'checkbox' | 'radio'
   checked: boolean
+  detail?: string
+  className?: string
   children: ReactNode
 }) {
   return (
-    <span className="setup-choice" data-checked={checked}>
-      <span className={`setup-${kind}`} aria-hidden="true" />
-      {children}
+    <span className={`setup-block ${className}`} data-checked={checked}>
+      <span className="setup-block-title">{children}</span>
+      {detail ? <span className="setup-block-detail">{detail}</span> : null}
       {checked ? <span className="sr-only">, selected</span> : null}
     </span>
   )
 }
 
+type Question = { label: string; optional?: boolean; hint?: string; answer: ReactNode }
+
+function questions(elapsed: number, reduced: boolean): Question[] {
+  const at = (time: number) => elapsed >= time
+  const type = (text: string, start: number, duration: number) => (
+    <span className="setup-input">
+      <StreamText
+        text={text}
+        elapsed={elapsed}
+        start={start}
+        duration={duration}
+        reduced={reduced}
+        caret={elapsed < start + duration + 200}
+      />
+    </span>
+  )
+  return [
+    {
+      label: 'What should it research?',
+      hint: 'One line is enough.',
+      answer: type(ANSWERS.topic, TYPE_START, TYPE_DURATION),
+    },
+    {
+      label: 'Where should it post?',
+      hint: 'The channels in your Buffer account.',
+      answer: (
+        <span className="setup-blocks">
+          {ANSWERS.channels.map((channel, index) => (
+            <Block key={channel} checked={at(CHANNEL_TICKS[index])}>
+              <ChannelMark channel={channel} size={18} />
+              {channel}
+            </Block>
+          ))}
+        </span>
+      ),
+    },
+    {
+      label: 'Anything to avoid?',
+      optional: true,
+      answer: type(ANSWERS.avoid, AVOID_START, AVOID_DURATION),
+    },
+    {
+      label: 'Any sources you prefer?',
+      optional: true,
+      hint: 'Unless you tick the box, it can find other reliable sources too.',
+      answer: (
+        <>
+          {type(SOURCES, SOURCE_START, SOURCE_INTERVAL * ANSWERS.sources.length)}
+          <Block checked={false} className="is-wide">
+            <span className="setup-box" aria-hidden="true" />
+            Only use these sources
+          </Block>
+        </>
+      ),
+    },
+    {
+      label: 'When should it run?',
+      hint: 'In your time zone.',
+      answer: (
+        <span className="setup-blocks">
+          <Block checked={at(DAILY)}>Daily</Block>
+          <Block checked={false}>Weekly</Block>
+          <Block checked={at(RUN_TIME)} className="tabular">
+            {at(RUN_TIME) ? `At ${ANSWERS.time}` : 'At …'}
+          </Block>
+        </span>
+      ),
+    },
+    {
+      label: 'How many stories a day, at most?',
+      hint: 'Each story gets a post for every channel. It never repeats what you’ve posted or scheduled, and schedules fewer on slow news days.',
+      answer: (
+        <span className="setup-blocks is-numbers">
+          {[1, 2, 3].map((count) => (
+            <Block
+              key={count}
+              checked={count === ANSWERS.stories && at(STORY_COUNT)}
+              className="tabular"
+            >
+              {count}
+            </Block>
+          ))}
+        </span>
+      ),
+    },
+    {
+      label: 'How should posts reach Buffer?',
+      answer: (
+        <span className="setup-blocks">
+          <Block checked={at(POSTING)} detail="Into your queue, spread through the day.">
+            Schedule them
+          </Block>
+          <Block checked={false} detail="They wait in Buffer for your approval.">
+            Save as drafts
+          </Block>
+        </span>
+      ),
+    },
+  ]
+}
+
 /**
- * The setup questions, answered one after another in the demo. Left without a time it shows the
- * finished answers, for the step sections.
+ * The setup questions, one at a time. In the demo they follow the timeline; `still` holds one
+ * answered question for the step sections.
  */
-export function SetupForm({
+export function SetupQuestions({
   elapsed = Number.POSITIVE_INFINITY,
   reduced = true,
+  still,
 }: {
   elapsed?: number
   reduced?: boolean
+  still?: number
 }) {
-  const at = (time: number) => elapsed >= time
-  const active =
-    elapsed < CURSOR_START
-      ? QUESTION_STARTS.reduce((current, start, index) => (at(start) ? index : current), -1)
-      : -1
-  const type = (text: string, start: number, duration: number, index: number) => (
-    <StreamText
-      text={text}
-      elapsed={elapsed}
-      start={start}
-      duration={duration}
-      reduced={reduced}
-      caret={active === index}
-    />
-  )
+  const list = questions(elapsed, reduced)
+  const current =
+    still ??
+    (elapsed >= DONE
+      ? list.length
+      : QUESTION_STARTS.reduce((last, start, index) => (elapsed >= start ? index : last), 0))
+  const question = list[current]
   return (
-    <div className="setup-form" role="group" aria-label="Example answers">
-      <Question index={0} active={active} label="What should it research?">
-        <div className="setup-input">{type(ANSWERS.topic, TYPE_START, TYPE_DURATION, 0)}</div>
-      </Question>
-      <Question index={1} active={active} label="Where should it post?">
-        <div className="setup-choices">
-          {ANSWERS.channels.map((channel, index) => (
-            <Choice key={channel} kind="checkbox" checked={at(CHANNEL_TICKS[index])}>
-              <ChannelMark channel={channel} size={13} />
-              {channel}
-            </Choice>
-          ))}
+    <div className="setup-stage" role="group" aria-label="Example question">
+      <div className="setup-progress" aria-hidden="true">
+        {list.map((_, index) => (
+          <span key={index} data-done={elapsed >= ANSWERED[index] || index < current} />
+        ))}
+      </div>
+      {question ? (
+        <div key={current} className="setup-question">
+          <p className="setup-count">
+            Question {current + 1} of {list.length}
+            {question.optional ? ', optional' : ''}
+          </p>
+          <h4 className="setup-title">{question.label}</h4>
+          <div className="setup-answer">{question.answer}</div>
+          {question.hint ? <p className="setup-hint">{question.hint}</p> : null}
         </div>
-      </Question>
-      <Question index={2} active={active} label="Anything to avoid?" optional>
-        <div className="setup-input">{type(ANSWERS.avoid, AVOID_START, AVOID_DURATION, 2)}</div>
-      </Question>
-      <Question index={3} active={active} label="Sources you prefer?" optional>
-        <div className="setup-input">
-          {type(SOURCES, SOURCE_START, SOURCE_INTERVAL * ANSWERS.sources.length, 3)}
+      ) : (
+        <div key="done" className="setup-question setup-done">
+          <Icon kind="check" />
+          <h4 className="setup-title">That’s everything.</h4>
+          <p className="setup-hint">Check your answers, then create the playbook.</p>
         </div>
-        <div className="setup-choices">
-          <Choice kind="checkbox" checked={false}>
-            Only use these sources
-          </Choice>
-          <span className="setup-note">Unticked, it can find others too.</span>
-        </div>
-      </Question>
-      <Question index={4} active={active} label="When should it run?">
-        <div className="setup-choices">
-          <Choice kind="radio" checked={at(DAILY)}>
-            Daily
-          </Choice>
-          <Choice kind="radio" checked={false}>
-            Weekly
-          </Choice>
-          <span className="setup-inline">
-            at{' '}
-            <span className="setup-input is-short tabular">{at(RUN_TIME) ? ANSWERS.time : ''}</span>
-          </span>
-          <span className="setup-note">Your time zone</span>
-        </div>
-      </Question>
-      <Question
-        index={5}
-        active={active}
-        label="How many stories a day?"
-        hint="Each story gets a post for every channel. It never repeats what you’ve posted or scheduled, and schedules fewer on slow news days."
-      >
-        <div className="setup-choices">
-          <span className="setup-inline">
-            Up to{' '}
-            <span className="setup-input is-short tabular">
-              {at(STORY_COUNT) ? ANSWERS.stories : ''}
-            </span>
-          </span>
-        </div>
-      </Question>
-      <Question
-        index={6}
-        active={active}
-        label="How should posts reach Buffer?"
-        hint="Drafts wait in Buffer for your approval."
-      >
-        <div className="setup-choices">
-          <Choice kind="radio" checked={at(POSTING)}>
-            Schedule them
-          </Choice>
-          <Choice kind="radio" checked={false}>
-            Save as drafts
-          </Choice>
-        </div>
-      </Question>
+      )}
     </div>
   )
 }
 
-/** The submitted answers, as short rows. */
+/** The answers so far, one row per question, filling in as each one is answered. */
+export function SetupAnswers({ elapsed = Number.POSITIVE_INFINITY }: { elapsed?: number }) {
+  return (
+    <dl className="setup-answers" aria-label="Example answers">
+      {ANSWER_ROWS.map(([name, value], index) => (
+        <div
+          key={name}
+          data-current={elapsed >= QUESTION_STARTS[index] && elapsed < ANSWERED[index]}
+        >
+          <dt>{name}</dt>
+          <dd
+            className="flow-reveal"
+            data-revealed={elapsed >= ANSWERED[index]}
+            aria-hidden={elapsed < ANSWERED[index] || undefined}
+          >
+            {value}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** The submitted answers, shortened to share a column with the playbook. */
 export function SetupSummary() {
   return (
     <dl className="setup-summary" aria-label="Example answers">

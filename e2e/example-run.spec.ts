@@ -21,7 +21,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
     played = time
   }
   await playTo(T.TYPE_START + 1000)
-  const brief = demo.getByLabel('Example answers').locator('.flow-stream').first()
+  const brief = demo.getByLabel('Example question').locator('.flow-stream').first()
   await expect(brief).toContainText('Positive stories')
   await expect(brief).not.toContainText('and communities')
   await demo.getByRole('button', { name: 'Pause walkthrough', exact: true }).click()
@@ -209,6 +209,8 @@ for (const viewport of [
     ]) {
       // Opening out from the answers is the one deliberate layout change; measure from there.
       if (previous < T.EXPAND && time >= T.EXPAND) recorded.clear()
+      // On phones the answered questions fold away so the answers and button fit; also deliberate.
+      if (previous < T.DONE && time >= T.DONE) recorded.clear()
       await page.clock.fastForward(time - previous)
       previous = time
       await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
@@ -224,7 +226,7 @@ for (const viewport of [
         ).toBeLessThan(1)
       const items = await demo
         .locator(
-          '.setup-form, .setup-summary, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
+          '.setup-answers, .setup-summary, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
         )
         .evaluateAll((elements) =>
           elements
@@ -235,18 +237,20 @@ for (const viewport of [
             )
             .map((element) => {
               const rect = element.getBoundingClientRect()
-              const key = element.matches('.setup-form, .setup-summary')
+              const key = element.matches('.setup-answers, .setup-summary')
                 ? 'brief'
                 : element.classList.contains('flow-document-title')
                   ? 'document'
                   : element.matches('.flow-candidates li')
                     ? element.children[1]?.textContent
-                    : (element
-                        .querySelector('.flow-channel [role="img"]')
-                        ?.getAttribute('aria-label') ??
-                      element.querySelector('strong')?.textContent ??
-                      element.querySelector(':scope > span')?.textContent ??
-                      element.className)
+                    : element.matches('.setup-answers dd')
+                      ? element.previousElementSibling?.textContent
+                      : (element
+                          .querySelector('.flow-channel [role="img"]')
+                          ?.getAttribute('aria-label') ??
+                        element.querySelector('strong')?.textContent ??
+                        element.querySelector(':scope > span')?.textContent ??
+                        element.className)
               return {
                 key: `${element.closest('.flow-panel')?.getAttribute('aria-label')}:${element.className}:${key}`,
                 y: rect.y - (element.closest('.flow-scene')?.getBoundingClientRect().y ?? 0),
@@ -332,14 +336,14 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await expect(demo.getByRole('heading', { name: 'Answer a few quick questions.' })).toBeVisible()
   await expect(restart).toBeFocused()
   await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
-  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toBeEmpty()
+  await expect(demo.getByLabel('Example question').locator('.flow-stream').first()).toBeEmpty()
   await page.clock.runFor(2000)
-  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toContainText(
+  await expect(demo.getByLabel('Example question').locator('.flow-stream').first()).toContainText(
     'Positive stories',
   )
   await restart.press('Enter')
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toBeEmpty()
+  await expect(demo.getByLabel('Example question').locator('.flow-stream').first()).toBeEmpty()
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
   await restart.click()
@@ -710,7 +714,7 @@ for (const viewport of [
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
     await page.clock.runFor(T.POSTING - 400)
     await expect(demo.locator('.flow-cursor')).toHaveCount(0)
-    const posting = demo.locator('.setup-choice[data-checked="true"]', { hasText: 'Schedule them' })
+    const posting = demo.locator('.setup-block[data-checked="true"]', { hasText: 'Schedule them' })
     await expect(posting).toHaveCount(0)
     const cursor = demo.locator('.flow-cursor')
     // The pointer lands on the button's arrow, so the label stays readable.
@@ -721,7 +725,7 @@ for (const viewport of [
     }
     await expect(cursor).toBeVisible()
     // The pointer only moves once every question is answered.
-    await expect(posting).toHaveCount(1)
+    await expect(demo.locator('.setup-answers dd[data-revealed="true"]')).toHaveCount(7)
     let arrived = false
     let travelled = false
     for (let step = 0; step < 16; step++) {

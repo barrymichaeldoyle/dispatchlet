@@ -19,7 +19,7 @@ import { Icon } from './flow-icon'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
-import { SetupForm, SetupSummary } from './setup-form'
+import { SetupAnswers, SetupQuestions, SetupSummary } from './setup-form'
 import { StreamText } from './stream-text'
 import { useOnceInView } from '../lib/use-once-in-view'
 import { useScrollable } from '../lib/use-scrollable'
@@ -34,7 +34,6 @@ import {
 } from '../lib/example-run'
 
 const {
-  QUESTION_STARTS,
   CURSOR_START,
   CURSOR_TRAVEL,
   CLICK,
@@ -265,37 +264,21 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each visible chapter starts at the top of the workspace.
   }, [viewStage, focused, overview])
 
-  // On short screens the answers run longer than the view, so the question being answered stays in it.
-  const answering =
-    elapsed >= PLAYBOOK
-      ? -1
-      : elapsed >= CURSOR_START
-        ? QUESTION_STARTS.length
-        : QUESTION_STARTS.reduce(
-            (current, start, index) => (elapsed >= start ? index : current),
-            -1,
-          )
+  // On short screens the button can sit below the answers, so it scrolls into view for the click.
+  const submitting = elapsed >= CURSOR_START && elapsed < PLAYBOOK
   useEffect(() => {
-    if (!focused || (overview && expanded) || answering < 0) return
-    const row = workspace.current?.querySelectorAll('.setup-question, .flow-submit-row')[answering]
-    // The answers scroll inside the workspace on phones and inside their own column on desktop.
+    if (!focused || !submitting || (overview && expanded)) return
+    const row = workspace.current?.querySelector('.flow-submit-row')
     const scroller = overview
       ? workspace.current?.querySelector('.flow-context')
       : workspace.current
     if (!row || !scroller) return
     // An instant scroll of the container itself: a smooth one can outlive the chapter and leave
     // the next one a few pixels down.
-    const view = scroller.getBoundingClientRect()
-    const { top, bottom } = row.getBoundingClientRect()
-    const gap = 16
     const distance =
-      bottom > view.bottom - gap
-        ? bottom - view.bottom + gap
-        : top < view.top + gap
-          ? top - view.top - gap
-          : 0
-    if (distance) scroller.scrollBy({ top: distance, behavior: 'instant' })
-  }, [answering, focused, overview, expanded])
+      row.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom + 16
+    if (distance > 0) scroller.scrollBy({ top: distance, behavior: 'instant' })
+  }, [submitting, focused, overview, expanded])
 
   useEffect(() => {
     if (shouldExpand === expanded) return
@@ -560,67 +543,68 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   icon={<Icon kind="brief" />}
                   waiting=""
                 >
-                  <div className="flow-prompt">
-                    {overview && expanded ? (
-                      <SetupSummary />
-                    ) : (
-                      <SetupForm elapsed={elapsed} reduced={reduced} />
+                  <div className={`flow-prompt ${overview && expanded ? '' : 'is-asking'}`}>
+                    {overview && expanded ? null : (
+                      <SetupQuestions elapsed={elapsed} reduced={reduced} />
                     )}
-                    <div className="flow-submit-row">
-                      <span>Good News Today</span>
-                      <span
-                        className={`flow-submit ${elapsed >= CLICK && elapsed < CLICK + 400 ? 'is-clicked' : ''}`}
-                      >
-                        <span className="flow-submit-label">
-                          {(
-                            ['Create playbook', 'Creating playbook', 'Playbook created'] as const
-                          ).map((text, phase) => {
-                            const current = elapsed >= CREATED ? 2 : elapsed >= CLICK ? 1 : 0
-                            return (
+                    <div className="setup-side">
+                      {overview && expanded ? <SetupSummary /> : <SetupAnswers elapsed={elapsed} />}
+                      <div className="flow-submit-row">
+                        <span>Good News Today</span>
+                        <span
+                          className={`flow-submit ${elapsed >= CLICK && elapsed < CLICK + 400 ? 'is-clicked' : ''}`}
+                        >
+                          <span className="flow-submit-label">
+                            {(
+                              ['Create playbook', 'Creating playbook', 'Playbook created'] as const
+                            ).map((text, phase) => {
+                              const current = elapsed >= CREATED ? 2 : elapsed >= CLICK ? 1 : 0
+                              return (
+                                <span
+                                  key={text}
+                                  aria-hidden={phase !== current || undefined}
+                                  className={phase === current ? 'is-active' : ''}
+                                >
+                                  {text}
+                                </span>
+                              )
+                            })}
+                          </span>
+                          <span className="flow-submit-icon">
+                            {elapsed >= CREATED ? (
+                              <Icon kind="check" />
+                            ) : elapsed >= CLICK ? (
+                              <span className="flow-spinner" />
+                            ) : (
+                              <Icon kind="arrow" />
+                            )}
+                            {elapsed >= CURSOR_START && elapsed < PLAYBOOK ? (
                               <span
-                                key={text}
-                                aria-hidden={phase !== current || undefined}
-                                className={phase === current ? 'is-active' : ''}
+                                className={`flow-cursor ${elapsed >= CLICK ? 'is-clicking' : ''}`}
+                                style={cursorMotion(elapsed)}
+                                aria-hidden="true"
                               >
-                                {text}
+                                <svg width="26" height="30" viewBox="0 0 26 30">
+                                  <path
+                                    d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
+                                    fill="var(--color-ink)"
+                                    stroke="var(--color-paper)"
+                                    strokeWidth="2"
+                                  />
+                                </svg>
                               </span>
-                            )
-                          })}
+                            ) : null}
+                          </span>
                         </span>
-                        <span className="flow-submit-icon">
-                          {elapsed >= CREATED ? (
-                            <Icon kind="check" />
-                          ) : elapsed >= CLICK ? (
-                            <span className="flow-spinner" />
-                          ) : (
-                            <Icon kind="arrow" />
-                          )}
-                          {elapsed >= CURSOR_START && elapsed < PLAYBOOK ? (
-                            <span
-                              className={`flow-cursor ${elapsed >= CLICK ? 'is-clicking' : ''}`}
-                              style={cursorMotion(elapsed)}
-                              aria-hidden="true"
-                            >
-                              <svg width="26" height="30" viewBox="0 0 26 30">
-                                <path
-                                  d="M3 2v23l6-6 5 10 5-3-5-9h9Z"
-                                  fill="var(--color-ink)"
-                                  stroke="var(--color-paper)"
-                                  strokeWidth="2"
-                                />
-                              </svg>
-                            </span>
-                          ) : null}
-                        </span>
-                      </span>
+                      </div>
+                      <p
+                        className="flow-handoff flow-reveal"
+                        data-revealed={elapsed >= CLICK + 300}
+                        aria-hidden={elapsed < CLICK + 300 || undefined}
+                      >
+                        Your part’s done. The rest is automatic.
+                      </p>
                     </div>
-                    <p
-                      className="flow-handoff flow-reveal"
-                      data-revealed={elapsed >= CLICK + 300}
-                      aria-hidden={elapsed < CLICK + 300 || undefined}
-                    >
-                      Your part’s done. The rest is automatic.
-                    </p>
                   </div>
                 </FlowPanel>
                 <FlowPanel
