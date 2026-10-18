@@ -148,12 +148,14 @@ const subscribeLayout = (onChange: () => void) => {
 }
 const getOverview = () => window.matchMedia(OVERVIEW_QUERY).matches
 
-/** Appears as people scroll past the demo without playing it. */
-function DemoNudge() {
+/** Appears as people scroll past the demo without playing it, and plays it when pressed. */
+function DemoNudge({ onPlay }: { onPlay: () => void }) {
   const [ref, state] = useOnceInView<HTMLParagraphElement>()
   return (
     <p ref={ref} className="flow-nudge" data-state={state}>
-      Seriously, watch the demo.
+      <button type="button" onClick={onPlay} aria-haspopup="dialog" aria-controls="flow-dialog">
+        Seriously, watch the demo.
+      </button>
     </p>
   )
 }
@@ -1226,7 +1228,15 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </p>
       </noscript>
 
-      {started ? null : <DemoNudge />}
+      {started ? null : (
+        <DemoNudge
+          onPlay={() => {
+            // The nudge goes away once the demo starts, so focus returns to the main play button.
+            const button = document.querySelector<HTMLElement>('.flow-launch-action')
+            if (button) launch(button)
+          }}
+        />
+      )}
     </section>
   )
 }

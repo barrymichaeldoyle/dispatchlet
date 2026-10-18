@@ -137,3 +137,13 @@ test('the closing section opens the demo and points back to signup', async ({ pa
   await page.getByRole('link', { name: 'Get the launch email' }).click()
   await expect(page.getByLabel('Email', { exact: true })).toBeFocused()
 })
+
+test('the nudge under the demo plays it and returns focus to the play button', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await page.getByRole('button', { name: 'Seriously, watch the demo.' }).click()
+  await expect(page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Seriously, watch the demo.' })).toHaveCount(0)
+  await expect(page.locator('.flow-launch-action')).toBeFocused()
+})

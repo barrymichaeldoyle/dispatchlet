@@ -2219,7 +2219,7 @@ header nav button {
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 72px;
   align-items: center;
-  padding: 72px 0 64px;
+  padding: 64px 0 48px;
   border-bottom: 1px solid var(--color-rule);
 }
 .landing-message h1 {
@@ -2928,6 +2928,10 @@ header nav button {
 }
 /* Phone posters have room for three stories: start where one is kept and two are skipped. */
 @container (max-width: 520px) {
+  .flow-poster-canvas {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 24px;
+  }
   .flow-poster .flow-candidates li:nth-child(-n + 2) {
     display: none;
   }
@@ -3086,6 +3090,24 @@ header nav button {
 }
 .flow-nudge[data-state='waiting'] {
   opacity: 0;
+}
+.flow-nudge button {
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  text-decoration-color: transparent;
+  cursor: pointer;
+  transition: text-decoration-color 160ms ease-out;
+}
+.flow-nudge button:hover {
+  text-decoration-color: currentColor;
+  text-decoration-thickness: 2px;
+}
+.flow-nudge button:focus-visible {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
 }
 @media (prefers-reduced-motion: reduce) {
   .step-art svg *,
@@ -3876,6 +3898,31 @@ header nav button {
   overflow-y: auto;
   scrollbar-gutter: stable;
   background: var(--color-paper);
+}
+/* The paper covers the workspace before the morning's text fades in, so the two never overlap. */
+.flow-next-day.flow-reveal {
+  transition:
+    opacity 200ms ease-out,
+    visibility 0s;
+}
+.flow-next-day.flow-reveal[data-revealed='false'] {
+  transition:
+    opacity 160ms ease-out 120ms,
+    visibility 0s 280ms;
+}
+.flow-next-day > * {
+  transition: opacity 280ms ease-out 200ms;
+}
+.flow-next-day[data-revealed='false'] > * {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-next-day.flow-reveal,
+  .flow-next-day.flow-reveal[data-revealed='false'],
+  .flow-next-day > * {
+    transition: none;
+  }
 }
 .next-day {
   width: min(100%, 640px);
