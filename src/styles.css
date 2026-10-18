@@ -3636,6 +3636,17 @@ header nav button {
 .setup-question {
   animation: flow-caption-in 260ms ease-out both;
 }
+.setup-slot {
+  display: grid;
+}
+.setup-slot > .setup-question {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.setup-sizer {
+  visibility: hidden;
+  animation: none;
+}
 .setup-count {
   margin: 0 0 8px;
   font-size: 14px;
@@ -3794,10 +3805,6 @@ header nav button {
 }
 
 @media (max-width: 680px) {
-  /* Tall enough for the longest question at 320px, so the answers below never shift. */
-  .setup-stage {
-    min-height: 340px;
-  }
   /* Once everything is answered, phones keep only the progress bar so the answers and button fit. */
   .setup-stage:has(.setup-done) {
     min-height: 0;

@@ -719,7 +719,12 @@ for (const viewport of [
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
     await page.clock.runFor(T.POSTING - 400)
     await expect(demo.locator('.flow-cursor')).toHaveCount(0)
-    const posting = demo.locator('.setup-block[data-checked="true"]', { hasText: 'Schedule them' })
+    const posting = demo.locator(
+      '.setup-question:not(.setup-sizer) .setup-block[data-checked="true"]',
+      {
+        hasText: 'Schedule them',
+      },
+    )
     await expect(posting).toHaveCount(0)
     const cursor = demo.locator('.flow-cursor')
     // The pointer lands on the button's arrow, so the label stays readable.

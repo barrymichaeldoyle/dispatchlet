@@ -147,6 +147,34 @@ function questions(elapsed: number, reduced: boolean): Question[] {
   ]
 }
 
+function QuestionView({
+  question,
+  index,
+  total,
+  sizer = false,
+}: {
+  question: Question
+  index: number
+  total: number
+  sizer?: boolean
+}) {
+  return (
+    <div
+      className={sizer ? 'setup-question setup-sizer' : 'setup-question'}
+      aria-hidden={sizer || undefined}
+      inert={sizer || undefined}
+    >
+      <p className="setup-count">
+        Question {index + 1} of {total}
+        {question.optional ? ', optional' : ''}
+      </p>
+      <h4 className="setup-title">{question.label}</h4>
+      <div className="setup-answer">{question.answer}</div>
+      {question.hint ? <p className="setup-hint">{question.hint}</p> : null}
+    </div>
+  )
+}
+
 /**
  * The setup questions, one at a time. In the demo they follow the timeline; `still` holds one
  * answered question for the step sections.
@@ -175,14 +203,21 @@ export function SetupQuestions({
         ))}
       </div>
       {question ? (
-        <div key={current} className="setup-question">
-          <p className="setup-count">
-            Question {current + 1} of {list.length}
-            {question.optional ? ', optional' : ''}
-          </p>
-          <h4 className="setup-title">{question.label}</h4>
-          <div className="setup-answer">{question.answer}</div>
-          {question.hint ? <p className="setup-hint">{question.hint}</p> : null}
+        <div className="setup-slot">
+          <QuestionView key={current} question={question} index={current} total={list.length} />
+          {/* Every question, finished and invisible, in the same cell: the stage is always as
+              tall as the tallest one in this font and width, so the answers below never shift. */}
+          {still === undefined
+            ? questions(Number.POSITIVE_INFINITY, true).map((finished, index) => (
+                <QuestionView
+                  key={finished.label}
+                  question={finished}
+                  index={index}
+                  total={list.length}
+                  sizer
+                />
+              ))
+            : null}
         </div>
       ) : (
         <div key="done" className="setup-question setup-done">
