@@ -217,11 +217,33 @@ const SERVICE_NAMES: Record<string, string> = {
   mastodon: 'Mastodon',
 }
 
+const WINDOW_NAMES: Record<string, string> = {
+  '15min': '15 minutes',
+  '1day': 'day',
+  '30days': '30 days',
+}
+
+/**
+ * Buffer sends `ratelimit: "100-in-15min"; r=98; ...` for each window. Reads those into one
+ * sentence; anything unexpected is shown as Buffer sent it.
+ */
+function describeRateLimit(raw: string): string {
+  const windows = [...raw.matchAll(/ratelimit: "(\d+)-in-(\w+)"; r=(\d+)/g)].map(
+    ([, limit, window, remaining]) =>
+      `${remaining} of ${limit} per ${WINDOW_NAMES[window] ?? window}`,
+  )
+  return windows.length
+    ? `Buffer API calls left: ${windows.join(', ')}.`
+    : `Buffer rate limit, last call: ${raw}`
+}
+
 /** The owner's check that the Buffer grant works: posting access, refresh, and synced channels. */
 function BufferConnection() {
   const connection = useQuery(api.buffer.myConnection)
   const sync = useAction(api.buffer.syncChannels)
+  const disconnect = useAction(api.buffer.disconnect)
   const [syncing, setSyncing] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (connection === undefined) return null
   const canPost = connection?.scope.includes('posts:write') ?? false
@@ -270,6 +292,27 @@ function BufferConnection() {
         >
           {syncing ? 'Syncing channels' : 'Sync channels'}
         </button>
+      ) : null}
+      {connection ? (
+        <button
+          type="button"
+          className="app-gate-secondary"
+          disabled={disconnecting}
+          onClick={() => {
+            setDisconnecting(true)
+            setError(null)
+            disconnect()
+              .catch((reason: unknown) =>
+                setError(reason instanceof Error ? reason.message : 'Disconnect failed.'),
+              )
+              .finally(() => setDisconnecting(false))
+          }}
+        >
+          {disconnecting ? 'Disconnecting' : 'Disconnect Buffer'}
+        </button>
+      ) : null}
+      {connection?.lastRateLimit ? (
+        <p className="app-connection-note">{describeRateLimit(connection.lastRateLimit)}</p>
       ) : null}
       {error ? (
         <p className="app-connection-error" role="alert">

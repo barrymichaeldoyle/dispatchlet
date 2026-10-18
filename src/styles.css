@@ -4216,6 +4216,14 @@ header nav button {
   margin-bottom: 12px;
   font-size: 15px;
 }
+.app-connection .app-gate-secondary + .app-gate-secondary {
+  margin-left: 8px;
+}
+.app-gate .app-connection > .app-connection-note {
+  display: block;
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}
 .app-connection ul {
   margin: 0 0 16px;
   padding: 0;

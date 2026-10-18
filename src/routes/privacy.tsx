@@ -29,9 +29,11 @@ function Privacy() {
         </li>
         <li>
           If you sign in with Buffer before launch: your Buffer user ID, and the name and email
-          address on your Buffer account. Dispatchlet only asks Buffer for permission to read those
-          account details, and does not keep Buffer’s access token. Your email address goes on the
-          waiting list as confirmed, because Buffer has already verified it.
+          address on your Buffer account. Your email address goes on the waiting list as confirmed,
+          because Buffer has already verified it. Sign-in asks Buffer for the access the app will
+          need to post for you, but until the app opens that access is revoked straight away and
+          nothing is kept. Once you can use the app, the access tokens are stored encrypted and
+          deleted, and revoked at Buffer, when you disconnect.
         </li>
         <li>
           How you found the site: the campaign tags in the link you followed, or the name of the
@@ -47,6 +49,11 @@ function Privacy() {
           Analytics sets no cookies and stores nothing on your device, so each visit is counted
           separately. If your browser sends Do Not Track, no events are recorded. There is no
           session recording.
+        </li>
+        <li>
+          Error reports, if something on the site breaks: the error message, where in the code it
+          happened, the page address and your browser type. They never include your email address or
+          anything you typed, and they follow the same Do Not Track rule.
         </li>
       </ul>
       <p>
@@ -78,7 +85,7 @@ function Privacy() {
         </li>
         <li>Buffer handles sign-in, if you choose to sign in with your Buffer account.</li>
         <li>Resend sends the emails, from the United States.</li>
-        <li>PostHog records the analytics events, in the United States.</li>
+        <li>PostHog records the analytics events and error reports, in the European Union.</li>
         <li>Cloudflare hosts the site and serves it from its worldwide network.</li>
       </ul>
       <p>

@@ -1,5 +1,6 @@
 const BUFFER_API = 'https://api.buffer.com'
 const BUFFER_TOKEN_URL = 'https://auth.buffer.com/token'
+const BUFFER_REVOCATION_URL = 'https://auth.buffer.com/token/revocation'
 
 export type BufferAccount = { id: string; email: string | null; name: string | null }
 
@@ -9,6 +10,21 @@ export type TokenSet = {
   expiresAt: number
   scope: string
 }
+
+/**
+ * Buffer's rate-limit headers from a response, as one line, or null if there are none. Logged on
+ * every call so the real budget (250 calls a day per app client, possibly shared) is visible.
+ */
+export function rateLimitFrom(headers: Headers): string | null {
+  const parts: string[] = []
+  headers.forEach((value, name) => {
+    if (/^(x-)?ratelimit/i.test(name)) parts.push(`${name}: ${value}`)
+  })
+  return parts.length ? parts.join('; ') : null
+}
+
+/** The most recent rate-limit headers seen, per isolate, for callers that want to store them. */
+export let lastRateLimit: string | null = null
 
 /** A GraphQL call with a Buffer access token. Throws with Buffer's message on any error. */
 export async function bufferGraphql<T>(
@@ -21,6 +37,11 @@ export async function bufferGraphql<T>(
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
   })
+  const rateLimit = rateLimitFrom(response.headers)
+  if (rateLimit) {
+    lastRateLimit = rateLimit
+    console.log(`Buffer rate limit: ${rateLimit}`)
+  }
   const body = (await response.json().catch(() => null)) as {
     data?: T
     errors?: { message: string }[]
@@ -91,4 +112,25 @@ export async function refreshBufferTokens(refreshToken: string): Promise<TokenSe
     expiresAt: expiresAtFrom(body.expires_in),
     scope: typeof body.scope === 'string' ? body.scope : '',
   }
+}
+
+/**
+ * Revokes a Buffer token (RFC 7009). Revoking the refresh token ends the whole grant, so the
+ * user sees Dispatchlet removed from their Buffer account. Failures are reported, not thrown.
+ */
+export async function revokeBufferToken(
+  token: string,
+  hint: 'refresh_token' | 'access_token',
+): Promise<boolean> {
+  const response = await fetch(BUFFER_REVOCATION_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      token,
+      token_type_hint: hint,
+      client_id: process.env.BUFFER_CLIENT_ID ?? '',
+      client_secret: process.env.BUFFER_CLIENT_SECRET ?? '',
+    }),
+  }).catch(() => null)
+  return response?.ok ?? false
 }

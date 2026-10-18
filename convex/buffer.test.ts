@@ -84,3 +84,24 @@ describe('the Buffer refresh lock', () => {
     expect(connection?.refreshTokenEnc).toBeUndefined()
   })
 })
+
+describe('disconnecting', () => {
+  it('deletes the stored grant and channels', async () => {
+    const { t, userId } = await setup()
+    await t.mutation(internal.buffer.saveChannels, {
+      userId,
+      channels: [
+        { organizationId: 'org', channelId: 'c1', service: 'twitter', name: 'x', usable: true },
+      ],
+    })
+    await t.mutation(internal.buffer.removeConnection, { userId })
+    expect(await t.query(internal.buffer.connectionFor, { userId })).toBeNull()
+    const channels = await t.run((ctx) =>
+      ctx.db
+        .query('bufferChannels')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect(),
+    )
+    expect(channels).toHaveLength(0)
+  })
+})

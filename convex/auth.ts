@@ -2,7 +2,9 @@ import { convexAuth } from '@convex-dev/auth/server'
 import type { OAuthConfig } from '@auth/core/providers'
 import type { GenericMutationCtx } from 'convex/server'
 import type { DataModel, Id } from './_generated/dataModel'
-import { saveBufferConnection, type SignInGrant } from './buffer'
+import { internal } from './_generated/api'
+import { removeBufferConnection, saveBufferConnection, type SignInGrant } from './buffer'
+import { isAllowlisted } from './lib/allowlist'
 import { expiresAtFrom, fetchBufferAccount, type BufferAccount } from './lib/buffer'
 import { encryptSecret } from './lib/crypto'
 import { isValidEmail, normalizeEmail } from './lib/email'
@@ -64,8 +66,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Buffer],
   callbacks: {
     /**
-     * One user per Buffer account. The profile's encrypted grant goes to `bufferConnections`, not
-     * the user row, and everyone who signs in before launch joins the waiting list.
+     * One user per Buffer account. Everyone who signs in before launch joins the waiting list.
+     * Only allowlisted accounts keep their Buffer grant (encrypted, in `bufferConnections`, never
+     * on the user row); anyone else's grant is revoked straight away, since the app is not open.
      */
     async createOrUpdateUser(rawCtx, { existingUserId, profile }) {
       const ctx = rawCtx as unknown as GenericMutationCtx<DataModel>
@@ -76,7 +79,15 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       if (userId) await ctx.db.patch(userId, fields)
       else userId = await ctx.db.insert('users', fields)
       const grant = profile.bufferGrant as SignInGrant | undefined
-      if (grant) await saveBufferConnection(ctx, userId, grant)
+      if (grant && isAllowlisted(grant.bufferAccountId, email ?? null)) {
+        await saveBufferConnection(ctx, userId, grant)
+      } else if (grant) {
+        await removeBufferConnection(ctx, userId)
+        await ctx.scheduler.runAfter(0, internal.buffer.revokeGrant, {
+          accessTokenEnc: grant.accessTokenEnc,
+          refreshTokenEnc: grant.refreshTokenEnc,
+        })
+      }
       if (email) await addSignInToWaitlist(ctx, email)
       return userId
     },

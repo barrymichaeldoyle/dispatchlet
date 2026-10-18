@@ -18,6 +18,9 @@ export default defineSchema({
     refreshingAt: v.optional(v.number()),
     needsReauth: v.optional(v.boolean()),
     lastRefreshedAt: v.optional(v.number()),
+    /** Buffer's rate-limit headers from the latest call, for the two-account budget check. */
+    lastRateLimit: v.optional(v.string()),
+    lastRateLimitAt: v.optional(v.number()),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
   /** The text channels in the user's Buffer organizations, refreshed by channel sync. */

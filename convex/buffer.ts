@@ -12,7 +12,13 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { isAllowlisted } from './lib/allowlist'
-import { BufferApiError, bufferGraphql, refreshBufferTokens } from './lib/buffer'
+import {
+  BufferApiError,
+  bufferGraphql,
+  lastRateLimit,
+  refreshBufferTokens,
+  revokeBufferToken,
+} from './lib/buffer'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 
 /** The tokens from a sign-in, already encrypted by the provider's profile step. */
@@ -53,6 +59,54 @@ export async function saveBufferConnection(
   if (existing) await ctx.db.replace(existing._id, fields)
   else await ctx.db.insert('bufferConnections', fields)
 }
+
+/** Deletes the user's stored grant and channels. Revoking at Buffer is done separately. */
+export async function removeBufferConnection(ctx: MutationCtx, userId: Id<'users'>): Promise<void> {
+  const connections = await ctx.db
+    .query('bufferConnections')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .collect()
+  for (const connection of connections) await ctx.db.delete(connection._id)
+  const channels = await ctx.db
+    .query('bufferChannels')
+    .withIndex('by_user', (q) => q.eq('userId', userId))
+    .collect()
+  for (const channel of channels) await ctx.db.delete(channel._id)
+}
+
+export const removeConnection = internalMutation({
+  args: { userId: v.id('users') },
+  handler: async (ctx, { userId }) => removeBufferConnection(ctx, userId),
+})
+
+/** Revokes a grant at Buffer. The refresh token first, which ends the grant; else the access token. */
+export const revokeGrant = internalAction({
+  args: { accessTokenEnc: v.string(), refreshTokenEnc: v.optional(v.string()) },
+  returns: v.boolean(),
+  handler: async (_ctx, { accessTokenEnc, refreshTokenEnc }) => {
+    if (refreshTokenEnc) {
+      const revoked = await revokeBufferToken(await decryptSecret(refreshTokenEnc), 'refresh_token')
+      console.log(`Buffer grant revoked via refresh token: ${revoked}`)
+      if (revoked) return true
+    }
+    const revoked = await revokeBufferToken(await decryptSecret(accessTokenEnc), 'access_token')
+    console.log(`Buffer grant revoked via access token: ${revoked}`)
+    return revoked
+  },
+})
+
+export const recordRateLimit = internalMutation({
+  args: { userId: v.id('users'), rateLimit: v.string() },
+  handler: async (ctx, { userId, rateLimit }) => {
+    const connection = await ctx.db
+      .query('bufferConnections')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    if (connection) {
+      await ctx.db.patch(connection._id, { lastRateLimit: rateLimit, lastRateLimitAt: Date.now() })
+    }
+  },
+})
 
 export const connectionFor = internalQuery({
   args: { userId: v.id('users') },
@@ -279,7 +333,36 @@ export const syncChannels = action({
       }
     }
     await ctx.runMutation(internal.buffer.saveChannels, { userId, channels })
+    if (lastRateLimit) {
+      await ctx.runMutation(internal.buffer.recordRateLimit, { userId, rateLimit: lastRateLimit })
+    }
     return { channels: channels.length }
+  },
+})
+
+/**
+ * Disconnect: revokes Dispatchlet's access at Buffer and deletes the stored tokens and channels.
+ * The user stays signed in to Dispatchlet; signing in with Buffer again reconnects.
+ */
+export const disconnect = action({
+  args: {},
+  returns: v.object({ revoked: v.boolean() }),
+  handler: async (ctx): Promise<{ revoked: boolean }> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    const connection: Doc<'bufferConnections'> | null = await ctx.runQuery(
+      internal.buffer.connectionFor,
+      { userId },
+    )
+    let revoked = false
+    if (connection) {
+      revoked = await ctx.runAction(internal.buffer.revokeGrant, {
+        accessTokenEnc: connection.accessTokenEnc,
+        refreshTokenEnc: connection.refreshTokenEnc,
+      })
+    }
+    await ctx.runMutation(internal.buffer.removeConnection, { userId })
+    return { revoked }
   },
 })
 
@@ -317,6 +400,7 @@ export const myConnection = query({
       needsReauth: connection.needsReauth ?? false,
       expiresAt: connection.expiresAt,
       lastRefreshedAt: connection.lastRefreshedAt ?? null,
+      lastRateLimit: connection.lastRateLimit ?? null,
       channels: channels.map((channel) => ({
         channelId: channel.channelId,
         service: channel.service,
