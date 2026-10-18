@@ -61,6 +61,11 @@ export default defineSchema({
     ),
     observedAt: v.number(),
   }).index('by_partition', ['partition']),
+  /** When an alert email went out, so the unauthenticated alert endpoint can rate-limit itself. */
+  alertsSent: defineTable({ kind: v.string(), sentAt: v.number() }).index('by_kind_sentAt', [
+    'kind',
+    'sentAt',
+  ]),
   waitlist: defineTable({
     email: v.string(),
     createdAt: v.number(),

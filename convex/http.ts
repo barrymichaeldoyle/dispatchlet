@@ -171,4 +171,19 @@ http.route({
   }),
 })
 
+/**
+ * PostHog's error tracking webhook (new or reopened issue). The request body is ignored: the
+ * email is the same every time and only links to PostHog, so the endpoint needs no secret.
+ */
+http.route({
+  path: '/alerts/errors',
+  method: 'POST',
+  handler: httpAction(async (ctx) => {
+    if (await ctx.runMutation(internal.alerts.claimErrorAlert, {})) {
+      await ctx.scheduler.runAfter(0, internal.email.sendErrorAlert, {})
+    }
+    return new Response(null, { status: 202 })
+  }),
+})
+
 export default http

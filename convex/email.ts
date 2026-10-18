@@ -111,6 +111,26 @@ export function reauthMessage(email: string): Message {
   }
 }
 
+const ERROR_TRACKING = 'https://eu.posthog.com/project/307692/error_tracking'
+
+/** To the owner when PostHog reports a new or reopened error. Says nothing from the request. */
+export function errorAlertMessage(to: string): Message {
+  return {
+    from: FROM,
+    to,
+    subject: 'New error on Dispatchlet',
+    text: `PostHog reported a new or reopened error on dispatchlet.com.\n\nOpen error tracking: ${ERROR_TRACKING}\n`,
+    html: html(
+      [
+        'PostHog reported a new or reopened error on dispatchlet.com.',
+        `<a href="${ERROR_TRACKING}" style="color:#0f6e56">Open error tracking</a>`,
+      ],
+      'Sent at most once every 10 minutes.',
+    ),
+    headers: {},
+  }
+}
+
 async function resend(path: string, body: unknown): Promise<void> {
   const key = process.env.RESEND_API_KEY
   if (!key) {
@@ -131,6 +151,16 @@ export const sendConfirm = internalAction({
   returns: v.null(),
   handler: async (_ctx, { email, token }) => {
     await resend('/emails', confirmMessage(email, token))
+    return null
+  },
+})
+
+/** The owner's error alert. `ALERT_EMAIL` overrides the default inbox. */
+export const sendErrorAlert = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async () => {
+    await resend('/emails', errorAlertMessage(process.env.ALERT_EMAIL ?? 'barry@dispatchlet.com'))
     return null
   },
 })
