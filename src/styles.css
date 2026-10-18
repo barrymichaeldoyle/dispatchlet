@@ -2355,8 +2355,18 @@ header nav button {
 .landing-questions summary:hover {
   color: var(--color-pine);
 }
+.landing-questions p + p {
+  margin-top: 12px;
+}
+.landing-questions p:last-child {
+  padding-bottom: 16px;
+}
+/*
+ * Answers use padding, not a bottom margin: a margin collapses differently once the open
+ * transition hands over to auto height, which made the row jump after it finished.
+ */
 .landing-questions p {
-  margin: 0 0 16px;
+  margin: 0;
   max-width: 64ch;
   font-size: 14px;
   line-height: 1.7;

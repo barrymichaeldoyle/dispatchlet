@@ -146,9 +146,7 @@ function Home() {
               Watch the demo
             </a>
             <p className="landing-commit-line">
-              It started as the script behind the X account for{' '}
-              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game. I’m
-              now building it in public for Buffer Commit, Buffer’s API hackathon.{' '}
+              Built in public for Buffer Commit, Buffer’s API hackathon.{' '}
               <a href={BUILD_LOG_URL}>Follow the build</a>
             </p>
           </div>
