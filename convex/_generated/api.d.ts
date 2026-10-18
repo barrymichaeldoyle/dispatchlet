@@ -8,10 +8,13 @@
  * @module
  */
 
+import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as lib_buffer from "../lib/buffer.js";
 import type * as lib_email from "../lib/email.js";
+import type * as users from "../users.js";
 import type * as waitlist from "../waitlist.js";
 
 import type {
@@ -21,10 +24,13 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  auth: typeof auth;
   crons: typeof crons;
   email: typeof email;
   http: typeof http;
+  "lib/buffer": typeof lib_buffer;
   "lib/email": typeof lib_email;
+  users: typeof users;
   waitlist: typeof waitlist;
 }>;
 

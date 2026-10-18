@@ -13,7 +13,7 @@ export const Route = createFileRoute('/privacy')({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="17 Oct 2026">
+    <LegalPage title="Privacy policy" updated="18 Oct 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
         covers dispatchlet.com and the waiting list. The app itself is not open yet. Before it
@@ -26,6 +26,12 @@ function Privacy() {
         <li>
           Your email address, when you join the waiting list, and the dates you joined, confirmed or
           unsubscribed.
+        </li>
+        <li>
+          If you sign in with Buffer before launch: your Buffer user ID, and the name and email
+          address on your Buffer account. Dispatchlet only asks Buffer for permission to read those
+          account details, and does not keep Buffer’s access token. Your email address goes on the
+          waiting list as confirmed, because Buffer has already verified it.
         </li>
         <li>
           How you found the site: the campaign tags in the link you followed, or the name of the
@@ -44,15 +50,17 @@ function Privacy() {
         </li>
       </ul>
       <p>
-        If you choose light or dark mode, that choice is saved in your browser. It never leaves your
-        device.
+        If you choose light or dark mode or a demo playback speed, that choice is saved in your
+        browser and never leaves your device. If you sign in, your session is kept in your browser
+        until you sign out.
       </p>
 
       <h2>How it is used</h2>
       <p>
         Your email address gets 2 emails: one to confirm your place, and one when Dispatchlet opens.
-        Nothing else is sent unless you sign up for the app later. Your data is never sold and never
-        used for advertising.
+        If you were added by signing in with Buffer, you only get the launch email. Nothing else is
+        sent unless you sign up for the app later. Your data is never sold and never used for
+        advertising.
       </p>
       <p>
         The legal basis is your consent, which you give by joining the list and can take back at any
@@ -65,7 +73,10 @@ function Privacy() {
         terms:
       </p>
       <ul>
-        <li>Convex stores the waiting list. Its servers are in the United States.</li>
+        <li>
+          Convex stores the waiting list and sign-in sessions. Its servers are in the United States.
+        </li>
+        <li>Buffer handles sign-in, if you choose to sign in with your Buffer account.</li>
         <li>Resend sends the emails, from the United States.</li>
         <li>PostHog records the analytics events, in the United States.</li>
         <li>Cloudflare hosts the site and serves it from its worldwide network.</li>

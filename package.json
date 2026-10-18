@@ -26,6 +26,8 @@
     "precommit": "pnpm exec lint-staged && pnpm run audit && pnpm test"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
+    "@convex-dev/auth": "0.0.96",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "0.10.13",
     "@tanstack/react-router": "1.170.44",

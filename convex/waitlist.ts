@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { internalMutation, internalQuery, query } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
-import type { QueryCtx } from './_generated/server'
+import type { MutationCtx, QueryCtx } from './_generated/server'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
@@ -54,6 +54,27 @@ export const add = internalMutation({
     return { position: await positionOf(ctx, row), isNew: true, token }
   },
 })
+
+/**
+ * Someone signed in with Buffer before launch. Buffer has already verified the address, so the
+ * row is confirmed straight away and no confirmation email is sent. An existing row is left as
+ * it is, including one that unsubscribed.
+ */
+export async function addSignInToWaitlist(ctx: MutationCtx, email: string): Promise<void> {
+  const existing = await ctx.db
+    .query('waitlist')
+    .withIndex('by_email', (q) => q.eq('email', email))
+    .first()
+  if (existing) return
+  const now = Date.now()
+  await ctx.db.insert('waitlist', {
+    email,
+    createdAt: now,
+    source: 'buffer-sign-in',
+    confirmedAt: now,
+    token: makeToken(),
+  })
+}
 
 export const recentCountByIp = internalQuery({
   args: { ip: v.string(), since: v.number() },
