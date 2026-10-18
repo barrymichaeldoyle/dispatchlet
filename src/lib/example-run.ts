@@ -127,7 +127,7 @@ export const STORIES = [
     posts: [
       [
         'X',
-        'A community repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. positive.news/…',
+        'A repair café keeps everyday things in use and brings neighbours together. Less waste, more connection. positive.news/…',
       ],
       [
         'LinkedIn',
@@ -142,11 +142,11 @@ export const STORIES = [
     posts: [
       [
         'X',
-        'A community solar project puts its proceeds back into neighbourhood projects. Clean energy, with a local return. theguardian.com/…',
+        'Community solar that pays back locally: its proceeds fund neighbourhood projects. theguardian.com/…',
       ],
       [
         'LinkedIn',
-        'Community-owned solar can do more than generate electricity. By reinvesting proceeds locally, this project helps fund the neighbourhood’s own priorities. theguardian.com/…',
+        'Community-owned solar can do more than generate power. This project reinvests its proceeds in the neighbourhood’s own priorities. theguardian.com/…',
       ],
     ],
   },

@@ -135,13 +135,9 @@ function Home() {
               </BrandText>
             </p>
             <p className="landing-control">
-              Set it up once with a few quick questions. Review every post as a draft in Buffer, or
-              let it schedule them on its own.
-            </p>
-            <p className="landing-audience">
-              For accounts that share news about a topic, like a local bakery, an F1 fan page or a
-              software company posting industry news. I built it to run the X account for{' '}
-              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game.
+              Set it up once with a few quick questions, then review posts as drafts in Buffer or
+              let it schedule them. Made for accounts that share news about a topic, like a local
+              bakery, an F1 fan page or a software company.
             </p>
             <a href="#run" className="landing-demo-link" onClick={playDemo}>
               <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -150,7 +146,9 @@ function Home() {
               Watch the demo
             </a>
             <p className="landing-commit-line">
-              Built in public for Buffer Commit, Buffer’s API hackathon.{' '}
+              I built it to run the X account for{' '}
+              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game. Now
+              built in public for Buffer Commit, Buffer’s API hackathon.{' '}
               <a href={BUILD_LOG_URL}>Follow the build</a>
             </p>
           </div>
@@ -225,6 +223,13 @@ function Home() {
                   Switch to automatic scheduling when you trust it. You set the sources, voice and
                   rules, and can see what the agent researched and why it kept or skipped a story.
                 </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>What if there isn’t enough news?</summary>
+              <p>
+                It posts less. If only one story is new and worth sharing, you get one. It never
+                pads a quiet day with repeats or weak stories.
               </p>
             </details>
             <details>

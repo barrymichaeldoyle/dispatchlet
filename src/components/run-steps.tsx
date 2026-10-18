@@ -26,12 +26,13 @@ function Swap({ before, after }: { before: ReactNode; after: ReactNode }) {
 }
 
 function BriefFragment() {
+  // The question is still being answered here, so the button has not been pressed yet.
   const submit = (
     <div className="flow-submit-row">
-      <span>Good News Today</span>
+      <span />
       <span className="flow-submit">
-        <Swap before="Create playbook" after="Playbook created" />
-        <Icon kind="check" />
+        Create playbook
+        <Icon kind="arrow" />
       </span>
     </div>
   )
@@ -206,7 +207,7 @@ const STEPS: {
   {
     art: 'repeat',
     title: 'Tomorrow, it runs again on its own.',
-    text: 'The next run checks everything it has already posted. Yesterday’s stories stay out, even when another outlet reports them, and on a slow news day it posts less.',
+    text: 'Same playbook every run. Anything already posted or scheduled stays out, and on a slow day it posts less.',
     figure: <NextDay />,
   },
 ]

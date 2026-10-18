@@ -71,6 +71,7 @@ const TITLES = [
   'It writes a post for each channel.',
   'It schedules them in Buffer.',
 ]
+const NEXT_DAY_TITLE = 'Tomorrow, it runs again on its own.'
 const NOTES = [
   'This is the only part you do. Skip the optional ones if you like.',
   'The plain-language instructions it follows on every run. You can edit it any time.',
@@ -563,12 +564,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                         {/* After the click the label gives way to the handoff, in the same place. */}
                         <span className="flow-handoff">
                           <span
-                            className={elapsed < CLICK + 300 ? 'is-active' : ''}
-                            aria-hidden={elapsed >= CLICK + 300 || undefined}
-                          >
-                            Good News Today
-                          </span>
-                          <span
                             className={elapsed >= CLICK + 300 ? 'is-active' : ''}
                             aria-hidden={elapsed < CLICK + 300 || undefined}
                           >
@@ -842,6 +837,31 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   </div>
                 </div>
               </FlowPanel>
+              {overview ? (
+                <aside
+                  className="flow-match-callout flow-reveal"
+                  aria-label="Why one story was skipped"
+                  data-revealed={elapsed >= MATCH && elapsed < POSTS}
+                  aria-hidden={elapsed < MATCH || elapsed >= POSTS || undefined}
+                >
+                  <h4>Why one story was skipped</h4>
+                  <div className="flow-match">
+                    <div className="flow-match-card">
+                      <span className="flow-match-label">Found today, {CANDIDATES[3][2]}</span>
+                      <strong>{CANDIDATES[3][0]}</strong>
+                    </div>
+                    <p className="flow-match-link">Same story</p>
+                    <div className="flow-match-card is-previous">
+                      <span className="flow-match-label">Already posted by you</span>
+                      <blockquote>{PREVIOUS_POST}</blockquote>
+                    </div>
+                  </div>
+                  <p>
+                    Every story is checked against what you’ve already posted, so this one stays out
+                    of the queue.
+                  </p>
+                </aside>
+              ) : null}
               <FlowPanel
                 index={3}
                 stage={viewStage}
@@ -1051,6 +1071,16 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 'Ready when you are'
               ) : complete ? (
                 'Walkthrough complete'
+              ) : overview ? (
+                // Desktop has no chapter captions, so the player narrates what is happening.
+                <>
+                  <span className="flow-player-narration">
+                    <BrandText>
+                      {elapsed >= NEXT_DAY ? NEXT_DAY_TITLE : TITLES[viewStage]}
+                    </BrandText>
+                  </span>
+                  {playing ? null : <span className="flow-player-state"> Paused.</span>}
+                </>
               ) : (
                 <>
                   <span className="flow-player-stage">

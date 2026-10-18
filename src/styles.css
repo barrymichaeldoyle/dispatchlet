@@ -2057,13 +2057,15 @@ header nav button {
   font-size: 16px;
   font-weight: 500;
 }
-.flow-duplicate-detail .flow-match-card blockquote {
+.flow-duplicate-detail .flow-match-card blockquote,
+.flow-match-callout .flow-match-card blockquote {
   margin: 0;
   padding: 0;
   font-size: 16px;
   line-height: 1.5;
 }
-.flow-duplicate-detail p.flow-match-link {
+.flow-duplicate-detail p.flow-match-link,
+.flow-match-callout p.flow-match-link {
   position: relative;
   display: flex;
   align-items: center;
@@ -2212,8 +2214,7 @@ header nav button {
   font-size: 17px;
   line-height: 1.65;
 }
-.landing-control,
-.landing-audience {
+.landing-control {
   max-width: 54ch;
   margin: 16px 0 0;
   color: var(--color-muted);
@@ -3146,8 +3147,9 @@ header nav button {
   grid-column: 2 / -1;
   grid-row: 1;
   display: grid;
-  align-items: center;
+  align-items: start;
   min-height: 0;
+  padding-top: 12px;
   padding-left: 48px;
   border-left: 1px solid var(--color-rule);
   overflow-y: auto;
@@ -3966,4 +3968,58 @@ header nav button {
     grid-column: 2;
     text-align: left;
   }
+}
+
+/* Desktop narration: the chapter's sentence, where the player status would be. */
+.flow-player-narration {
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--color-ink);
+}
+.flow-player-narration + .flow-player-state {
+  font-size: 15px;
+}
+
+/* Every desktop column has a fixed home, so a callout can borrow an empty one. */
+.is-overview .flow-scene > .flow-context {
+  grid-column: 1;
+  grid-row: 1;
+}
+.is-overview .flow-scene > .flow-panel-2 {
+  grid-column: 2;
+  grid-row: 1;
+}
+.is-overview .flow-scene > .flow-panel-3 {
+  grid-column: 3;
+  grid-row: 1;
+}
+.is-overview .flow-scene > .flow-panel-4 {
+  grid-column: 4;
+  grid-row: 1;
+}
+
+/* While research holds on the repeat, the still-empty posts column explains why it was skipped. */
+.flow-match-callout {
+  grid-column: 3;
+  grid-row: 1;
+  z-index: 1;
+  align-self: start;
+  padding-left: 24px;
+  border-left: 1px solid var(--color-rule);
+}
+.flow-match-callout .flow-match {
+  margin-top: 0;
+}
+.flow-match-callout h4 {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-pine);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-pine);
+}
+.flow-match-callout > p {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.5;
 }
