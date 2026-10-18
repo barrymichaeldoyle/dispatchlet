@@ -418,7 +418,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         </span>
         <span id="flow-launch-description" className="flow-launch-copy">
           <strong>Good News Today</strong>
-          <span>A good-news account on X and LinkedIn: set up once, then two days of runs.</span>
+          <span>A good-news account on X and LinkedIn, from setup to its second day.</span>
         </span>
         <button
           type="button"

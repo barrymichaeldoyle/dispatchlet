@@ -137,7 +137,7 @@ function Home() {
             <p className="landing-control">
               Set it up once with a few quick questions, then review posts as drafts in Buffer or
               let it schedule them. Made for accounts that share news about a topic, like a local
-              bakery, an F1 fan page or a software company.
+              food page, an F1 fan account or a software company.
             </p>
             <a href="#run" className="landing-demo-link" onClick={playDemo}>
               <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
@@ -146,9 +146,9 @@ function Home() {
               Watch the demo
             </a>
             <p className="landing-commit-line">
-              I built it to run the X account for{' '}
-              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game. Now
-              built in public for Buffer Commit, Buffer’s API hackathon.{' '}
+              It started as the script behind the X account for{' '}
+              <a href="https://grandprixpicks.com">GrandPrixPicks</a>, my F1 predictions game. I’m
+              now building it in public for Buffer Commit, Buffer’s API hackathon.{' '}
               <a href={BUILD_LOG_URL}>Follow the build</a>
             </p>
           </div>
@@ -178,14 +178,14 @@ function Home() {
           <div>
             <p>
               I run <a href="https://grandprixpicks.com">GrandPrixPicks</a>, an F1 predictions game.
-              Keeping its X account current meant the same research twice a day. What happened? Have
-              we posted it already? Is it worth a post? So I wrote a cron job and a hand-written
-              skill file to do it for me.
+              Keeping its X account current meant the same research twice a day: checking what had
+              happened, whether we’d already posted it, and whether it was worth a post at all. So I
+              wrote a script to do it for me.
             </p>
             <p>
               <BrandText>
-                Dispatchlet is that setup, rebuilt so anyone with a Buffer account can answer a few
-                questions once and get the same run on their own schedule.
+                Dispatchlet is that script, rebuilt so anyone with a Buffer account can set it up
+                with a few questions and have it run on their own schedule.
               </BrandText>
             </p>
             <p className="landing-origin-name">Barry Michael Doyle</p>
@@ -196,14 +196,14 @@ function Home() {
           <h2 id="commit-title">Built for Buffer Commit</h2>
           <div>
             <p>
-              Dispatchlet is my entry for Buffer Commit, Buffer’s API hackathon. It runs entirely on
-              the public Buffer API. You’ll sign in with your Buffer account, and every post lands
-              in your own Buffer queue or drafts.
+              Buffer Commit is Buffer’s API hackathon, and Dispatchlet is my entry. It only uses
+              Buffer’s public API: you sign in with Buffer, and your posts go to your own queue or
+              drafts.
             </p>
             <p>
-              The build window runs from 28 October to 13 November. The landing page and tooling
-              came first. Every commit after the pre-window tag in the repository is work from the
-              window itself, done in public.
+              I’m building it between 28 October and 13 November and posting progress on X as I go.
+              This page and the project setup came first, and the repository is tagged where the
+              hackathon starts, so you can see exactly what was built during it.
             </p>
             <p className="landing-commit-links">
               <a href={COMMITS_URL}>See every commit</a>

@@ -194,7 +194,7 @@ const STEPS: {
   {
     art: 'posts',
     title: 'It writes a post for each channel.',
-    text: 'Every story gets an X post and a LinkedIn post, each written for its channel and its length.',
+    text: 'Every story gets an X post and a LinkedIn post, each written to fit that channel.',
     figure: <PostsFragment />,
     more: true,
   },
