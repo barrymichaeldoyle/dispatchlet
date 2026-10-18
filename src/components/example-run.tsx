@@ -113,7 +113,6 @@ function FlowPanel({
   overview,
   title,
   icon,
-  waiting,
   children,
 }: {
   index: number
@@ -121,7 +120,6 @@ function FlowPanel({
   overview: boolean
   title: string
   icon?: ReactNode
-  waiting: string
   children: ReactNode
 }) {
   const visible = overview ? stage >= index : stage === index
@@ -140,11 +138,8 @@ function FlowPanel({
         {icon}
         <BrandText>{title}</BrandText>
       </h3>
-      {visible ? (
-        <div className="flow-panel-content">{children}</div>
-      ) : overview ? (
-        <p className="flow-panel-waiting">{waiting}</p>
-      ) : null}
+      {/* On desktop a step's column keeps its place but stays empty and hidden until it starts. */}
+      {visible ? <div className="flow-panel-content">{children}</div> : null}
     </section>
   )
 }
@@ -563,16 +558,28 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   overview={overview}
                   title="Your answers"
                   icon={<Icon kind="brief" />}
-                  waiting=""
                 >
-                  <div className={`flow-prompt ${overview && expanded ? '' : 'is-asking'}`}>
-                    {overview && expanded ? null : (
-                      <SetupQuestions elapsed={elapsed} reduced={reduced} />
-                    )}
+                  {/* On desktop the questions get the columns to the right; the answers stay here. */}
+                  <div className={`flow-prompt ${overview ? '' : 'is-asking'}`}>
+                    {overview ? null : <SetupQuestions elapsed={elapsed} reduced={reduced} />}
                     <div className="setup-side">
                       <SetupAnswers elapsed={elapsed} />
                       <div className="flow-submit-row">
-                        <span>Good News Today</span>
+                        {/* After the click the label gives way to the handoff, in the same place. */}
+                        <span className="flow-handoff">
+                          <span
+                            className={elapsed < CLICK + 300 ? 'is-active' : ''}
+                            aria-hidden={elapsed >= CLICK + 300 || undefined}
+                          >
+                            Good News Today
+                          </span>
+                          <span
+                            className={elapsed >= CLICK + 300 ? 'is-active' : ''}
+                            aria-hidden={elapsed < CLICK + 300 || undefined}
+                          >
+                            Your part’s done. The rest is automatic.
+                          </span>
+                        </span>
                         <span
                           className={`flow-submit ${elapsed >= CLICK && elapsed < CLICK + 400 ? 'is-clicked' : ''}`}
                         >
@@ -619,13 +626,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                           </span>
                         </span>
                       </div>
-                      <p
-                        className="flow-handoff flow-reveal"
-                        data-revealed={elapsed >= CLICK + 300}
-                        aria-hidden={elapsed < CLICK + 300 || undefined}
-                      >
-                        Your part’s done. The rest is automatic.
-                      </p>
                     </div>
                   </div>
                 </FlowPanel>
@@ -635,7 +635,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   overview={overview}
                   title="The playbook"
                   icon={<Icon kind="playbook" />}
-                  waiting="Your answers will become an editable playbook."
                 >
                   <div className="flow-playbook">
                     <div className="flow-document-title">
@@ -665,13 +664,17 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   </div>
                 </FlowPanel>
               </div>
+              {overview && !expanded ? (
+                <div className="flow-questions">
+                  <SetupQuestions elapsed={elapsed} reduced={reduced} />
+                </div>
+              ) : null}
               <FlowPanel
                 index={2}
                 stage={viewStage}
                 overview={overview}
                 title="Research"
                 icon={<Icon kind="research" />}
-                waiting="The agent will search and check previous posts."
               >
                 <div className="flow-research">
                   {EVENTS.map(([start, title, detail], index) => (
@@ -849,7 +852,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 overview={overview}
                 title="Channel posts"
                 icon={<Icon kind="posts" />}
-                waiting="The stories it keeps will become posts for each channel."
               >
                 <div className="flow-writing">
                   <div ref={previews} className="flow-post-previews">
@@ -957,7 +959,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 overview={overview}
                 title="Buffer schedule"
                 icon={<BufferMark size={16} />}
-                waiting="Posts will be spaced through the day."
               >
                 <div className="flow-finish">
                   <p className="flow-finish-status">

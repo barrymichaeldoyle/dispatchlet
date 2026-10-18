@@ -387,7 +387,9 @@ for (const viewport of [
       }),
     )
     expect(initialColumns).toHaveLength(4)
-    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+    // Steps that have not started keep their column but stay hidden.
+    await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(4)
+    await expect(demo.locator('.flow-scene > .flow-panel').first()).toBeHidden()
     await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
     let previous = T.EXPAND + 150
     for (const time of [
@@ -410,7 +412,7 @@ for (const viewport of [
         ),
       ).toEqual(initialColumns)
     }
-    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(0)
+    await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(0)
     for (const selector of [
       '.setup-answers',
       '.flow-playbook',
@@ -437,7 +439,7 @@ for (const viewport of [
       }
     }
     await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
-    await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+    await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(4)
     await expect(demo.locator('.flow-post[data-selected="true"]')).toHaveCount(0)
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-intro/)
   })
@@ -486,7 +488,9 @@ test('feedback confirms completed work without an elapsed-seconds counter', asyn
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Create playbook')
   await page.clock.fastForward(600)
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Creating playbook')
-  await expect(demo.getByText('Your part’s done. The rest is automatic.')).toBeVisible()
+  await expect(demo.locator('.flow-handoff .is-active')).toHaveText(
+    'Your part’s done. The rest is automatic.',
+  )
   await page.clock.fastForward(T.CREATED + 200 - (T.CLICK + 300))
   await expect(demo.locator('.flow-submit-label .is-active')).toHaveText('Playbook created')
   await page.clock.fastForward(T.RECEIPT - 1000 - (T.CREATED + 200))
@@ -579,7 +583,7 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
     }
   }
   await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
-  await expect(demo.locator('.flow-panel-waiting')).toHaveCount(4)
+  await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(4)
   await expect(demo.locator('[data-highlighted="true"]')).toHaveCount(0)
 })
 

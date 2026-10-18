@@ -71,9 +71,8 @@ function questions(elapsed: number, reduced: boolean): Question[] {
       answer: (
         <span className="setup-blocks">
           {ANSWERS.channels.map((channel, index) => (
-            <Block key={channel} checked={at(CHANNEL_TICKS[index])}>
-              <ChannelMark channel={channel} size={18} />
-              {channel}
+            <Block key={channel} checked={at(CHANNEL_TICKS[index])} className="is-logo">
+              <ChannelMark channel={channel} size={28} />
             </Block>
           ))}
         </span>

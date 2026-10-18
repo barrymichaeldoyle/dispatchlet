@@ -1540,13 +1540,6 @@ header nav button {
 .is-overview .flow-panel[data-active='true'] > .flow-panel-title {
   color: var(--color-pine);
 }
-.is-overview .flow-panel-waiting {
-  margin: 0;
-  max-width: 28ch;
-  font-size: 15px;
-  line-height: 1.6;
-  color: var(--color-muted);
-}
 .is-overview .flow-panel-content {
   animation: flow-caption-in 220ms ease-out;
 }
@@ -1723,12 +1716,6 @@ header nav button {
   }
   .is-overview .flow-event {
     padding-bottom: 12px;
-  }
-  .is-overview .flow-submit-row > span:first-child {
-    display: none;
-  }
-  .is-overview .flow-submit-row {
-    justify-content: flex-end;
   }
   .is-overview .flow-post p {
     font-size: 14px;
@@ -3143,60 +3130,78 @@ header nav button {
   min-height: 0;
 }
 
-/* The run opens on the brief alone; submitting it opens out into the full workspace. */
-.flow-workspace.is-overview.is-intro .flow-scene {
-  grid-template-columns: minmax(0, 1fr);
+/*
+ * The answers live in the first column from the start and fill in there. The questions take the
+ * space to the right until they are submitted; after that each step's column appears only when
+ * that step begins.
+ */
+.flow-questions {
+  grid-column: 2 / -1;
+  grid-row: 1;
+  display: grid;
+  align-items: center;
+  min-height: 0;
+  padding-left: 48px;
+  border-left: 1px solid var(--color-rule);
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
-.is-intro .flow-scene > .flow-panel,
-.is-intro .flow-context > .flow-panel:not(.flow-panel-0) {
+.flow-questions > .setup-stage {
+  width: min(100%, 680px);
+  min-height: 0;
+}
+.is-intro .flow-scene > .flow-panel {
   display: none;
 }
-.flow-workspace.is-intro .flow-context {
-  align-self: safe center;
-  justify-self: center;
-  width: min(100%, 980px);
-  max-height: 100%;
-  padding-right: 4px;
-}
-.is-intro .flow-panel-0 > .flow-panel-title {
-  display: none;
-}
-.flow-dialog .is-overview.is-intro .flow-submit-row {
-  margin-top: 16px;
-}
-/* In the open workspace the answers block heads its column itself, in tighter rows. */
-.is-overview:not(.is-intro) .flow-panel-0 > .flow-panel-title {
-  display: none;
-}
-.is-overview:not(.is-intro) .setup-answers > div {
+.is-overview .setup-answers > div {
   min-height: 0;
   padding: 4px 0;
 }
-/* Opening out, the answers travel from beside the questions to the top of the first column. */
-.is-overview .setup-side {
-  view-transition-name: flow-answers;
+.is-overview .setup-answers {
+  border-top: 0;
 }
-::view-transition-group(flow-answers) {
-  animation-duration: 650ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+.flow-submit {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
-/* Only the settled answers move; crossfading two layouts of the same rows would ghost. */
-::view-transition-old(flow-answers) {
-  display: none;
+.is-overview .flow-panel {
+  transition:
+    opacity 400ms ease-out,
+    visibility 0s;
 }
-::view-transition-new(flow-answers) {
-  animation: none;
+.is-overview .flow-panel[data-pending='true'] {
+  visibility: hidden;
+  opacity: 0;
+  transition: none;
 }
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 420ms;
 }
 .flow-handoff {
-  margin: 16px 0 0;
+  display: grid;
+  min-width: 0;
+  line-height: 1.35;
+}
+.flow-handoff > span {
+  grid-area: 1 / 1;
+  align-self: center;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 280ms ease-out,
+    visibility 0s 280ms;
+}
+.flow-handoff > .is-active {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 280ms ease-out,
+    visibility 0s;
+}
+.flow-handoff > span:last-child {
   color: var(--color-pine);
-  font-size: 15px;
   font-weight: 500;
-  line-height: 1.5;
 }
 .flow-submit .flow-spinner {
   width: 14px;
@@ -3206,11 +3211,7 @@ header nav button {
   border-top-color: var(--color-on-pine);
 }
 
-.is-overview .flow-handoff {
-  margin-top: 10px;
-  font-size: 14px;
-}
-.flow-workspace.is-overview:not(.is-intro) .flow-context {
+.flow-workspace.is-overview .flow-context {
   gap: 12px;
 }
 
@@ -3675,6 +3676,11 @@ header nav button {
   font-weight: 400;
   line-height: 1.4;
   color: var(--color-muted);
+}
+/* Channels are known by their logos; the mark carries the name for screen readers. */
+.setup-block.is-logo {
+  min-width: 88px;
+  align-items: center;
 }
 .setup-blocks.is-numbers .setup-block {
   min-width: 72px;

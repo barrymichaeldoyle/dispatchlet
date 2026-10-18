@@ -104,7 +104,7 @@ export const RULES = [
   ['Sources', 'Your 4 sites, plus other reliable outlets.'],
   ['Voice', 'Warm and factual. Specific details, no hype.'],
   ['Rules', 'Verify the source. Skip company PR, politics and repeats.'],
-  ['Delivery', 'Daily at 08:00. Posts from 09:00, 3 hours apart.'],
+  ['Delivery', 'From 09:00, 3 hours apart.'],
 ]
 export const STORIES = [
   {
