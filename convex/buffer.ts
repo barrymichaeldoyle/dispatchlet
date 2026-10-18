@@ -12,13 +12,8 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { isAllowlisted } from './lib/allowlist'
-import {
-  BufferApiError,
-  bufferGraphql,
-  lastRateLimit,
-  refreshBufferTokens,
-  revokeBufferToken,
-} from './lib/buffer'
+import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
+import { parseRateLimit, reserve, type Priority } from './lib/budget'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 
 /** The tokens from a sign-in, already encrypted by the provider's profile step. */
@@ -54,6 +49,9 @@ export async function saveBufferConnection(
     scope: grant.scope,
     refreshingAt: undefined,
     needsReauth: false,
+    // The budget belongs to the Buffer account, so a reconnect of the same one keeps it.
+    ratePartition:
+      existing?.bufferAccountId === grant.bufferAccountId ? existing.ratePartition : undefined,
     updatedAt: Date.now(),
   }
   if (existing) await ctx.db.replace(existing._id, fields)
@@ -95,18 +93,106 @@ export const revokeGrant = internalAction({
   },
 })
 
+/** Stores what Buffer said about the budget after a call, replacing the local estimate. */
 export const recordRateLimit = internalMutation({
   args: { userId: v.id('users'), rateLimit: v.string() },
   handler: async (ctx, { userId, rateLimit }) => {
+    const now = Date.now()
+    const { partition, windows } = parseRateLimit(rateLimit, now)
     const connection = await ctx.db
       .query('bufferConnections')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .first()
     if (connection) {
-      await ctx.db.patch(connection._id, { lastRateLimit: rateLimit, lastRateLimitAt: Date.now() })
+      await ctx.db.patch(connection._id, {
+        lastRateLimit: rateLimit,
+        lastRateLimitAt: now,
+        ...(partition ? { ratePartition: partition } : {}),
+      })
     }
+    if (!partition || windows.length === 0) return
+    const budget = await ctx.db
+      .query('bufferBudgets')
+      .withIndex('by_partition', (q) => q.eq('partition', partition))
+      .first()
+    if (budget) await ctx.db.patch(budget._id, { windows, observedAt: now })
+    else await ctx.db.insert('bufferBudgets', { partition, windows, observedAt: now })
   },
 })
+
+const priorityValidator = v.union(v.literal('interactive'), v.literal('background'))
+
+/**
+ * Reserves calls against the user's Buffer budget before they are made. Mutations run one at a
+ * time, so two runs cannot both take the last calls in a window. Until Buffer has reported a
+ * budget for this grant, calls are allowed and the first response fills it in.
+ */
+export const reserveCalls = internalMutation({
+  args: { userId: v.id('users'), calls: v.number(), priority: priorityValidator },
+  returns: v.union(
+    v.object({ ok: v.literal(true) }),
+    v.object({ ok: v.literal(false), retryAt: v.number() }),
+  ),
+  handler: async (ctx, { userId, calls, priority }) => {
+    const connection = await ctx.db
+      .query('bufferConnections')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    const partition = connection?.ratePartition
+    if (!partition) return { ok: true as const }
+    const budget = await ctx.db
+      .query('bufferBudgets')
+      .withIndex('by_partition', (q) => q.eq('partition', partition))
+      .first()
+    if (!budget) return { ok: true as const }
+    const result = reserve(budget.windows, calls, priority)
+    if (!result.ok) return result
+    await ctx.db.patch(budget._id, { windows: result.windows })
+    return { ok: true as const }
+  },
+})
+
+/** Thrown when Buffer's budget has no room; `retryAt` is when the tightest window resets. */
+export class BufferBudgetError extends Error {
+  constructor(readonly retryAt: number) {
+    super(
+      `Dispatchlet has used its Buffer API allowance for now. Try again after ${new Date(retryAt).toISOString()}.`,
+    )
+  }
+}
+
+/**
+ * Every Buffer API call goes through here: it reserves the call against the budget, makes it,
+ * and stores the rate-limit headers Buffer sends back (also when the call fails).
+ */
+async function callBuffer<T>(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  token: string,
+  document: string,
+  variables?: Record<string, unknown>,
+  priority: Priority = 'interactive',
+): Promise<T> {
+  const reserved = await ctx.runMutation(internal.buffer.reserveCalls, {
+    userId,
+    calls: 1,
+    priority,
+  })
+  if (!reserved.ok) throw new BufferBudgetError(reserved.retryAt)
+  try {
+    const { data, rateLimit } = await bufferRequest<T>(token, document, variables)
+    if (rateLimit) await ctx.runMutation(internal.buffer.recordRateLimit, { userId, rateLimit })
+    return data
+  } catch (error) {
+    if (error instanceof BufferApiError && error.rateLimit) {
+      await ctx.runMutation(internal.buffer.recordRateLimit, {
+        userId,
+        rateLimit: error.rateLimit,
+      })
+    }
+    throw error
+  }
+}
 
 export const connectionFor = internalQuery({
   args: { userId: v.id('users') },
@@ -156,6 +242,12 @@ export const storeRefreshed = internalMutation({
 export const releaseRefresh = internalMutation({
   args: { connectionId: v.id('bufferConnections'), needsReauth: v.boolean() },
   handler: async (ctx, { connectionId, needsReauth }) => {
+    const connection = await ctx.db.get(connectionId)
+    if (!connection) return
+    // Tell the person once, when access is first lost; a new sign-in clears the flag.
+    if (needsReauth && !connection.needsReauth) {
+      await ctx.scheduler.runAfter(0, internal.email.sendReauth, { userId: connection.userId })
+    }
     await ctx.db.patch(connectionId, {
       refreshingAt: undefined,
       ...(needsReauth ? { needsReauth: true } : {}),
@@ -294,13 +386,15 @@ export const syncChannels = action({
   handler: async (ctx) => {
     const userId = await allowlistedUser(ctx)
     const { token } = await accessTokenFor(ctx, userId)
-    const { account } = await bufferGraphql<{ account: { organizations: { id: string }[] } }>(
+    const { account } = await callBuffer<{ account: { organizations: { id: string }[] } }>(
+      ctx,
+      userId,
       token,
       'query DispatchletOrganizations { account { organizations { id } } }',
     )
     const channels: ChannelRow[] = []
     for (const organization of account.organizations) {
-      const data = await bufferGraphql<{
+      const data = await callBuffer<{
         channels: {
           id: string
           name: string
@@ -311,6 +405,8 @@ export const syncChannels = action({
           isLocked?: boolean | null
         }[]
       }>(
+        ctx,
+        userId,
         token,
         `query DispatchletChannels($orgId: OrganizationId!) {
           channels(input: { organizationId: $orgId }) {
@@ -333,9 +429,6 @@ export const syncChannels = action({
       }
     }
     await ctx.runMutation(internal.buffer.saveChannels, { userId, channels })
-    if (lastRateLimit) {
-      await ctx.runMutation(internal.buffer.recordRateLimit, { userId, rateLimit: lastRateLimit })
-    }
     return { channels: channels.length }
   },
 })
@@ -394,8 +487,17 @@ export const myConnection = query({
       .query('bufferChannels')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
+    const partition = connection.ratePartition
+    const budget = partition
+      ? await ctx.db
+          .query('bufferBudgets')
+          .withIndex('by_partition', (q) => q.eq('partition', partition))
+          .first()
+      : null
     return {
       scope: connection.scope,
+      // Windows past their reset are full again, so only current ones are worth showing.
+      budget: budget ? budget.windows.filter((window) => window.resetAt > Date.now()) : null,
       canRefresh: Boolean(connection.refreshTokenEnc),
       needsReauth: connection.needsReauth ?? false,
       expiresAt: connection.expiresAt,

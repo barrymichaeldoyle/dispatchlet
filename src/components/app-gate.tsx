@@ -1,8 +1,10 @@
 import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
-import { ConvexReactClient, useAction, useConvexAuth, useQuery } from 'convex/react'
+import { Link, Outlet } from '@tanstack/react-router'
+import { ConvexReactClient, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
-import { BufferMark, ChannelMark } from './brand-icons'
+import { ConnectionBanner, SignOut } from './app-pages'
+import { BufferMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -23,10 +25,10 @@ function Gate() {
   if (isLoading || (isAuthenticated && viewer === undefined)) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
-  return <SignedIn name={viewer.name} email={viewer.email} />
+  return <AppShell timezone={viewer.timezone} />
 }
 
-function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
+export function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <main className="app-gate">
       <div className="app-gate-inner">
@@ -121,9 +123,17 @@ function Arrow({
 function SignIn() {
   const { signIn } = useAuthActions()
   const [pending, setPending] = useState(false)
+  const deleted = new URLSearchParams(window.location.search).has('deleted')
   return (
-    <Screen title="Sign in to Dispatchlet.">
-      <p>Use your Buffer account. There is no separate password.</p>
+    <Screen title={deleted ? 'Your account is deleted.' : 'Sign in to Dispatchlet.'}>
+      {deleted ? (
+        <p>
+          Everything Dispatchlet held for it is gone, and its access to your Buffer account is
+          removed. Signing in again starts a new account.
+        </p>
+      ) : (
+        <p>Use your Buffer account. There is no separate password.</p>
+      )}
       <button
         type="button"
         className="app-gate-primary"
@@ -141,24 +151,6 @@ function SignIn() {
         launch list.
       </p>
     </Screen>
-  )
-}
-
-function SignOut() {
-  const { signOut } = useAuthActions()
-  const [pending, setPending] = useState(false)
-  return (
-    <button
-      type="button"
-      className="app-gate-secondary"
-      disabled={pending}
-      onClick={() => {
-        setPending(true)
-        void signOut().catch(() => setPending(false))
-      }}
-    >
-      {pending ? 'Signing out' : 'Sign out'}
-    </button>
   )
 }
 
@@ -186,139 +178,34 @@ function Waitlisted({ email }: { email: string | null }) {
   )
 }
 
-function SignedIn({ name, email }: { name: string | null; email: string | null }) {
-  // The heading greets by first name, so a long full name never breaks across lines in it.
-  const firstName = name?.trim().split(/\s+/)[0]
-  const account = name && email ? `${name} (${email})` : (name ?? email)
-  return (
-    <Screen title={firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}>
-      {account ? (
-        <p className="app-gate-account">
-          Signed in with Buffer as <strong>{account}</strong>.
-        </p>
-      ) : null}
-      <p>
-        Your Buffer account is on the allowlist, so you see the app here while it is built. Everyone
-        else sees the launch list until it opens to the public.
-      </p>
-      <BufferConnection />
-      <div className="app-gate-actions">
-        <SignOut />
-      </div>
-    </Screen>
-  )
-}
-
-const SERVICE_NAMES: Record<string, string> = {
-  twitter: 'X',
-  linkedin: 'LinkedIn',
-  threads: 'Threads',
-  bluesky: 'Bluesky',
-  mastodon: 'Mastodon',
-}
-
-const WINDOW_NAMES: Record<string, string> = {
-  '15min': '15 minutes',
-  '1day': 'day',
-  '30days': '30 days',
-}
-
 /**
- * Buffer sends `ratelimit: "100-in-15min"; r=98; ...` for each window. Reads those into one
- * sentence; anything unexpected is shown as Buffer sent it.
+ * The app for allowlisted accounts: a header with the pages, the Buffer connection warning when
+ * there is one, then the page. The time zone is filled in from the browser on the first visit.
  */
-function describeRateLimit(raw: string): string {
-  const windows = [...raw.matchAll(/ratelimit: "(\d+)-in-(\w+)"; r=(\d+)/g)].map(
-    ([, limit, window, remaining]) =>
-      `${remaining} of ${limit} per ${WINDOW_NAMES[window] ?? window}`,
-  )
-  return windows.length
-    ? `Buffer API calls left: ${windows.join(', ')}.`
-    : `Buffer rate limit, last call: ${raw}`
-}
-
-/** The owner's check that the Buffer grant works: posting access, refresh, and synced channels. */
-function BufferConnection() {
-  const connection = useQuery(api.buffer.myConnection)
-  const sync = useAction(api.buffer.syncChannels)
-  const disconnect = useAction(api.buffer.disconnect)
-  const [syncing, setSyncing] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  if (connection === undefined) return null
-  const canPost = connection?.scope.includes('posts:write') ?? false
-  const status = !connection
-    ? 'Not connected. Sign out and sign in with Buffer again to connect.'
-    : connection.needsReauth
-      ? 'Buffer access has ended. Sign out and sign in with Buffer again.'
-      : !canPost
-        ? 'Connected without posting access. Sign out and sign in again to grant it.'
-        : connection.canRefresh
-          ? 'Connected with posting access. The token renews itself.'
-          : 'Connected with posting access, but Buffer did not issue a refresh token, so it lasts about an hour.'
+function AppShell({ timezone }: { timezone: string | null }) {
+  const setTimezone = useMutation(api.users.setTimezone)
+  useEffect(() => {
+    if (timezone) return
+    const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
+    if (detected) void setTimezone({ timezone: detected }).catch(() => {})
+  }, [timezone, setTimezone])
   return (
-    <section className="app-connection" aria-labelledby="connection-title">
-      <h2 id="connection-title">Buffer connection</h2>
-      <p>{status}</p>
-      {connection && connection.channels.length > 0 ? (
-        <ul>
-          {connection.channels.map((channel) => (
-            <li key={channel.channelId} data-usable={channel.usable}>
-              <ChannelMark channel={SERVICE_NAMES[channel.service] ?? channel.service} size={14} />
-              <span>{channel.name}</span>
-              {channel.usable ? null : (
-                <span className="app-connection-note">Needs attention in Buffer</span>
-              )}
-            </li>
-          ))}
-        </ul>
-      ) : connection ? (
-        <p className="app-connection-note">No channels synced yet.</p>
-      ) : null}
-      {connection && !connection.needsReauth ? (
-        <button
-          type="button"
-          className="app-gate-secondary"
-          disabled={syncing}
-          onClick={() => {
-            setSyncing(true)
-            setError(null)
-            sync()
-              .catch((reason: unknown) =>
-                setError(reason instanceof Error ? reason.message : 'Sync failed.'),
-              )
-              .finally(() => setSyncing(false))
-          }}
-        >
-          {syncing ? 'Syncing channels' : 'Sync channels'}
-        </button>
-      ) : null}
-      {connection ? (
-        <button
-          type="button"
-          className="app-gate-secondary"
-          disabled={disconnecting}
-          onClick={() => {
-            setDisconnecting(true)
-            setError(null)
-            disconnect()
-              .catch((reason: unknown) =>
-                setError(reason instanceof Error ? reason.message : 'Disconnect failed.'),
-              )
-              .finally(() => setDisconnecting(false))
-          }}
-        >
-          {disconnecting ? 'Disconnecting' : 'Disconnect Buffer'}
-        </button>
-      ) : null}
-      {connection?.lastRateLimit ? (
-        <p className="app-connection-note">{describeRateLimit(connection.lastRateLimit)}</p>
-      ) : null}
-      {error ? (
-        <p className="app-connection-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </section>
+    <main className="app-gate is-app">
+      <div className="app-gate-inner">
+        <header className="app-top">
+          <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
+            <Wordmark size="md" />
+          </Link>
+          <nav aria-label="App" className="app-nav">
+            <Link to="/app" activeOptions={{ exact: true }}>
+              Home
+            </Link>
+            <Link to="/app/settings">Settings</Link>
+          </nav>
+        </header>
+        <ConnectionBanner />
+        <Outlet />
+      </div>
+    </main>
   )
 }

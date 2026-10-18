@@ -21,15 +21,23 @@ function escapeHtml(s: string): string {
     .replaceAll('"', '&quot;')
 }
 
-function html(paragraphs: string[], unsubscribe: string, reason?: string): string {
+const MUTED = 'color:#6a6a66'
+const PRIVACY = `<a href="https://dispatchlet.com/privacy" style="${MUTED}">privacy policy</a>`
+
+/** The footer for list emails: why it was sent (if given), unsubscribe and the privacy policy. */
+function listFooter(unsubscribe: string, reason?: string): string {
+  const why = reason ? `${escapeHtml(reason)} ` : ''
+  return `${why}<a href="${unsubscribe}" style="${MUTED}">Unsubscribe</a> or read the ${PRIVACY}.`
+}
+
+function html(paragraphs: string[], footer: string): string {
   const body = paragraphs
     .map(
       (p) =>
         `<p style="margin:0 0 16px;font:15px/1.55 system-ui,sans-serif;color:#1a1a1a">${p}</p>`,
     )
     .join('')
-  const why = reason ? `${escapeHtml(reason)} ` : ''
-  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;color:#6a6a66">${why}<a href="${unsubscribe}" style="color:#6a6a66">Unsubscribe</a> or read the <a href="https://dispatchlet.com/privacy" style="color:#6a6a66">privacy policy</a>.</p></div>`
+  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;${MUTED}">${footer}</p></div>`
 }
 
 type Message = {
@@ -53,7 +61,7 @@ function confirmMessage(email: string, token: string): Message {
         `You asked to hear when Dispatchlet opens. Confirm here: <a href="${l.confirm}" style="color:#0f6e56">${escapeHtml(l.confirm)}</a>`,
         'If this was not you, ignore this email.',
       ],
-      l.unsubscribe,
+      listFooter(l.unsubscribe),
     ),
     headers: { 'List-Unsubscribe': `<${l.unsubscribe}>` },
   }
@@ -75,12 +83,31 @@ export function launchMessage(email: string, token: string): Message {
         'Your first 10 runs are on me. If you try it, reply and tell me what broke.',
         'Barry',
       ],
-      l.unsubscribe,
-      LAUNCH_REASON,
+      listFooter(l.unsubscribe, LAUNCH_REASON),
     ),
     headers: {
       'List-Unsubscribe': `<${l.unsubscribe}>`,
     },
+  }
+}
+
+export function reauthMessage(email: string): Message {
+  const reconnect = 'https://dispatchlet.com/app'
+  const reason = 'You got this because you use Dispatchlet with your Buffer account.'
+  return {
+    from: FROM,
+    to: email,
+    subject: 'Dispatchlet lost access to Buffer',
+    text: `Buffer stopped accepting Dispatchlet's access to your account, so Dispatchlet can't post for you until you reconnect.\n\nReconnect here: ${reconnect}\n\nBarry\n\n${reason}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
+    html: html(
+      [
+        'Buffer stopped accepting Dispatchlet’s access to your account, so Dispatchlet can’t post for you until you reconnect.',
+        `<a href="${reconnect}" style="color:#0f6e56">Reconnect Buffer</a>`,
+        'Barry',
+      ],
+      `${escapeHtml(reason)} Read the ${PRIVACY}.`,
+    ),
+    headers: {},
   }
 }
 
@@ -104,6 +131,18 @@ export const sendConfirm = internalAction({
   returns: v.null(),
   handler: async (_ctx, { email, token }) => {
     await resend('/emails', confirmMessage(email, token))
+    return null
+  },
+})
+
+/** Sent once when Buffer stops accepting a user's grant (buffer.releaseRefresh). */
+export const sendReauth = internalAction({
+  args: { userId: v.id('users') },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    const email = await ctx.runQuery(internal.users.emailFor, { userId })
+    if (!email) return null
+    await resend('/emails', reauthMessage(email))
     return null
   },
 })

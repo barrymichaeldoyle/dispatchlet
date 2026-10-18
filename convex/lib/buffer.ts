@@ -23,8 +23,29 @@ export function rateLimitFrom(headers: Headers): string | null {
   return parts.length ? parts.join('; ') : null
 }
 
-/** The most recent rate-limit headers seen, per isolate, for callers that want to store them. */
-export let lastRateLimit: string | null = null
+/** A GraphQL call with a Buffer access token, with the rate-limit headers Buffer sent back. */
+export async function bufferRequest<T>(
+  accessToken: string,
+  query: string,
+  variables?: Record<string, unknown>,
+): Promise<{ data: T; rateLimit: string | null }> {
+  const response = await fetch(BUFFER_API, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, variables }),
+  })
+  const rateLimit = rateLimitFrom(response.headers)
+  if (rateLimit) console.log(`Buffer rate limit: ${rateLimit}`)
+  const body = (await response.json().catch(() => null)) as {
+    data?: T
+    errors?: { message: string }[]
+  } | null
+  if (!response.ok || !body?.data || body.errors?.length) {
+    const message = body?.errors?.[0]?.message ?? `HTTP ${response.status}`
+    throw new BufferApiError(message, response.status, rateLimit)
+  }
+  return { data: body.data, rateLimit }
+}
 
 /** A GraphQL call with a Buffer access token. Throws with Buffer's message on any error. */
 export async function bufferGraphql<T>(
@@ -32,31 +53,14 @@ export async function bufferGraphql<T>(
   query: string,
   variables?: Record<string, unknown>,
 ): Promise<T> {
-  const response = await fetch(BUFFER_API, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, variables }),
-  })
-  const rateLimit = rateLimitFrom(response.headers)
-  if (rateLimit) {
-    lastRateLimit = rateLimit
-    console.log(`Buffer rate limit: ${rateLimit}`)
-  }
-  const body = (await response.json().catch(() => null)) as {
-    data?: T
-    errors?: { message: string }[]
-  } | null
-  if (!response.ok || !body?.data || body.errors?.length) {
-    const message = body?.errors?.[0]?.message ?? `HTTP ${response.status}`
-    throw new BufferApiError(message, response.status)
-  }
-  return body.data
+  return (await bufferRequest<T>(accessToken, query, variables)).data
 }
 
 export class BufferApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly rateLimit: string | null = null,
   ) {
     super(message)
   }

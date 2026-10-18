@@ -1,0 +1,34 @@
+name: pre-window tag
+
+# Tags the last commit before the Buffer Commit window opened (28 Oct 2026, 00:01 PT, which is
+# 07:01 UTC) as `pre-window`, so everything built in the window is the commits after it. Runs
+# once after the cutoff; does nothing if the tag already exists.
+on:
+  schedule:
+    - cron: '30 8 28 10 *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag the last commit before the window
+        run: |
+          if git rev-parse -q --verify refs/tags/pre-window >/dev/null; then
+            echo "pre-window already points at $(git rev-list -n 1 pre-window)"
+            exit 0
+          fi
+          if [ "$(date -u +%s)" -lt "$(date -u -d 2026-10-28T07:01:00Z +%s)" ]; then
+            echo "The window has not opened yet"
+            exit 1
+          fi
+          commit=$(git rev-list -1 --before=2026-10-28T07:01:00Z origin/main)
+          git log -1 --format='Tagging %h %cI %s' "$commit"
+          git tag pre-window "$commit"
+          git push origin pre-window

@@ -38,3 +38,15 @@ test('the launch-list link opens the landing page straight into the demo', async
   await expect(page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })).toBeVisible()
   await expect(page).toHaveURL(/\/$/)
 })
+
+test('settings sits behind the same sign-in and stays out of search', async ({ page }) => {
+  await page.goto('/app/settings')
+  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet.' })).toBeVisible()
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
+})
+
+test('after deleting an account, the sign-in page says so', async ({ page }) => {
+  await page.goto('/app?deleted')
+  await expect(page.getByRole('heading', { name: 'Your account is deleted.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toBeEnabled()
+})

@@ -17,8 +17,13 @@ Everything up to the `pre-window` tag was built before 28 October:
 - Scaffold, tooling and CI.
 - The landing page, its scripted demo and the waiting list.
 - Buffer plumbing, kept behind an allowlist on a hidden `/app` route: sign in
-  with Buffer, the encrypted token store, the single-use refresh-token lock and
-  channel sync.
+  with Buffer, the encrypted token store, the single-use refresh-token lock,
+  channel sync, the "lost access to Buffer" email and reconnect banner, and a
+  shared Buffer call budget that every API call reserves from.
+- Account basics on `/app/settings`: time zone, disconnect and delete account.
+
+The tag is placed by `.github/workflows/pre-window-tag.yml` on the last commit
+before 28 October 00:01 PT.
 
 None of the AI workflow existed before the tag. Playbooks, research, dedupe,
 writing posts, scheduling runs and publishing to Buffer were all built during

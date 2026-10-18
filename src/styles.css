@@ -20,6 +20,8 @@
   --color-tint: #e3f0eb;
   --color-on-pine: #f4f4f1;
   --color-card: #fbfbf9;
+  --color-danger: #a8261c;
+  --color-on-danger: #fff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -32,6 +34,8 @@
     --color-tint: #1a2a25;
     --color-on-pine: #161616;
     --color-card: #1d1d1c;
+    --color-danger: #ff8a7f;
+    --color-on-danger: #161616;
     color-scheme: dark;
   }
 }
@@ -49,6 +53,8 @@
   --color-tint: #1a2a25;
   --color-on-pine: #161616;
   --color-card: #1d1d1c;
+  --color-danger: #ff8a7f;
+  --color-on-danger: #161616;
   color-scheme: dark;
 }
 
@@ -4256,4 +4262,109 @@ header nav button {
 .app-gate .app-connection-error {
   margin: 12px 0 0;
   font-size: 14px;
+}
+
+/* Inside the app: the column starts at the top, with the pages in a row beside the wordmark. */
+.app-gate.is-app {
+  place-items: start center;
+  padding-top: 32px;
+}
+.app-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 40px;
+}
+.app-top .app-gate-home {
+  margin-bottom: 0;
+}
+.app-nav {
+  display: flex;
+  gap: 20px;
+  font-size: 15px;
+}
+.app-nav a {
+  padding: 4px 0;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.app-nav a:hover {
+  color: var(--color-ink);
+}
+.app-nav a[aria-current='page'] {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-pine);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 6px;
+}
+.app-banner {
+  margin: 0 0 32px;
+  padding: 16px;
+  border: 1px solid var(--color-pine);
+  background: var(--color-tint);
+}
+.app-gate .app-banner p {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+.app-section {
+  margin: 0 0 32px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-rule);
+}
+.app-section h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.app-gate .app-section p {
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+.app-gate .app-muted {
+  color: var(--color-muted);
+}
+.app-gate .app-section .app-budget {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+.app-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.app-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.app-select {
+  min-height: 44px;
+  max-width: 100%;
+  padding: 0 12px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-card);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.app-gate-danger {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+  font-size: 15px;
+  font-weight: 500;
+}
+.app-gate-danger:disabled {
+  opacity: 0.7;
+  cursor: progress;
 }
