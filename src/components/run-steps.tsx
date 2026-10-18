@@ -3,8 +3,9 @@ import { BrandText } from './brand-text'
 import { Icon } from './flow-icon'
 import { ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
+import { SetupForm, SetupSummary } from './setup-form'
 import { StepArt, type StepArtKind } from './step-art'
-import { CANDIDATES, PREVIOUS_POST, PROMPT, RULES, STORIES } from '../lib/example-run'
+import { CANDIDATES, PREVIOUS_POST, RULES, STORIES } from '../lib/example-run'
 import { useOnceInView } from '../lib/use-once-in-view'
 
 /**
@@ -23,10 +24,10 @@ function Swap({ before, after }: { before: ReactNode; after: ReactNode }) {
   )
 }
 
-function BriefFragment() {
+function BriefFragment({ summary = false }: { summary?: boolean }) {
   return (
     <div className="step-brief">
-      <div className="flow-input">{PROMPT}</div>
+      {summary ? <SetupSummary /> : <SetupForm />}
       <div className="flow-submit-row">
         <span>Good News Today</span>
         <span className="flow-submit">
@@ -164,8 +165,8 @@ const STEPS: {
 }[] = [
   {
     art: 'brief',
-    title: 'Describe what you want to post.',
-    text: 'One paragraph sets the topic, what to skip, the channels and the schedule.',
+    title: 'Answer a few quick questions.',
+    text: 'What to research, where to post, what to avoid, which sources you prefer, and when it runs. Skip the optional ones if you like.',
     figure: <BriefFragment />,
   },
   {
@@ -246,7 +247,7 @@ export function RunPoster() {
     <div className="flow-poster" aria-hidden="true" inert>
       <div className="flow-poster-canvas" data-state="done">
         <div className="flow-poster-column is-brief">
-          <BriefFragment />
+          <BriefFragment summary />
           <PlaybookFragment />
         </div>
         <div className="flow-poster-column">

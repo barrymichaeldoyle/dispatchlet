@@ -19,12 +19,13 @@ import { Icon } from './flow-icon'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostPreview } from './post-preview'
 import { RunPoster } from './run-steps'
+import { SetupForm, SetupSummary } from './setup-form'
+import { StreamText } from './stream-text'
 import { useOnceInView } from '../lib/use-once-in-view'
 import { useScrollable } from '../lib/use-scrollable'
 import {
   CANDIDATES,
   PREVIOUS_POST,
-  PROMPT,
   RULES,
   RUN_SECONDS,
   STORIES,
@@ -33,8 +34,7 @@ import {
 } from '../lib/example-run'
 
 const {
-  TYPE_START,
-  TYPE_DURATION,
+  QUESTION_STARTS,
   CURSOR_START,
   CURSOR_TRAVEL,
   CLICK,
@@ -67,21 +67,21 @@ const {
 const TOTAL_SECONDS = DURATION / 1000
 // The sources named in the playbook, as the agent reads them.
 const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'Guardian']
-const STAGES = ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']
+const STAGES = ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']
 const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
-  'Describe what you want to post.',
+  'Answer a few quick questions.',
   'It writes a playbook.',
   'It finds new stories and skips repeats.',
   'It writes a post for each channel.',
   'It schedules them in Buffer.',
 ]
 const NOTES = [
-  'This is the only part you do. Dispatchlet handles the rest.',
-  'Sources, voice and schedule from your brief. You can edit it any time.',
+  'This is the only part you do. Skip the optional ones if you like.',
+  'Sources, voice and schedule from your answers. You can edit it any time.',
   'It checks what you’ve already posted before choosing stories.',
   'Three stories, with a post for X and LinkedIn for each.',
-  'Three stories, three hours apart. This one runs daily. Yours can run twice a day or weekly.',
+  'Three stories, three hours apart. This one runs daily. Yours can run weekly instead.',
 ]
 const EVENTS = [
   [
@@ -104,47 +104,6 @@ function cursorMotion(elapsed: number) {
     opacity: Math.min(1, travel / 0.16) * (1 - leave),
     transform: `translate(${(1 - travel) * 70}px, ${(1 - travel) * 40}px)`,
   }
-}
-
-function stream(text: string, elapsed: number, start: number, duration: number, reduced: boolean) {
-  return text.slice(
-    0,
-    Math.floor(
-      text.length * Math.min(1, Math.max(0, (elapsed - start) / (reduced ? 1 : duration))),
-    ),
-  )
-}
-
-function StreamText({
-  text,
-  elapsed,
-  start,
-  duration,
-  reduced,
-  caret = false,
-}: {
-  text: string
-  elapsed: number
-  start: number
-  duration: number
-  reduced: boolean
-  caret?: boolean
-}) {
-  return (
-    <>
-      <span className="flow-text" aria-hidden="true">
-        <span className="flow-measure">
-          {text}
-          <span className="flow-caret-space" />
-        </span>
-        <span className="flow-stream">
-          {stream(text, elapsed, start, duration, reduced)}
-          {caret ? <span className="flow-caret" /> : null}
-        </span>
-      </span>
-      <span className="sr-only">{text}</span>
-    </>
-  )
 }
 
 function FlowPanel({
@@ -306,9 +265,45 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Each visible chapter starts at the top of the workspace.
   }, [viewStage, focused, overview])
 
+  // On short screens the answers run longer than the view, so the question being answered stays in it.
+  const answering =
+    elapsed >= PLAYBOOK
+      ? -1
+      : elapsed >= CURSOR_START
+        ? QUESTION_STARTS.length
+        : QUESTION_STARTS.reduce(
+            (current, start, index) => (elapsed >= start ? index : current),
+            -1,
+          )
+  useEffect(() => {
+    if (!focused || (overview && expanded) || answering < 0) return
+    const row = workspace.current?.querySelectorAll('.setup-question, .flow-submit-row')[answering]
+    // The answers scroll inside the workspace on phones and inside their own column on desktop.
+    const scroller = overview
+      ? workspace.current?.querySelector('.flow-context')
+      : workspace.current
+    if (!row || !scroller) return
+    // An instant scroll of the container itself: a smooth one can outlive the chapter and leave
+    // the next one a few pixels down.
+    const view = scroller.getBoundingClientRect()
+    const { top, bottom } = row.getBoundingClientRect()
+    const gap = 16
+    const distance =
+      bottom > view.bottom - gap
+        ? bottom - view.bottom + gap
+        : top < view.top + gap
+          ? top - view.top - gap
+          : 0
+    if (distance) scroller.scrollBy({ top: distance, behavior: 'instant' })
+  }, [answering, focused, overview, expanded])
+
   useEffect(() => {
     if (shouldExpand === expanded) return
-    const apply = () => flushSync(() => setExpanded(shouldExpand))
+    const apply = () => {
+      flushSync(() => setExpanded(shouldExpand))
+      // The answers may have scrolled their column; the summary starts at the top.
+      workspace.current?.querySelector('.flow-context')?.scrollTo({ top: 0, behavior: 'instant' })
+    }
     if (shouldExpand && overview && focused && !reduced && document.startViewTransition) {
       document.startViewTransition(apply)
     } else apply()
@@ -555,28 +550,22 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 className="flow-context"
                 tabIndex={overview && contextScrollable ? 0 : undefined}
                 role={overview ? 'region' : undefined}
-                aria-label={overview ? 'Brief and playbook' : undefined}
+                aria-label={overview ? 'Answers and playbook' : undefined}
               >
                 <FlowPanel
                   index={0}
                   stage={viewStage}
                   overview={overview}
-                  title="Your brief"
+                  title="Your answers"
                   icon={<Icon kind="brief" />}
                   waiting=""
                 >
                   <div className="flow-prompt">
-                    <div className="flow-field-label">What would you like to post about?</div>
-                    <div className="flow-input" role="group" aria-label="Example brief">
-                      <StreamText
-                        text={PROMPT}
-                        elapsed={elapsed}
-                        start={TYPE_START}
-                        duration={TYPE_DURATION}
-                        reduced={reduced}
-                        caret={elapsed < CURSOR_START}
-                      />
-                    </div>
+                    {overview && expanded ? (
+                      <SetupSummary />
+                    ) : (
+                      <SetupForm elapsed={elapsed} reduced={reduced} />
+                    )}
                     <div className="flow-submit-row">
                       <span>Good News Today</span>
                       <span
@@ -640,7 +629,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                   overview={overview}
                   title="The playbook"
                   icon={<Icon kind="playbook" />}
-                  waiting="Your brief will become an editable playbook."
+                  waiting="Your answers will become an editable playbook."
                 >
                   <div className="flow-playbook">
                     <div className="flow-document-title">

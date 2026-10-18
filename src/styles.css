@@ -290,19 +290,6 @@ html {
   position: relative;
   padding-top: 6px;
 }
-.flow-field-label {
-  margin-bottom: 12px;
-  font-weight: 500;
-  font-size: 15px;
-}
-.flow-input {
-  min-height: 154px;
-  padding: 20px;
-  border: 1px solid var(--color-pine);
-  font-size: 17px;
-  line-height: 1.65;
-  caret-color: var(--color-pine);
-}
 .flow-caret {
   display: inline-block;
   width: 2px;
@@ -684,14 +671,15 @@ html {
   background: var(--color-tint);
   color: var(--color-ink);
 }
+/* The clip leaves room around the edges, so focus rings on full-width rows are not cut off. */
 @keyframes flow-arrive {
   from {
     opacity: 0.35;
-    clip-path: inset(0 0 8px 0);
+    clip-path: inset(-8px -8px 8px -8px);
   }
   to {
     opacity: 1;
-    clip-path: inset(0);
+    clip-path: inset(-8px);
   }
 }
 @keyframes flow-blink {
@@ -735,11 +723,6 @@ html {
 
   .flow-caption h3 {
     font-size: 20px;
-  }
-  .flow-input {
-    min-height: 260px;
-    font-size: 15px;
-    padding: 16px;
   }
   .flow-submit-row {
     font-size: 11px;
@@ -1081,9 +1064,6 @@ header nav button {
   max-width: 960px;
   margin-block: 0;
   flex-shrink: 0;
-}
-.flow-dialog .flow-input {
-  min-height: clamp(132px, 24dvh, 240px);
 }
 .flow-dialog .flow-player {
   padding: 10px max(24px, calc((100% - 1080px) / 2));
@@ -1521,18 +1501,11 @@ header nav button {
 .is-overview .flow-panel-content {
   animation: flow-caption-in 220ms ease-out;
 }
-.is-overview .flow-field-label,
 .is-overview .flow-document-title,
 .is-overview .flow-ready,
 .is-overview .flow-success,
 .is-overview .flow-finish h4 {
   display: none;
-}
-.flow-dialog .is-overview .flow-input {
-  min-height: 0;
-  padding: 12px;
-  font-size: 15px;
-  line-height: 1.6;
 }
 .is-overview .flow-submit-row {
   font-size: 13px;
@@ -1702,10 +1675,6 @@ header nav button {
   .is-overview .flow-event {
     padding-bottom: 12px;
   }
-  .flow-dialog .is-overview .flow-input {
-    font-size: 14px;
-    line-height: 1.5;
-  }
   .is-overview .flow-submit-row > span:first-child {
     display: none;
   }
@@ -1734,9 +1703,6 @@ header nav button {
   }
   .is-overview .flow-context {
     gap: 12px;
-  }
-  .flow-dialog .is-overview .flow-input {
-    padding: 10px;
   }
   .is-overview .flow-submit {
     padding-block: 6px;
@@ -2670,9 +2636,6 @@ header nav button {
 .step-figure {
   min-width: 0;
 }
-.step-figure .flow-input {
-  min-height: 0;
-}
 .step-figure .flow-submit {
   cursor: default;
 }
@@ -3018,10 +2981,6 @@ header nav button {
     grid-template-columns: minmax(0, 1fr);
     gap: 28px;
   }
-  .step-figure .flow-input {
-    padding: 16px;
-    font-size: 16px;
-  }
   .flow-poster {
     height: 200px;
     margin: -20px -20px 0;
@@ -3144,27 +3103,14 @@ header nav button {
   display: none;
 }
 .flow-workspace.is-intro .flow-context {
-  align-self: center;
+  align-self: safe center;
   justify-self: center;
-  width: min(100%, 640px);
-  overflow: visible;
+  width: min(100%, 860px);
+  max-height: 100%;
+  padding-right: 4px;
 }
 .is-intro .flow-panel-0 > .flow-panel-title {
   display: none;
-}
-/* Scoped like the overview rules it overrides: the question leads, the brief reads large. */
-.flow-dialog .is-overview.is-intro .flow-field-label {
-  display: block;
-  margin-bottom: 20px;
-  font-size: 28px;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-.flow-dialog .is-overview.is-intro .flow-input {
-  min-height: 150px;
-  padding: 20px;
-  font-size: 19px;
-  line-height: 1.6;
 }
 .flow-dialog .is-overview.is-intro .flow-submit-row {
   margin-top: 16px;
@@ -3195,20 +3141,12 @@ header nav button {
   border-top-color: var(--color-on-pine);
 }
 
-/* Once the workspace is open, the column title names the brief, so the question above it goes. */
-.flow-workspace.is-overview:not(.is-intro) .flow-field-label {
-  display: none;
-}
-
 .is-overview .flow-handoff {
   margin-top: 10px;
   font-size: 14px;
 }
 .flow-workspace.is-overview:not(.is-intro) .flow-context {
   gap: 12px;
-}
-.flow-workspace.is-overview:not(.is-intro) .flow-input {
-  padding: 14px 16px;
 }
 
 .flow-workspace:not(.is-overview) .flow-finish h4,
@@ -3560,6 +3498,182 @@ header nav button {
   .flow-research .flow-candidates li::before,
   .flow-writing .flow-story-results li::before,
   .flow-writing .flow-post-preview::before {
+    transition: none;
+  }
+}
+
+/* The setup questions: one ruled row each, the question on the left and its answer on the right. */
+.setup-form {
+  border-top: 1px solid var(--color-rule);
+}
+.setup-question {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr);
+  gap: 6px 24px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.setup-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 7px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.setup-optional {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+.setup-answer {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+.setup-input {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 1px solid var(--color-ink);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.setup-input.is-short {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+.setup-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  min-height: 36px;
+  font-size: 15px;
+}
+.setup-choice,
+.setup-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.setup-checkbox,
+.setup-radio {
+  position: relative;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--color-ink);
+  transition: background-color 150ms ease-out;
+}
+.setup-radio {
+  border-radius: 50%;
+}
+.setup-checkbox::after,
+.setup-radio::after {
+  content: '';
+  position: absolute;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+.setup-checkbox::after {
+  top: 1px;
+  left: 4px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--color-paper);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.setup-radio::after {
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+.setup-choice[data-checked='true'] .setup-checkbox {
+  background: var(--color-ink);
+}
+.setup-choice[data-checked='true'] .setup-checkbox::after,
+.setup-choice[data-checked='true'] .setup-radio::after {
+  opacity: 1;
+}
+.setup-note {
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.setup-hint {
+  max-width: 60ch;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+/* The question being answered shows the focus ring on its control, as a real form would. */
+.setup-answer > :first-child,
+.setup-input.is-short {
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 200ms ease-out;
+}
+.setup-question[data-active='true'] .setup-answer > :first-child,
+.setup-question[data-active='true'] .setup-choices:not(:has(.setup-choice)) .setup-input {
+  outline-color: var(--color-pine);
+}
+.setup-question[data-active='true'] .setup-answer > .setup-choices:not(:has(.setup-choice)) {
+  outline-color: transparent;
+}
+/* Choice groups hug their contents, so the ring sits close around them. */
+.setup-answer > .setup-choices {
+  justify-self: start;
+}
+
+/* Once submitted, the answers shrink to short rows above the playbook. */
+.setup-summary {
+  margin: 0;
+}
+.setup-summary > div {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.setup-summary dt {
+  color: var(--color-muted);
+}
+.setup-summary dd {
+  margin: 0;
+}
+
+.step-figure .setup-question {
+  transition: opacity 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--step-index) * 120ms + 150ms);
+}
+.step-figure[data-state='waiting'] .setup-question {
+  opacity: 0;
+}
+
+@media (max-width: 680px) {
+  .setup-question {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .setup-label {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding-top: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-figure .setup-question {
     transition: none;
   }
 }

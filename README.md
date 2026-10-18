@@ -14,9 +14,11 @@ it was built during the contest window. Live at https://dispatchlet.com.
 ## How it works
 
 1. Connect your Buffer account (OAuth, PKCE).
-2. Write a paragraph about what you post about. Dispatchlet writes a playbook:
-   sources, what counts as news, what to skip, tone, formats and a schedule.
-   Edit it as a form or as text.
+2. Answer a few quick questions: what to research, where to post, what to
+   avoid, sources you prefer, how often it runs (daily or weekly) and how many
+   stories to post. Dispatchlet turns the answers into a playbook: sources,
+   what counts as news, what to skip, tone, formats and a schedule. Edit it as
+   a form or as text.
 3. Dry-run it to see what it would post. Enable it.
 4. On schedule, it searches the web, dedupes against everything it has covered,
    writes a post per channel, and creates them in Buffer. Every run is logged:

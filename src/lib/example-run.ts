@@ -1,46 +1,58 @@
 /** The Good News Today example, shared by the demo player, its poster and the step sections. */
 
 /**
- * The run's timeline in milliseconds. The brief and the posts are typed; everything else arrives
- * as whole lines. Research holds on the repeat it finds, because that is the point of the product.
+ * The run's timeline in milliseconds. The written answers and the posts are typed; everything
+ * else arrives as whole lines. Research holds on the repeat it finds, because that is the point
+ * of the product.
  */
 export const TIMING = {
+  /** The questions are answered in order; each one holds the focus ring while it is filled in. */
+  QUESTION_STARTS: [300, 2000, 2600, 3400, 4700, 5500, 6100],
   TYPE_START: 400,
-  TYPE_DURATION: 3000,
-  CURSOR_START: 3800,
+  TYPE_DURATION: 1400,
+  CHANNEL_TICKS: [2150, 2350],
+  AVOID_START: 2700,
+  AVOID_DURATION: 600,
+  SOURCE_START: 3500,
+  SOURCE_INTERVAL: 280,
+  DAILY: 4850,
+  RUN_TIME: 5150,
+  STORY_COUNT: 5750,
+  POSTING: 6300,
+  CURSOR_START: 6800,
   CURSOR_TRAVEL: 500,
-  CLICK: 4300,
-  /** The workspace opens out from the brief once it is submitted. */
-  EXPAND: 4800,
-  PLAYBOOK: 5200,
-  RULE_START: 5400,
+  CLICK: 7300,
+  /** The workspace opens out from the answers once they are submitted. */
+  EXPAND: 7800,
+  PLAYBOOK: 8200,
+  RULE_START: 8400,
   RULE_INTERVAL: 600,
-  READY: 7600,
+  READY: 10600,
   /** "Playbook created" only once the playbook is actually ready. */
-  CREATED: 7600,
-  RESEARCH: 8000,
-  EVENT_STARTS: [8200, 9400, 10600],
-  CANDIDATE_START: 11800,
+  CREATED: 10600,
+  RESEARCH: 11000,
+  EVENT_STARTS: [11200, 12400, 13600],
+  CANDIDATE_START: 14800,
   CANDIDATE_INTERVAL: 300,
-  RESOLVE_START: 13200,
+  RESOLVE_START: 16200,
   RESOLVE_INTERVAL: 450,
-  MATCH: 14550,
+  MATCH: 17550,
   MATCH_HOLD: 1300,
-  POSTS: 17500,
-  X_START: 17700,
+  POSTS: 20500,
+  X_START: 20700,
   X_DURATION: 1400,
-  LI_START: 19300,
+  LI_START: 22300,
   LI_DURATION: 1800,
-  POSTS_READY: 21400,
-  STORY_2: 22200,
-  STORY_3: 22900,
-  WRITING_SETTLED: 23200,
-  BUFFER: 24000,
-  SLOT_START: 24300,
+  POSTS_READY: 24400,
+  STORY_2: 25200,
+  STORY_3: 25900,
+  WRITING_SETTLED: 26200,
+  BUFFER: 27000,
+  SLOT_START: 27300,
   SLOT_INTERVAL: 700,
-  RECEIPT: 26400,
+  RECEIPT: 29400,
   /** The run ends once the receipt has settled; the last frame holds, so nothing runs on after it. */
-  DURATION: 27000,
+  DURATION: 30000,
 } as const
 
 export const RUN_SECONDS = TIMING.DURATION / 1000
@@ -53,14 +65,32 @@ export function resolveAt(index: number): number {
   return MATCH + MATCH_HOLD + RESOLVE_INTERVAL
 }
 
-export const PROMPT =
-  'Find three positive stories each morning about conservation and communities. Skip company PR and anything we’ve posted before. Write for X and LinkedIn, and schedule each story three hours apart.'
+/** The setup questions, answered for Good News Today. */
+export const ANSWERS = {
+  topic: 'Positive stories about conservation and communities',
+  channels: ['X', 'LinkedIn'],
+  avoid: 'Company PR and politics',
+  sources: ['positive.news', 'goodnewsnetwork.org', 'bbc.co.uk', 'theguardian.com'],
+  time: '08:00',
+  stories: 3,
+} as const
+
+/** The answers as the workspace shows them once they are submitted. */
+export const ANSWER_SUMMARY = [
+  ['Research', ANSWERS.topic],
+  ['Avoid', ANSWERS.avoid],
+  ['Runs', `Daily at ${ANSWERS.time}, up to ${ANSWERS.stories} stories`],
+  ['Posting', 'Scheduled in Buffer'],
+]
 
 export const RULES = [
-  ['Sources', 'Positive News, Good News Network, BBC and The Guardian.'],
+  [
+    'Sources',
+    'Positive News, Good News Network, BBC and The Guardian, plus other reliable outlets.',
+  ],
   ['Voice', 'Warm and factual. Specific details, no hype.'],
-  ['Rules', 'Verify the source. Skip company PR and stories already covered.'],
-  ['Delivery', 'Research at 08:00. Post from 09:00, 3 hours apart.'],
+  ['Rules', 'Verify the source. Skip company PR, politics and repeats.'],
+  ['Delivery', 'Daily at 08:00. Posts from 09:00, 3 hours apart.'],
 ]
 export const STORIES = [
   {

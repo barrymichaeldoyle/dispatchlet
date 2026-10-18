@@ -21,9 +21,9 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
     played = time
   }
   await playTo(T.TYPE_START + 1000)
-  const brief = demo.getByLabel('Example brief').locator('.flow-stream')
-  await expect(brief).toContainText('Find three positive')
-  await expect(brief).not.toContainText('schedule each story three hours apart.')
+  const brief = demo.getByLabel('Example answers').locator('.flow-stream').first()
+  await expect(brief).toContainText('Positive stories')
+  await expect(brief).not.toContainText('and communities')
   await demo.getByRole('button', { name: 'Pause walkthrough', exact: true }).click()
   const pausedBrief = await brief.textContent()
   await page.clock.runFor(3000)
@@ -50,7 +50,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await expect(demo.locator('.flow-player')).toContainText('Walkthrough complete')
   await expect(demo.locator('.flow-receipt')).toContainText('Scheduled 6 posts.')
   await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
-  await expect(demo.getByRole('heading', { name: 'Describe what you want to post.' })).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Answer a few quick questions.' })).toBeVisible()
   await expect(demo.locator('.flow-receipt')).not.toBeVisible()
 })
 
@@ -132,7 +132,7 @@ for (const viewport of [
     }
     await assertViewport()
     await expect(demo).toHaveCSS('animation-name', 'none')
-    for (const chapter of ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
+    for (const chapter of ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
       await demo.getByRole('button', { name: chapter, exact: true }).click()
       await assertViewport()
     }
@@ -204,32 +204,10 @@ for (const viewport of [
     const recorded = new Map<string, { y: number; height: number }>()
     let previous = 0
     for (const time of [
-      1000,
-      2500,
-      3600,
-      4400,
-      5000,
-      6000,
-      7500,
-      8500,
-      9500,
-      11000,
-      12500,
-      13500,
-      14500,
-      15500,
-      16500,
-      17500,
-      19000,
-      20500,
-      22000,
-      23500,
-      24500,
-      25500,
-      26500,
+      ...Array.from({ length: Math.floor(T.DURATION / 1000) - 1 }, (_, i) => (i + 1) * 1000),
       T.DURATION,
     ]) {
-      // Opening out from the brief is the one deliberate layout change; measure from there.
+      // Opening out from the answers is the one deliberate layout change; measure from there.
       if (previous < T.EXPAND && time >= T.EXPAND) recorded.clear()
       await page.clock.fastForward(time - previous)
       previous = time
@@ -237,13 +215,16 @@ for (const viewport of [
         'aria-valuenow',
         String((time / 1000) | 0),
       )
-      expect(
-        Math.abs((await scene.boundingBox())!.y - origin),
-        `chapter origin at ${time}ms`,
-      ).toBeLessThan(1)
+      // On small screens the workspace scrolls to follow the question being answered, so the
+      // first chapter is exempt here and items are measured from the top of the scene.
+      if (time >= T.PLAYBOOK || viewport.width >= 1100)
+        expect(
+          Math.abs((await scene.boundingBox())!.y - origin),
+          `chapter origin at ${time}ms`,
+        ).toBeLessThan(1)
       const items = await demo
         .locator(
-          '.flow-input, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
+          '.setup-form, .setup-summary, .flow-document-title, .flow-post[data-selected="true"], .flow-reveal[data-revealed="true"]',
         )
         .evaluateAll((elements) =>
           elements
@@ -254,7 +235,7 @@ for (const viewport of [
             )
             .map((element) => {
               const rect = element.getBoundingClientRect()
-              const key = element.classList.contains('flow-input')
+              const key = element.matches('.setup-form, .setup-summary')
                 ? 'brief'
                 : element.classList.contains('flow-document-title')
                   ? 'document'
@@ -268,7 +249,7 @@ for (const viewport of [
                       element.className)
               return {
                 key: `${element.closest('.flow-panel')?.getAttribute('aria-label')}:${element.className}:${key}`,
-                y: rect.y,
+                y: rect.y - (element.closest('.flow-scene')?.getBoundingClientRect().y ?? 0),
                 height: rect.height,
               }
             }),
@@ -348,22 +329,22 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await expect(demo.locator('.flow-candidates')).toBeVisible()
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.getByRole('heading', { name: 'Describe what you want to post.' })).toBeVisible()
+  await expect(demo.getByRole('heading', { name: 'Answer a few quick questions.' })).toBeVisible()
   await expect(restart).toBeFocused()
   await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toBeEmpty()
+  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toBeEmpty()
   await page.clock.runFor(2000)
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toContainText(
-    'Find three positive',
+  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toContainText(
+    'Positive stories',
   )
   await restart.press('Enter')
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.getByLabel('Example brief').locator('.flow-stream')).toBeEmpty()
+  await expect(demo.getByLabel('Example answers').locator('.flow-stream').first()).toBeEmpty()
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
-  await expect(demo.locator('.flow-player')).toContainText('Your brief playing')
+  await expect(demo.locator('.flow-player')).toContainText('Your answers playing')
   expect(await demo.locator('.flow-workspace').evaluate((el) => el.scrollTop)).toBe(0)
   await page.clock.runFor(T.PLAYBOOK + 600)
   await expect(demo.getByRole('heading', { name: 'It writes a playbook.' })).toBeVisible()
@@ -384,12 +365,14 @@ for (const viewport of [
     const demo = page.getByRole('dialog')
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-    // The run opens on the brief alone, then opens out once the brief is submitted.
+    // Start from zero once the clock is paused, so time spent opening the dialog does not count.
+    await demo.getByRole('slider', { name: 'Walkthrough progress' }).press('Home')
+    // The run opens on the answers alone, then opens out once they are submitted.
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-intro/)
     await expect(demo.locator('.flow-scene > .flow-panel').first()).toBeHidden()
     await page.clock.fastForward(T.EXPAND + 150)
     await expect(demo.locator('.flow-workspace')).not.toHaveClass(/is-intro/)
-    const brief = demo.getByLabel('Example brief')
+    const brief = demo.getByLabel('Example answers')
     const original = await brief.elementHandle()
     const bounds = await brief.boundingBox()
     const columns = demo.locator('.flow-context, .flow-scene > .flow-panel')
@@ -425,7 +408,7 @@ for (const viewport of [
     }
     await expect(demo.locator('.flow-panel-waiting')).toHaveCount(0)
     for (const selector of [
-      '.flow-input',
+      '.setup-summary',
       '.flow-playbook',
       '.is-duplicate',
       '.flow-post[data-selected="true"]',
@@ -683,7 +666,7 @@ for (const viewport of [
       0,
     )
     await expect(
-      page.getByRole('heading', { name: 'Describe what you want to post.' }),
+      page.getByRole('heading', { name: 'Answer a few quick questions.' }),
     ).toBeInViewport()
   })
 }
@@ -725,11 +708,10 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-    await page.clock.runFor(T.TYPE_START + T.TYPE_DURATION - 600)
+    await page.clock.runFor(T.POSTING - 400)
     await expect(demo.locator('.flow-cursor')).toHaveCount(0)
-    await expect(demo.locator('.flow-input .flow-stream')).not.toContainText(
-      'schedule each story three hours apart.',
-    )
+    const posting = demo.locator('.setup-choice[data-checked="true"]', { hasText: 'Schedule them' })
+    await expect(posting).toHaveCount(0)
     const cursor = demo.locator('.flow-cursor')
     // The pointer lands on the button's arrow, so the label stays readable.
     const submit = demo.locator('.flow-submit-icon')
@@ -738,9 +720,8 @@ for (const viewport of [
       await page.clock.runFor(100)
     }
     await expect(cursor).toBeVisible()
-    await expect(demo.locator('.flow-input .flow-stream')).toContainText(
-      'schedule each story three hours apart.',
-    )
+    // The pointer only moves once every question is answered.
+    await expect(posting).toHaveCount(1)
     let arrived = false
     let travelled = false
     for (let step = 0; step < 16; step++) {

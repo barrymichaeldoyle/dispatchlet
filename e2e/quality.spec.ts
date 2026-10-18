@@ -56,7 +56,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.getByText('How is my data handled?', { exact: true }).click()
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
-    for (const step of ['Your brief', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
+    for (const step of ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']) {
       await demo.getByRole('button', { name: step, exact: true }).click()
       expect((await audit()).violations, `${step} in ${colorScheme} mode`).toEqual([])
       expect(

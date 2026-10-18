@@ -130,9 +130,9 @@ function Home() {
             <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
-                Tell Dispatchlet your topic once. Twice a day, daily or weekly, it finds new
-                stories, skips anything you’ve already posted, and writes a post for each of your
-                channels.
+                Answer a few quick questions about what you post. Then, daily or weekly, it finds
+                new stories, skips anything you’ve already posted, and writes a post for each of
+                your channels.
               </BrandText>
             </p>
             <p className="landing-control">
@@ -268,7 +268,7 @@ function Home() {
           <h2 id="closing-title">OK, seriously. Watch the demo.</h2>
           <p>
             <BrandText>
-              {`${RUN_SECONDS} seconds, from one paragraph to six posts in Buffer. We’ll\u00a0wait.`}
+              {`${RUN_SECONDS} seconds, from a few answers to six posts in Buffer. We’ll\u00a0wait.`}
             </BrandText>
           </p>
           <div className="landing-closing-actions">
