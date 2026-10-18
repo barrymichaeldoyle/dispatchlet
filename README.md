@@ -71,7 +71,8 @@ clients cannot request `openid`, so sign-in is plain OAuth 2.
 Convex environment variables: `BUFFER_CLIENT_ID`, `BUFFER_CLIENT_SECRET`,
 `SITE_URL` (where the app runs), `JWT_PRIVATE_KEY` and `JWKS` (Convex Auth),
 `TOKEN_ENC_KEY` (32 random bytes, base64) and `ALLOWED_EMAILS` or
-`ALLOWED_BUFFER_IDS` (who may use the app before launch). To serve sign-in from
+`ALLOWED_BUFFER_IDS` (who may use the app before launch). Set `SIGNUP_OPEN` to
+`true` to let everyone in; it is off until launch. To serve sign-in from
 your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 `/api/auth/*` through to Convex.
 

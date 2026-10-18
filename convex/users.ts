@@ -3,7 +3,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { isAllowlisted } from './lib/allowlist'
+import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 
 /** Who is signed in, and whether they may use the app yet (see lib/allowlist). */
 export const viewer = query({
@@ -37,6 +37,13 @@ export const viewer = query({
       allowed: isAllowlisted(bufferId, email),
     }
   },
+})
+
+/** Whether anyone can sign up yet, for the sign-in page's note. */
+export const signupOpen = query({
+  args: {},
+  returns: v.boolean(),
+  handler: async () => isSignupOpen(),
 })
 
 /** Whether a string is a time zone this runtime knows, such as Africa/Johannesburg. */

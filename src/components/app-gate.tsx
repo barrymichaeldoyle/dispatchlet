@@ -124,6 +124,7 @@ function SignIn() {
   const { signIn } = useAuthActions()
   const [pending, setPending] = useState(false)
   const deleted = new URLSearchParams(window.location.search).has('deleted')
+  const open = useQuery(api.users.signupOpen)
   return (
     <Screen title={deleted ? 'Your account is deleted.' : 'Sign in to Dispatchlet.'}>
       {deleted ? (
@@ -146,10 +147,12 @@ function SignIn() {
         <BufferMark size={16} />
         {pending ? 'Opening Buffer' : 'Sign in with Buffer'}
       </button>
-      <p className="app-gate-note">
-        Dispatchlet opens on 7 November. If you sign in before then, your Buffer email goes on the
-        launch list.
-      </p>
+      {open === false ? (
+        <p className="app-gate-note">
+          Dispatchlet opens on 7 November. If you sign in before then, your Buffer email goes on the
+          launch list.
+        </p>
+      ) : null}
     </Screen>
   )
 }
