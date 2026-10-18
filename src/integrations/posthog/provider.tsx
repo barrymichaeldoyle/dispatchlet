@@ -1,7 +1,10 @@
 import { useEffect, type ReactNode } from 'react'
-import { initializeAnalytics } from './track'
+import { initializeAnalytics, watchErrors } from './track'
 
 export default function PostHogProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    watchErrors()
+  }, [])
   useEffect(() => {
     const start = () => {
       void initializeAnalytics()

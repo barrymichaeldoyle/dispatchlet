@@ -1,4 +1,5 @@
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import { reportError } from './integrations/posthog/track'
 import { routeTree } from './routeTree.gen'
 
 export function getRouter() {
@@ -7,6 +8,8 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 0,
+    // Render errors caught by the router never reach window.onerror, so report them here.
+    defaultOnCatch: (error) => reportError(error),
   })
 
   return router

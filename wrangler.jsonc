@@ -3,6 +3,8 @@
   "name": "dispatchlet",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Workers Logs: server-side errors and request logs in the Cloudflare dashboard.
+  "observability": { "enabled": true },
   "main": "@tanstack/react-start/server-entry",
   // Serve prerendered /privacy/index.html at /privacy, matching canonical URLs and the sitemap.
   "assets": { "html_handling": "drop-trailing-slash" },

@@ -1,6 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["src/router.tsx", "src/routes/**/*.tsx", "convex/**/*.ts", "e2e/**/*.ts"],
+  "entry": [
+    "src/router.tsx",
+    "src/start.ts",
+    "src/routes/**/*.tsx",
+    "convex/**/*.ts",
+    "e2e/**/*.ts"
+  ],
   "project": ["src/**/*.{ts,tsx}", "convex/**/*.ts", "e2e/**/*.ts"],
   "ignore": ["convex/_generated/**"],
   "ignoreDependencies": ["tailwindcss"]
