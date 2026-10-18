@@ -110,6 +110,15 @@ function Home() {
     event.preventDefault()
     demo.current.play(event.currentTarget)
   }
+  // `/?demo` (linked from the app's launch-list screen) opens straight into the demo.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('demo')) return
+    url.searchParams.delete('demo')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    const opener = document.querySelector<HTMLElement>('.flow-launch-action')
+    if (demo.current && opener) demo.current.play(opener)
+  }, [])
 
   return (
     <div className="flex min-h-screen flex-col">

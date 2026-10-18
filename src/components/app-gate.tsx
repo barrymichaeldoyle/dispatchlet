@@ -177,7 +177,7 @@ function Waitlisted({ email }: { email: string | null }) {
         </p>
       )}
       <div className="app-gate-actions">
-        <a href="/#run" className="app-gate-primary">
+        <a href="/?demo" className="app-gate-primary">
           Watch the demo
         </a>
         <SignOut />
