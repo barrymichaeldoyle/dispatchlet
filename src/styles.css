@@ -4085,7 +4085,8 @@ header nav button {
   background: var(--color-pine);
   color: var(--color-on-pine);
 }
-.app-gate-primary:disabled {
+.app-gate-primary:disabled,
+.app-gate-secondary:disabled {
   opacity: 0.7;
   cursor: progress;
 }

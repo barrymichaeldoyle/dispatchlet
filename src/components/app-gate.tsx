@@ -146,9 +146,18 @@ function SignIn() {
 
 function SignOut() {
   const { signOut } = useAuthActions()
+  const [pending, setPending] = useState(false)
   return (
-    <button type="button" className="app-gate-secondary" onClick={() => void signOut()}>
-      Sign out
+    <button
+      type="button"
+      className="app-gate-secondary"
+      disabled={pending}
+      onClick={() => {
+        setPending(true)
+        void signOut().catch(() => setPending(false))
+      }}
+    >
+      {pending ? 'Signing out' : 'Sign out'}
     </button>
   )
 }
