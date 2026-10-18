@@ -1,8 +1,8 @@
 import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
-import { ConvexReactClient, useConvexAuth, useQuery } from 'convex/react'
+import { ConvexReactClient, useAction, useConvexAuth, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
-import { BufferMark } from './brand-icons'
+import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -201,9 +201,81 @@ function SignedIn({ name, email }: { name: string | null; email: string | null }
         Your Buffer account is on the allowlist, so you see the app here while it is built. Everyone
         else sees the launch list until it opens to the public.
       </p>
+      <BufferConnection />
       <div className="app-gate-actions">
         <SignOut />
       </div>
     </Screen>
+  )
+}
+
+const SERVICE_NAMES: Record<string, string> = {
+  twitter: 'X',
+  linkedin: 'LinkedIn',
+  threads: 'Threads',
+  bluesky: 'Bluesky',
+  mastodon: 'Mastodon',
+}
+
+/** The owner's check that the Buffer grant works: posting access, refresh, and synced channels. */
+function BufferConnection() {
+  const connection = useQuery(api.buffer.myConnection)
+  const sync = useAction(api.buffer.syncChannels)
+  const [syncing, setSyncing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (connection === undefined) return null
+  const canPost = connection?.scope.includes('posts:write') ?? false
+  const status = !connection
+    ? 'Not connected. Sign out and sign in with Buffer again to connect.'
+    : connection.needsReauth
+      ? 'Buffer access has ended. Sign out and sign in with Buffer again.'
+      : !canPost
+        ? 'Connected without posting access. Sign out and sign in again to grant it.'
+        : connection.canRefresh
+          ? 'Connected with posting access. The token renews itself.'
+          : 'Connected with posting access, but Buffer did not issue a refresh token, so it lasts about an hour.'
+  return (
+    <section className="app-connection" aria-labelledby="connection-title">
+      <h2 id="connection-title">Buffer connection</h2>
+      <p>{status}</p>
+      {connection && connection.channels.length > 0 ? (
+        <ul>
+          {connection.channels.map((channel) => (
+            <li key={channel.channelId} data-usable={channel.usable}>
+              <ChannelMark channel={SERVICE_NAMES[channel.service] ?? channel.service} size={14} />
+              <span>{channel.name}</span>
+              {channel.usable ? null : (
+                <span className="app-connection-note">Needs attention in Buffer</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : connection ? (
+        <p className="app-connection-note">No channels synced yet.</p>
+      ) : null}
+      {connection && !connection.needsReauth ? (
+        <button
+          type="button"
+          className="app-gate-secondary"
+          disabled={syncing}
+          onClick={() => {
+            setSyncing(true)
+            setError(null)
+            sync()
+              .catch((reason: unknown) =>
+                setError(reason instanceof Error ? reason.message : 'Sync failed.'),
+              )
+              .finally(() => setSyncing(false))
+          }}
+        >
+          {syncing ? 'Syncing channels' : 'Sync channels'}
+        </button>
+      ) : null}
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
   )
 }

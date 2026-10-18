@@ -9,10 +9,13 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as buffer from "../buffer.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as lib_allowlist from "../lib/allowlist.js";
 import type * as lib_buffer from "../lib/buffer.js";
+import type * as lib_crypto from "../lib/crypto.js";
 import type * as lib_email from "../lib/email.js";
 import type * as users from "../users.js";
 import type * as waitlist from "../waitlist.js";
@@ -25,10 +28,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  buffer: typeof buffer;
   crons: typeof crons;
   email: typeof email;
   http: typeof http;
+  "lib/allowlist": typeof lib_allowlist;
   "lib/buffer": typeof lib_buffer;
+  "lib/crypto": typeof lib_crypto;
   "lib/email": typeof lib_email;
   users: typeof users;
   waitlist: typeof waitlist;
