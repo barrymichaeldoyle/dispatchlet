@@ -21,14 +21,15 @@ function escapeHtml(s: string): string {
     .replaceAll('"', '&quot;')
 }
 
-function html(paragraphs: string[], unsubscribe: string): string {
+function html(paragraphs: string[], unsubscribe: string, reason?: string): string {
   const body = paragraphs
     .map(
       (p) =>
         `<p style="margin:0 0 16px;font:15px/1.55 system-ui,sans-serif;color:#1a1a1a">${p}</p>`,
     )
     .join('')
-  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;color:#6a6a66"><a href="${unsubscribe}" style="color:#6a6a66">Unsubscribe</a> or read the <a href="https://dispatchlet.com/privacy" style="color:#6a6a66">privacy policy</a>.</p></div>`
+  const why = reason ? `${escapeHtml(reason)} ` : ''
+  return `<div style="max-width:560px;padding:24px">${body}<p style="margin:24px 0 0;font:13px/1.5 system-ui,sans-serif;color:#6a6a66">${why}<a href="${unsubscribe}" style="color:#6a6a66">Unsubscribe</a> or read the <a href="https://dispatchlet.com/privacy" style="color:#6a6a66">privacy policy</a>.</p></div>`
 }
 
 type Message = {
@@ -58,20 +59,31 @@ function confirmMessage(email: string, token: string): Message {
   }
 }
 
-function launchMessage(email: string, token: string): Message {
+const LAUNCH_REASON = 'You got this because you joined the Dispatchlet waiting list.'
+
+export function launchMessage(email: string, token: string): Message {
   const l = links(token)
+  const link = '<a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a>'
+  const policies =
+    '<a href="https://dispatchlet.com/privacy" style="color:#0f6e56">privacy policy</a> and <a href="https://dispatchlet.com/terms" style="color:#0f6e56">terms</a>'
   return {
     from: FROM,
     to: email,
     subject: 'Dispatchlet is open',
-    text: `Sign in with your Buffer account at https://dispatchlet.com to start. The first 10 runs are on me. If you try it, reply and tell me what broke.\n\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
+    text: `Dispatchlet is open. Sign in with your Buffer account at https://dispatchlet.com, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.\n\nYour first 10 runs are on me. If you try it, reply and tell me what broke.\n\nThe privacy policy and terms now cover the app as well as the waiting list:\nhttps://dispatchlet.com/privacy\nhttps://dispatchlet.com/terms\n\nBarry\n\n${LAUNCH_REASON}\nUnsubscribe: ${l.unsubscribe}\n`,
     html: html(
       [
-        'Sign in with your Buffer account at <a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a> to start. The first 10 runs are on me. If you try it, reply and tell me what broke.',
+        `Dispatchlet is open. Sign in with your Buffer account at ${link}, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.`,
+        'Your first 10 runs are on me. If you try it, reply and tell me what broke.',
+        `The ${policies} now cover the app as well as the waiting list.`,
+        'Barry',
       ],
       l.unsubscribe,
+      LAUNCH_REASON,
     ),
-    headers: { 'List-Unsubscribe': `<${l.unsubscribe}>` },
+    headers: {
+      'List-Unsubscribe': `<${l.unsubscribe}>`,
+    },
   }
 }
 
@@ -95,6 +107,21 @@ export const sendConfirm = internalAction({
   returns: v.null(),
   handler: async (_ctx, { email, token }) => {
     await resend('/emails', confirmMessage(email, token))
+    return null
+  },
+})
+
+/**
+ * Sends one copy of the launch email to an address on the list, so it can be checked in a real
+ * inbox. Nobody is marked as sent. `npx convex run email:sendLaunchTest '{"email":"..."}' --prod`
+ */
+export const sendLaunchTest = internalAction({
+  args: { email: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { email }) => {
+    const row = await ctx.runQuery(internal.waitlist.byEmail, { email })
+    if (!row) throw new Error(`${email} is not on the waiting list`)
+    await resend('/emails', launchMessage(row.email, row.token))
     return null
   },
 })

@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internalMutation, internalQuery, query } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
+import { normalizeEmail } from './lib/email'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
 
@@ -135,6 +136,19 @@ export const purgeIps = internalMutation({
 })
 
 /** Confirmed, not unsubscribed, not yet sent the launch email. */
+/** Used to send a test copy of the launch email to someone on the list. */
+export const byEmail = internalQuery({
+  args: { email: v.string() },
+  returns: v.union(v.null(), v.object({ email: v.string(), token: v.string() })),
+  handler: async (ctx, { email }) => {
+    const row = await ctx.db
+      .query('waitlist')
+      .withIndex('by_email', (q) => q.eq('email', normalizeEmail(email)))
+      .first()
+    return row ? { email: row.email, token: row.token } : null
+  },
+})
+
 export const nextLaunchBatch = internalQuery({
   args: { limit: v.number() },
   returns: v.array(v.object({ _id: v.id('waitlist'), email: v.string(), token: v.string() })),

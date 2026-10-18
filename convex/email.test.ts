@@ -44,4 +44,42 @@ describe('email delivery', () => {
     await expect(tc.action(internal.email.sendLaunch, {})).rejects.toThrow('503')
     expect(await tc.query(internal.waitlist.nextLaunchBatch, { limit: 50 })).toHaveLength(1)
   })
+
+  it('sends a test copy of the launch email without marking anyone as sent', async () => {
+    vi.stubEnv('RESEND_API_KEY', 'test-key')
+    const fetch = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+    const tc = convexTest(schema, modules)
+    const { token } = await tc.mutation(internal.waitlist.add, {
+      email: 'a@example.com',
+      source: 'direct',
+    })
+    await tc.mutation(internal.waitlist.confirm, { token })
+    await tc.action(internal.email.sendLaunchTest, { email: ' A@Example.com ' })
+    const [url, init] = fetch.mock.calls[0]
+    expect(url).toBe('https://api.resend.com/emails')
+    const sent = JSON.parse(init.body)
+    expect(sent.to).toBe('a@example.com')
+    expect(sent.subject).toBe('Dispatchlet is open')
+    expect(sent.text).toContain(`/waitlist/unsubscribe?token=${token}`)
+    expect(await tc.query(internal.waitlist.nextLaunchBatch, { limit: 50 })).toHaveLength(1)
+    await expect(
+      tc.action(internal.email.sendLaunchTest, { email: 'b@example.com' }),
+    ).rejects.toThrow('not on the waiting list')
+  })
+})
+
+describe('the launch email', () => {
+  it('says how to start, what is free and why it was sent, in both versions', async () => {
+    const { launchMessage } = await import('./email')
+    const message = launchMessage('a@example.com', 'tok')
+    for (const body of [message.text, message.html]) {
+      expect(body).toContain('Sign in with your Buffer account')
+      expect(body).toContain('Your first 10 runs are on me.')
+      expect(body).toContain('reply and tell me what broke')
+      expect(body).toContain('/terms')
+      expect(body).toContain('joined the Dispatchlet waiting list')
+      expect(body).toContain('/waitlist/unsubscribe?token=tok')
+    }
+  })
 })
