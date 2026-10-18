@@ -1,19 +1,32 @@
 # Dispatchlet
 
-Your research agent for a fresh Buffer queue.
+An agent that researches and writes your Buffer posts.
 
-Tell Dispatchlet what you post about. It writes a playbook, checks your sources
-on a schedule, writes the posts, and puts them in Buffer as drafts or straight
-into your queue. It remembers what it has already covered, so it never posts the
-same story twice.
+Answer a few questions about what you post. Daily or weekly, Dispatchlet finds
+new stories, skips anything you have already posted or scheduled, writes a post
+for each of your channels, and puts them in Buffer as drafts or straight into
+your queue.
 
-Built for Buffer Commit, 28 October to 13 November 2026. Commits up to the
-`pre-window` tag are scaffolding, tooling and the landing page. Everything after
-it was built during the contest window. Live at https://dispatchlet.com.
+Built for Buffer Commit, 28 October to 13 November 2026. Live at
+https://dispatchlet.com.
+
+## What was built before the contest window
+
+Everything up to the `pre-window` tag was built before 28 October:
+
+- Scaffold, tooling and CI.
+- The landing page, its scripted demo and the waiting list.
+- Buffer plumbing, kept behind an allowlist on a hidden `/app` route: sign in
+  with Buffer, the encrypted token store, the single-use refresh-token lock and
+  channel sync.
+
+None of the AI workflow existed before the tag. Playbooks, research, dedupe,
+writing posts, scheduling runs and publishing to Buffer were all built during
+the window, in the commits after it.
 
 ## How it works
 
-1. Connect your Buffer account (OAuth, PKCE).
+1. Sign in with your Buffer account (OAuth 2 with PKCE).
 2. Answer a few quick questions: what to research, where to post, what to
    avoid, sources you prefer, how often it runs (daily or weekly) and how many
    stories to post. Dispatchlet turns the answers into a playbook: sources,
@@ -26,7 +39,9 @@ it was built during the contest window. Live at https://dispatchlet.com.
 
 ## Buffer API surface
 
-OAuth 2.0 with PKCE and rotating refresh tokens. `account`, `channels`,
+OAuth 2.0 with PKCE and rotating, single-use refresh tokens: one refresh at a
+time per connection, guarded by a lock in Convex, because reusing a spent
+refresh token revokes the grant. `account`, `channels`,
 `configuration` and `dailyPostingLimits` for setup and pre-flight. `createPost`
 with `saveToDraft`, `addToQueue` and `customScheduled`. `editPost` to promote a
 draft into the queue from the email digest. `createTag` and `posts` for status.
@@ -34,7 +49,7 @@ draft into the queue from the email digest. `createTag` and `posts` for status.
 ## Stack
 
 TanStack Start on Cloudflare Workers. Convex for data, scheduling and the agent
-runs. Clerk for sign-in. Anthropic (Claude Sonnet 5.5 and Opus 5.5) with server
+runs. Convex Auth for sign-in with Buffer. Anthropic (Claude Sonnet 5.5 and Opus 5.5) with server
 side web search. Resend for email.
 
 ## Run it yourself
@@ -43,8 +58,17 @@ side web search. Resend for email.
     npx convex dev          # creates your Convex deployment, fills .env.local
     pnpm dev
 
-Register a Buffer app client at Settings > API > App Clients with the redirect
-URI `https://<your-deployment>.convex.site/oauth/buffer/callback`.
+Register a Buffer app client at Settings > API > App Clients with the
+permissions `account:read`, `posts:read` and `posts:write`, and the redirect URI
+`https://<your-deployment>.convex.site/api/auth/callback/buffer`. Buffer app
+clients cannot request `openid`, so sign-in is plain OAuth 2.
+
+Convex environment variables: `BUFFER_CLIENT_ID`, `BUFFER_CLIENT_SECRET`,
+`SITE_URL` (where the app runs), `JWT_PRIVATE_KEY` and `JWKS` (Convex Auth),
+`TOKEN_ENC_KEY` (32 random bytes, base64) and `ALLOWED_EMAILS` or
+`ALLOWED_BUFFER_IDS` (who may use the app before launch). To serve sign-in from
+your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
+`/api/auth/*` through to Convex.
 
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright smoke test.
