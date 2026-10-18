@@ -20,7 +20,7 @@ const WaitlistCount = lazy(() =>
 const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
 const DESCRIPTION =
-  'Keep your account posting about your topic without doing the research yourself. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Sign-up opens 7 November.'
+  'Keep your account posting about your topic and save hours of research every week. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Sign-up opens 7 November.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -129,7 +129,7 @@ function Home() {
             <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
             <p className="landing-description">
               <BrandText>
-                Keep your account posting about your topic without doing the research yourself.
+                Keep your account posting about your topic and save hours of research every week.
                 Daily or weekly, Dispatchlet finds new stories, skips anything you’ve already
                 posted, and writes the posts for Buffer.
               </BrandText>
