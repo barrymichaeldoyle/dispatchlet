@@ -67,11 +67,15 @@ function questions(elapsed: number, reduced: boolean): Question[] {
     },
     {
       label: 'Where should it post?',
-      hint: 'The channels in your Buffer account.',
+      hint: 'Text channels in your Buffer account. Pick as many as you like.',
       answer: (
         <span className="setup-blocks">
-          {ANSWERS.channels.map((channel, index) => (
-            <Block key={channel} checked={at(CHANNEL_TICKS[index])} className="is-logo">
+          {ANSWERS.allChannels.map((channel, index) => (
+            <Block
+              key={channel}
+              checked={index < ANSWERS.channels.length && at(CHANNEL_TICKS[index])}
+              className="is-logo"
+            >
               <ChannelMark channel={channel} size={28} />
             </Block>
           ))}

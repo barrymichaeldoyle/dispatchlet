@@ -5,7 +5,7 @@ import { NEXT_DAY, TIMING } from '../lib/example-run'
 const { NEXT_ROW_START, NEXT_ROW_INTERVAL, NEXT_RECEIPT, NEXT_CLOSING } = TIMING
 
 /**
- * The second run, the morning after: the part that makes this more than a post writer. In the
+ * The next run, tomorrow morning: the part that makes this more than a post writer. In the
  * demo it follows the timeline; left without a time it shows the finished run.
  */
 export function NextDay({
@@ -21,8 +21,12 @@ export function NextDay({
   })
   return (
     <div className="next-day">
-      <p className="next-day-kicker">The next morning, 08:00</p>
-      <h3 className="next-day-title">It ran again without you.</h3>
+      <p className="next-day-kicker">Tomorrow, 08:00</p>
+      <h3 className="next-day-title">It runs again on its own.</h3>
+      <p className="next-day-lead">
+        Same playbook, new stories. It checks everything you’ve posted or scheduled and leaves
+        repeats out.
+      </p>
       <ul className="next-day-stories">
         {NEXT_DAY.map(([title, status, source], index) => (
           <li
@@ -41,10 +45,10 @@ export function NextDay({
         ))}
       </ul>
       <p className="next-day-receipt flow-reveal" {...reveal(NEXT_RECEIPT)}>
-        Only 2 stories were new, so it scheduled 4 posts instead of 6.
+        Only 2 stories are new, so it schedules 4 posts instead of 6.
       </p>
       <p className="next-day-closing flow-reveal" {...reveal(NEXT_CLOSING)}>
-        Your answers were the only part you did. It runs like this every day.
+        You answer the questions once. After that, it runs every day at 08:00.
       </p>
       {onBack ? (
         <button

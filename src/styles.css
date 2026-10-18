@@ -3805,6 +3805,14 @@ header nav button {
     min-width: 60px;
     font-size: 20px;
   }
+  .setup-blocks:has(.is-logo) {
+    flex-wrap: nowrap;
+  }
+  .setup-block.is-logo {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 0;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .setup-question {
@@ -3846,6 +3854,13 @@ header nav button {
   font-weight: 500;
   line-height: 1.15;
   letter-spacing: -0.02em;
+}
+.next-day-lead {
+  max-width: 52ch;
+  margin: -12px 0 20px;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-muted);
 }
 .next-day-stories {
   margin: 0;
@@ -3925,6 +3940,10 @@ header nav button {
   .next-day-title {
     margin-bottom: 16px;
     font-size: 24px;
+  }
+  .next-day-lead {
+    margin: -8px 0 12px;
+    font-size: 15px;
   }
   .next-day-stories li {
     padding: 8px 0;

@@ -205,7 +205,7 @@ const STEPS: {
   },
   {
     art: 'repeat',
-    title: 'Then it does it again, without you.',
+    title: 'Tomorrow, it runs again on its own.',
     text: 'The next run checks everything it has already posted. Yesterday’s stories stay out, even when another outlet reports them, and on a slow news day it posts less.',
     figure: <NextDay />,
   },

@@ -79,6 +79,8 @@ export function resolveAt(index: number): number {
 export const ANSWERS = {
   topic: 'Positive stories about conservation and communities',
   channels: ['X', 'LinkedIn'],
+  /** Every text channel Dispatchlet supports, offered in the setup; this account picks two. */
+  allChannels: ['X', 'LinkedIn', 'Threads', 'Bluesky', 'Mastodon'],
   avoid: 'Company PR and politics',
   sources: ['positive.news', 'goodnewsnetwork.org', 'bbc.co.uk', 'theguardian.com'],
   time: '08:00',
@@ -160,10 +162,10 @@ export const CANDIDATES = [
  * other outlets, so they are skipped. With only two worth posting, it schedules fewer.
  */
 export const NEXT_DAY = [
-  ['Bees return to a city park', 'New, scheduled 09:00', 'BBC'],
-  ['A library lends tools to its town', 'New, scheduled 12:00', 'Positive News'],
-  ['Wildlife makes a comeback', 'Posted yesterday, skipped', 'The Guardian'],
-  ['A repair café brings neighbours together', 'Posted yesterday, skipped', 'Good News Network'],
+  ['Bees return to a city park', 'New, goes out at 09:00', 'BBC'],
+  ['A library lends tools to its town', 'New, goes out at 12:00', 'Positive News'],
+  ['Wildlife makes a comeback', 'Already posted, skipped', 'The Guardian'],
+  ['A repair café brings neighbours together', 'Already posted, skipped', 'Good News Network'],
 ]
 
 export const PREVIOUS_POST =
