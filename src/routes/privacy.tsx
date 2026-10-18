@@ -6,7 +6,7 @@ export const Route = createFileRoute('/privacy')({
   head: () =>
     legalHead(
       'Privacy policy',
-      'What Dispatchlet collects from the website and the waiting list, why, who handles it and how long it is kept.',
+      'What Dispatchlet collects from the website, the waiting list and the app, why, who handles it and how long it is kept.',
       '/privacy',
     ),
 })
@@ -16,24 +16,15 @@ function Privacy() {
     <LegalPage title="Privacy policy" updated="18 Oct 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
-        covers dispatchlet.com and the waiting list. The app itself is not open yet. Before it
-        opens, this page will be updated to cover Buffer accounts, playbooks and runs, and everyone
-        on the waiting list will be told by email.
+        covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opens
+        on 7 November 2026. Until then only invited accounts can use it.
       </p>
 
-      <h2>What is collected</h2>
+      <h2>The website and waiting list</h2>
       <ul>
         <li>
           Your email address, when you join the waiting list, and the dates you joined, confirmed or
           unsubscribed.
-        </li>
-        <li>
-          If you sign in with Buffer before launch: your Buffer user ID, and the name and email
-          address on your Buffer account. Your email address goes on the waiting list as confirmed,
-          because Buffer has already verified it. Sign-in asks Buffer for the access the app will
-          need to post for you, but until the app opens that access is revoked straight away and
-          nothing is kept. Once you can use the app, the access tokens are stored encrypted and
-          deleted, and revoked at Buffer, when you disconnect.
         </li>
         <li>
           How you found the site: the campaign tags in the link you followed, or the name of the
@@ -44,16 +35,15 @@ function Privacy() {
           IP address is never stored, and the hash is deleted after 7 days.
         </li>
         <li>
-          A small number of analytics events: the page was viewed, the form was submitted, an
-          address was confirmed. These carry how you found the site, but never your email address.
-          Analytics sets no cookies and stores nothing on your device, so each visit is counted
-          separately. If your browser sends Do Not Track, no events are recorded. There is no
-          session recording.
+          A small number of analytics events, such as a page being viewed or the form being
+          submitted. These carry how you found the site, but never your email address. Analytics
+          sets no cookies and stores nothing on your device, so each visit is counted separately. If
+          your browser sends Do Not Track, no events are recorded. There is no session recording.
         </li>
         <li>
-          Error reports, if something on the site breaks: the error message, where in the code it
-          happened, the page address and your browser type. They never include your email address or
-          anything you typed, and they follow the same Do Not Track rule.
+          Error reports, if something on the site or in the app breaks: the error message, where in
+          the code it happened, the page address and your browser type. They never include your
+          email address or anything you typed, and they follow the same Do Not Track rule.
         </li>
       </ul>
       <p>
@@ -62,16 +52,66 @@ function Privacy() {
         until you sign out.
       </p>
 
+      <h2>The app</h2>
+      <p>You sign in with your Buffer account. When you use the app, it stores:</p>
+      <ul>
+        <li>
+          From Buffer: your Buffer user ID, the name and email address on your account, your
+          organisations, and the name, picture and network of each connected channel.
+        </li>
+        <li>
+          The access Buffer grants Dispatchlet, as tokens. They are encrypted before they are
+          stored, are only decrypted to make a request to Buffer for you, and are deleted, and
+          revoked at Buffer, when you disconnect.
+        </li>
+        <li>
+          Your answers to the setup questions, and the playbook written from them: your topic,
+          sources, things to avoid, schedule, channels and how posts reach Buffer.
+        </li>
+        <li>
+          A record of each run: what it searched for, the stories it found, which it skipped and
+          why, the posts it wrote, and how much AI usage the run took. Stories it has already
+          covered are kept so it does not post them twice.
+        </li>
+        <li>
+          For posts Dispatchlet creates in Buffer: the Buffer post ID, its status and, once it is
+          sent, the link to it and its engagement numbers. It does not read or store your other
+          posts.
+        </li>
+        <li>
+          Your Anthropic API key, if you add one. It is encrypted, used only for your runs, and
+          deleted when you remove it.
+        </li>
+        <li>Your time zone and email settings.</li>
+      </ul>
+      <p>
+        If you sign in before you have been invited, your email address goes on the waiting list as
+        confirmed, because Buffer has already verified it. The access Buffer granted is revoked
+        straight away and nothing else is kept.
+      </p>
+
       <h2>How it is used</h2>
       <p>
-        Your email address gets 2 emails: one to confirm your place, and one when Dispatchlet opens.
-        If you were added by signing in with Buffer, you only get the launch email. Nothing else is
-        sent unless you sign up for the app later. Your data is never sold and never used for
-        advertising.
+        The waiting list gets 2 emails: one to confirm your place, and one when Dispatchlet opens.
+        If you were added by signing in with Buffer, you only get the launch email.
       </p>
       <p>
-        The legal basis is your consent, which you give by joining the list and can take back at any
-        time with the unsubscribe link in either email.
+        The app uses your data only to run your playbooks and show you the results. Its emails are
+        about your runs: posts waiting for your approval, a lost Buffer connection, free runs used
+        up, or a playbook paused after failed runs. You can turn off the approval emails in
+        settings.
+      </p>
+      <p>
+        To research and write, the app sends your playbook, the stories it found and the stories it
+        has already covered to Anthropic’s Claude models. Claude searches the web and reads pages
+        from Anthropic’s servers, so the sites it visits do not see your details. Posts are marked
+        as AI-assisted in Buffer where the network supports it.
+      </p>
+      <p>Your data is never sold, never used for advertising, and never used to train AI models.</p>
+      <p>
+        The legal basis for the waiting list is your consent, which you can take back at any time
+        with the unsubscribe link in either email. The legal basis for the app is that it is needed
+        to provide the service you signed up for.
       </p>
 
       <h2>Who handles it</h2>
@@ -81,9 +121,14 @@ function Privacy() {
       </p>
       <ul>
         <li>
-          Convex stores the waiting list and sign-in sessions. Its servers are in the United States.
+          Convex stores the waiting list, accounts, playbooks and runs. Its servers are in the
+          United States.
         </li>
-        <li>Buffer handles sign-in, if you choose to sign in with your Buffer account.</li>
+        <li>Buffer handles sign-in, and receives the posts the app creates for you.</li>
+        <li>
+          Anthropic runs the AI models that research and write, in the United States. Its commercial
+          terms do not allow it to train models on this data.
+        </li>
         <li>Resend sends the emails, from the United States.</li>
         <li>PostHog records the analytics events and error reports, in the European Union.</li>
         <li>Cloudflare hosts the site and serves it from its worldwide network.</li>
@@ -95,9 +140,17 @@ function Privacy() {
 
       <h2>How long it is kept</h2>
       <p>
-        The IP hash is deleted after 7 days. Your email address is kept until you ask for it to be
-        deleted or the waiting list closes, whichever comes first. If you unsubscribe, a record that
-        you unsubscribed is kept so you are not emailed again. Ask and that is deleted too.
+        The IP hash is deleted after 7 days. Your waiting list email address is kept until you ask
+        for it to be deleted or the waiting list closes, whichever comes first. If you unsubscribe,
+        a record that you unsubscribed is kept so you are not emailed again. Ask and that is deleted
+        too.
+      </p>
+      <p>
+        App data is kept while you have an account. Disconnecting Buffer deletes the tokens and
+        channels and pauses your playbooks, but keeps their history so you can reconnect. Deleting
+        your account in settings deletes everything: your account, playbooks, runs and posts. It
+        also revokes Dispatchlet’s access at Buffer. Posts already in Buffer stay there, under your
+        control.
       </p>
 
       <h2>Your rights</h2>
@@ -119,8 +172,8 @@ function Privacy() {
 
       <h2>Changes</h2>
       <p>
-        When this policy changes, the date at the top changes. If a change affects how your email
-        address is used, you will be told by email before it takes effect.
+        When this policy changes, the date at the top changes. If a change affects how your data is
+        used, you will be told by email before it takes effect.
       </p>
     </LegalPage>
   )

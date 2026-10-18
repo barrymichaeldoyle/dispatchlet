@@ -64,18 +64,15 @@ const LAUNCH_REASON = 'You got this because you joined the Dispatchlet waiting l
 export function launchMessage(email: string, token: string): Message {
   const l = links(token)
   const link = '<a href="https://dispatchlet.com" style="color:#0f6e56">dispatchlet.com</a>'
-  const policies =
-    '<a href="https://dispatchlet.com/privacy" style="color:#0f6e56">privacy policy</a> and <a href="https://dispatchlet.com/terms" style="color:#0f6e56">terms</a>'
   return {
     from: FROM,
     to: email,
     subject: 'Dispatchlet is open',
-    text: `Dispatchlet is open. Sign in with your Buffer account at https://dispatchlet.com, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.\n\nYour first 10 runs are on me. If you try it, reply and tell me what broke.\n\nThe privacy policy and terms now cover the app as well as the waiting list:\nhttps://dispatchlet.com/privacy\nhttps://dispatchlet.com/terms\n\nBarry\n\n${LAUNCH_REASON}\nUnsubscribe: ${l.unsubscribe}\n`,
+    text: `Dispatchlet is open. Sign in with your Buffer account at https://dispatchlet.com, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.\n\nYour first 10 runs are on me. If you try it, reply and tell me what broke.\n\nBarry\n\n${LAUNCH_REASON}\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
     html: html(
       [
         `Dispatchlet is open. Sign in with your Buffer account at ${link}, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.`,
         'Your first 10 runs are on me. If you try it, reply and tell me what broke.',
-        `The ${policies} now cover the app as well as the waiting list.`,
         'Barry',
       ],
       l.unsubscribe,

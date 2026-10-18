@@ -77,7 +77,7 @@ describe('the launch email', () => {
       expect(body).toContain('Sign in with your Buffer account')
       expect(body).toContain('Your first 10 runs are on me.')
       expect(body).toContain('reply and tell me what broke')
-      expect(body).toContain('/terms')
+      expect(body).not.toContain('/terms')
       expect(body).toContain('joined the Dispatchlet waiting list')
       expect(body).toContain('/waitlist/unsubscribe?token=tok')
     }
