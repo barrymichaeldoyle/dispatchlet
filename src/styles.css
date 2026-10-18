@@ -4094,3 +4094,85 @@ header nav button {
   background: transparent;
   color: var(--color-ink);
 }
+
+/* Signing in: the mark sends arrows down a lane; the line underneath names the step running. */
+.signin-dispatch {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 20px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.signin-mark {
+  flex-shrink: 0;
+}
+.signin-lane {
+  position: relative;
+  flex: 0 1 220px;
+  height: 16px;
+  overflow: hidden;
+}
+.signin-buffer {
+  display: inline-flex;
+  margin-left: 6px;
+  color: var(--color-ink);
+}
+.signin-arrow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  animation: signin-travel 1.5s linear infinite;
+}
+.signin-arrow.is-shot {
+  animation: signin-travel 0.9s ease-out 1 forwards;
+}
+@keyframes signin-travel {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  12% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(220px - 14px));
+  }
+}
+.signin-steps {
+  display: grid;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.signin-steps > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+.signin-steps > span[data-active='true'] {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .signin-arrow,
+  .signin-arrow.is-shot {
+    animation: none;
+    opacity: 1;
+  }
+  .signin-arrow.is-loop:nth-child(2) {
+    transform: translateX(28px);
+    opacity: 0.6;
+  }
+  .signin-arrow.is-loop:nth-child(3) {
+    transform: translateX(56px);
+    opacity: 0.3;
+  }
+  .signin-arrow.is-shot {
+    display: none;
+  }
+}

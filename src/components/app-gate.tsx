@@ -1,6 +1,6 @@
 import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
 import { ConvexReactClient, useConvexAuth, useQuery } from 'convex/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { BufferMark } from './brand-icons'
 import { Wordmark } from './wordmark'
@@ -20,8 +20,7 @@ export function AppGate() {
 function Gate() {
   const { isLoading, isAuthenticated } = useConvexAuth()
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : 'skip')
-  if (isLoading || (isAuthenticated && viewer === undefined))
-    return <Screen title="Signing you in." />
+  if (isLoading || (isAuthenticated && viewer === undefined)) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
   return <SignedIn name={viewer.name ?? viewer.email ?? 'you'} />
@@ -38,6 +37,84 @@ function Screen({ title, children }: { title: string; children?: React.ReactNode
         {children}
       </div>
     </main>
+  )
+}
+
+const STEPS = ['Checking with Buffer.', 'Reading your account.', 'Opening Dispatchlet.']
+
+/**
+ * The mark dispatches small arrows while sign-in finishes, and the line under it says which part
+ * is running. Clicking the mark sends one more. With reduced motion the arrows stay put.
+ */
+function SigningIn() {
+  const [step, setStep] = useState(0)
+  const [shots, setShots] = useState<number[]>([])
+  const nextShot = useRef(0)
+  useEffect(() => {
+    const timer = window.setInterval(
+      () => setStep((value) => Math.min(value + 1, STEPS.length - 1)),
+      1100,
+    )
+    return () => window.clearInterval(timer)
+  }, [])
+  const dispatch = () => {
+    const id = nextShot.current++
+    setShots((value) => [...value, id])
+  }
+  return (
+    <Screen title="Signing you in.">
+      <div className="signin-dispatch" aria-hidden="true" onPointerDown={dispatch}>
+        <svg className="signin-mark" width="56" height="56" viewBox="0 0 24 24">
+          <path d="M3 3h11l7 9-7 9H3z" fill="var(--color-pine)" />
+          <path d="M6.5 6.5h5.8l4.3 5.5-4.3 5.5H6.5z" fill="#fff" />
+        </svg>
+        <div className="signin-lane">
+          {[0, 1, 2].map((index) => (
+            <Arrow key={index} className="is-loop" delay={index * 0.5} />
+          ))}
+          {shots.map((id) => (
+            <Arrow
+              key={`shot-${id}`}
+              className="is-shot"
+              onDone={() => setShots((value) => value.filter((shot) => shot !== id))}
+            />
+          ))}
+        </div>
+        <span className="signin-buffer">
+          <BufferMark size={22} />
+        </span>
+      </div>
+      <p className="signin-steps" aria-live="polite">
+        {STEPS.map((text, index) => (
+          <span key={text} data-active={index === step} aria-hidden={index !== step}>
+            {text}
+          </span>
+        ))}
+      </p>
+    </Screen>
+  )
+}
+
+function Arrow({
+  className,
+  delay = 0,
+  onDone,
+}: {
+  className: string
+  delay?: number
+  onDone?: () => void
+}) {
+  return (
+    <svg
+      className={`signin-arrow ${className}`}
+      width="14"
+      height="16"
+      viewBox="0 0 14 16"
+      style={{ animationDelay: `${delay}s` }}
+      onAnimationEnd={onDone}
+    >
+      <path d="M1 1h6l5 7-5 7H1z" fill="var(--color-pine)" />
+    </svg>
   )
 }
 
