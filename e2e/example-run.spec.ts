@@ -1,5 +1,27 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { TIMING as T, resolveAt } from '../src/lib/example-run'
+
+/**
+ * Freezes the fake clock so only the test moves time. A busy machine can spend more than the
+ * margin between reading the time and pausing, so it retries further ahead.
+ */
+async function pauseClock(page: Page) {
+  for (const ahead of [100, 1000, 10_000]) {
+    try {
+      await page.clock.pauseAt(await page.evaluate((ms) => Date.now() + ms, ahead))
+      return
+    } catch (error) {
+      if (ahead === 10_000 || !String(error).includes('Cannot fast-forward to the past'))
+        throw error
+    }
+  }
+}
+
+/** Freezes the clock and rewinds the open demo to its start, so any skipped time is harmless. */
+async function pausePlayback(page: Page) {
+  await pauseClock(page)
+  await page.getByRole('dialog').getByRole('slider', { name: 'Walkthrough progress' }).press('Home')
+}
 
 test('full-screen walkthrough plays from brief to scheduled posts, pauses, and replays', async ({
   page,
@@ -14,6 +36,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await page.mouse.click(icon.x + icon.width / 2, icon.y + icon.height / 2)
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
   await expect(demo).toBeVisible()
+  await pausePlayback(page)
   // Playback time only advances while playing, so track it separately from the clock.
   let played = 0
   const playTo = async (time: number) => {
@@ -198,7 +221,7 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     await expect(demo).toBeVisible()
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+    await pausePlayback(page)
     const scene = demo.locator('.flow-scene')
     const origin = (await scene.boundingBox())!.y
     const recorded = new Map<string, { y: number; height: number }>()
@@ -281,6 +304,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
+  await pausePlayback(page)
   const candidates = demo.locator('.flow-candidates')
   const garden = candidates.locator('li').filter({ hasText: 'The urban garden story' })
   // The repeat pauses on its match before it is skipped.
@@ -327,6 +351,7 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
+  await pausePlayback(page)
   const restart = demo.getByRole('button', { name: 'Restart walkthrough' })
   const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
   await page.clock.runFor(T.CANDIDATE_START + 1000)
@@ -368,9 +393,7 @@ for (const viewport of [
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-overview/)
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
-    // Start from zero once the clock is paused, so time spent opening the dialog does not count.
-    await demo.getByRole('slider', { name: 'Walkthrough progress' }).press('Home')
+    await pausePlayback(page)
     // The run opens on the answers alone, then opens out once they are submitted.
     await expect(demo.locator('.flow-workspace')).toHaveClass(/is-intro/)
     await expect(demo.locator('.flow-scene > .flow-panel').first()).toBeHidden()
@@ -453,6 +476,7 @@ test('resizing preserves progress while switching between overview and focused c
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
+  await pausePlayback(page)
   await page.clock.fastForward(T.POSTS + 2000)
   await demo.getByRole('button', { name: 'Pause walkthrough' }).click()
   const progress = await demo
@@ -482,6 +506,7 @@ test('feedback confirms completed work without an elapsed-seconds counter', asyn
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
+  await pausePlayback(page)
   await expect(demo.locator('.flow-player')).not.toContainText(/\d+.*sec/)
   // The button never claims the playbook exists before it does.
   await page.clock.fastForward(T.CLICK - 300)
@@ -530,6 +555,8 @@ for (const viewport of [
     await expect(page.getByLabel('Email', { exact: true })).toBeFocused()
     await expect(page.getByLabel('Email', { exact: true })).toBeInViewport()
     expect(submissions).toBe(0)
+    // Replay starts the clock-driven run again, so hold time still while checking it restarted.
+    await pauseClock(page)
     await page.getByRole('button', { name: 'Replay demo', exact: true }).click()
     await expect(demo).toBeVisible()
     await expect(demo.getByRole('slider', { name: 'Walkthrough progress' })).toHaveAttribute(
@@ -547,7 +574,7 @@ test('desktop story inspection pauses, links the workspace and keeps every previ
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await pausePlayback(page)
   await page.clock.fastForward(T.POSTS_READY)
   await demo
     .locator('.flow-candidates')
@@ -596,7 +623,7 @@ test('phone story previews are keyboard accessible and resume the original examp
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await pausePlayback(page)
   await demo.getByRole('button', { name: 'In Buffer', exact: true }).click()
   const story = demo
     .locator('.flow-schedule')
@@ -629,6 +656,7 @@ test('duplicate evidence pauses playback and Escape returns to the same run', as
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
+  await pausePlayback(page)
   await page.clock.fastForward(resolveAt(3) + 300)
   const trigger = demo.getByRole('button', { name: 'The urban garden story: why it was skipped' })
   await trigger.click()
@@ -695,6 +723,7 @@ for (const viewport of [
     await watch.click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await expect(demo).toBeVisible()
+    await pausePlayback(page)
     await page.clock.runFor(T.PLAYBOOK + 1000)
     await demo.getByRole('button', { name: 'Close walkthrough' }).click()
     await expect(watch).toBeFocused()
@@ -716,7 +745,7 @@ for (const viewport of [
     await page.goto('/')
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+    await pausePlayback(page)
     await page.clock.runFor(T.POSTING - 400)
     await expect(demo.locator('.flow-cursor')).toHaveCount(0)
     const posting = demo.locator(
@@ -792,6 +821,7 @@ test('the progress bar seeks like a video by click, drag and keyboard', async ({
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
+  await pausePlayback(page)
   const bar = demo.getByRole('slider', { name: 'Walkthrough progress' })
   const box = (await bar.boundingBox())!
   // Clicking halfway jumps to the middle of the run and keeps playing.
@@ -836,9 +866,8 @@ test('playback speed changes how fast the walkthrough runs and is remembered', a
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await pausePlayback(page)
   const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
-  await progress.press('Home')
   await demo.getByRole('combobox', { name: 'Speed' }).selectOption('2')
   await page.clock.runFor(5000)
   await expect(progress).toHaveAttribute('aria-valuenow', '10')
@@ -856,9 +885,8 @@ test('K pauses and resumes the walkthrough and the arrow keys skip five seconds'
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await pausePlayback(page)
   const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
-  await progress.press('Home')
   await page.keyboard.press('k')
   await expect(demo.getByRole('button', { name: 'Resume walkthrough' })).toBeVisible()
   await demo.locator('.flow-workspace').click({ position: { x: 5, y: 5 } })

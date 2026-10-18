@@ -45,6 +45,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
   test(`page and demo chapters pass accessibility checks in ${colorScheme} mode`, async ({
     page,
   }) => {
+    // Ten full-page axe audits, which outlast the default timeout on a busy machine.
+    test.slow()
     await page.setViewportSize({ width: colorScheme === 'light' ? 320 : 1360, height: 900 })
     await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' })
     await page.goto('/')
