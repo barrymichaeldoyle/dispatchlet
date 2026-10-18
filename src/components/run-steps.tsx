@@ -92,9 +92,9 @@ function ResearchFragment({ withMatch = true }: { withMatch?: boolean }) {
       </div>
       {withMatch ? (
         <figure className="step-match">
-          <figcaption>Matched in your posting history</figcaption>
+          <figcaption>You already posted this</figcaption>
           <blockquote>{PREVIOUS_POST}</blockquote>
-          <p>Same story as an earlier post, so it stays out of today’s queue.</p>
+          <p>You posted this story before, so it isn’t posted again.</p>
         </figure>
       ) : null}
     </div>
@@ -187,7 +187,7 @@ const STEPS: {
   {
     art: 'research',
     title: 'It finds new stories and skips repeats.',
-    text: 'Every run checks what you’ve already posted. A story you’ve shared before stays out of the queue, and so does company PR.',
+    text: 'Before it picks anything, it checks what you’ve already posted and skips repeats. It also skips what you asked it to avoid, like company PR.',
     figure: <ResearchFragment />,
     wide: true,
   },
@@ -207,7 +207,7 @@ const STEPS: {
   {
     art: 'repeat',
     title: 'Tomorrow, it runs again on its own.',
-    text: 'Same playbook every run. Anything already posted or scheduled stays out, and on a slow day it posts less.',
+    text: 'It uses the same playbook every run, skips anything you’ve already posted or scheduled, and posts less on a slow news day.',
     figure: <NextDay />,
   },
 ]

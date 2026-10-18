@@ -822,8 +822,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                         </div>
                       </div>
                       <p>
-                        The agent matched this finding to the urban garden story in its posting
-                        history. It keeps the three new stories and leaves this repeat out.
+                        It matched this story to a post you’ve already shared, so it skips it and
+                        keeps the three new ones.
                       </p>
                     </div>
                     <p
@@ -831,8 +831,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                       data-revealed={elapsed >= MATCH}
                       aria-hidden={elapsed < MATCH || undefined}
                     >
-                      The urban garden story matches a post you’ve already shared, so it stays out
-                      of the queue.
+                      You’ve already posted the urban garden story, so it’s skipped.
                     </p>
                   </div>
                 </div>
@@ -857,8 +856,8 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                     </div>
                   </div>
                   <p>
-                    Every story is checked against what you’ve already posted, so this one stays out
-                    of the queue.
+                    It checks every story against what you’ve already posted. You shared this one
+                    before, so it’s skipped.
                   </p>
                 </aside>
               ) : null}

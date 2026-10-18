@@ -287,7 +287,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
   await page.clock.runFor(T.MATCH + 300)
   await expect(garden).toHaveAttribute('data-state', 'matching')
   await expect(garden.locator('[data-active="true"]')).toHaveText('Matches an earlier post')
-  await expect(candidates).toContainText('matches a post you’ve already shared')
+  await expect(candidates).toContainText('You’ve already posted the urban garden story')
   await page.clock.runFor(resolveAt(4) + 300 - (T.MATCH + 300))
   await expect(candidates.locator('li')).toHaveCount(5)
   await expect(candidates.locator('.is-selected')).toHaveCount(3)

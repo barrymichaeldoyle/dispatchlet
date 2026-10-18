@@ -24,8 +24,8 @@ export function NextDay({
       <p className="next-day-kicker">Tomorrow, 08:00</p>
       <h3 className="next-day-title">It runs again on its own.</h3>
       <p className="next-day-lead">
-        Same playbook, new stories. It checks everything you’ve posted or scheduled and leaves
-        repeats out.
+        It follows the same playbook, checks everything you’ve posted or scheduled, and skips
+        repeats.
       </p>
       <ul className="next-day-stories">
         {NEXT_DAY.map(([title, status, source], index) => (
