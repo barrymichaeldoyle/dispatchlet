@@ -76,10 +76,10 @@ export function launchMessage(email: string, token: string): Message {
     from: FROM,
     to: email,
     subject: 'Dispatchlet is open',
-    text: `Dispatchlet is open. Sign in with your Buffer account at https://dispatchlet.com, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.\n\nYour first 10 runs are on me. If you try it, reply and tell me what broke.\n\nBarry\n\n${LAUNCH_REASON}\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
+    text: `Dispatchlet is open. Sign in with your Buffer account at https://dispatchlet.com, answer a few questions about your topic, and it finds the news and writes posts into Buffer for you, as drafts to approve or straight into your queue.\n\nYour first 10 runs are on me. If you try it, reply and tell me what broke.\n\nBarry\n\n${LAUNCH_REASON}\nUnsubscribe: ${l.unsubscribe}\nPrivacy policy: https://dispatchlet.com/privacy\n`,
     html: html(
       [
-        `Dispatchlet is open. Sign in with your Buffer account at ${link}, answer a few questions about your topic, and it finds the news and queues posts in Buffer for you.`,
+        `Dispatchlet is open. Sign in with your Buffer account at ${link}, answer a few questions about your topic, and it finds the news and writes posts into Buffer for you, as drafts to approve or straight into your queue.`,
         'Your first 10 runs are on me. If you try it, reply and tell me what broke.',
         'Barry',
       ],
