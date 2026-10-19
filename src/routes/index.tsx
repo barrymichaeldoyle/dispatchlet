@@ -287,9 +287,13 @@ function Home() {
             <details>
               <summary>What does it cost?</summary>
               <p>
-                Your first 10 runs are free. After that, you add your own Anthropic API key.
+                Your first 10 runs are free. After that, you can add your own Anthropic API key.
                 Anthropic makes Claude, the AI that does the research and writing, so you pay
                 Anthropic directly for what your runs use.
+              </p>
+              <p>
+                If you’d rather not manage a key, a paid plan that covers the AI for you is coming
+                later.
               </p>
             </details>
             <details>
