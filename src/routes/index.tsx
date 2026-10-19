@@ -252,6 +252,14 @@ function Home() {
               </p>
             </details>
             <details>
+              <summary>Will the posts sound like AI wrote them?</summary>
+              <p>
+                Each post follows the voice in your playbook, such as “warm and factual, no hype”,
+                and links the story it came from. Change the voice whenever you like, and keep posts
+                as drafts until you’re happy with them.
+              </p>
+            </details>
+            <details>
               <summary>What if there isn’t enough news?</summary>
               <p>
                 It posts less. If only one story is new and worth sharing, you get one. It never
@@ -279,8 +287,9 @@ function Home() {
             <details>
               <summary>What does it cost?</summary>
               <p>
-                Your first 10 runs are free. After that, add your own Anthropic API key and
-                Dispatchlet runs on your key.
+                Your first 10 runs are free. After that, you add your own Anthropic API key.
+                Anthropic makes Claude, the AI that does the research and writing, so you pay
+                Anthropic directly for what your runs use.
               </p>
             </details>
             <details>
