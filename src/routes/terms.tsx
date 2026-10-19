@@ -13,7 +13,7 @@ export const Route = createFileRoute('/terms')({
 
 function Terms() {
   return (
-    <LegalPage title="Terms of use" updated="18 Oct 2026">
+    <LegalPage title="Terms of use" updated="19 Oct 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. These terms
         apply when you use dispatchlet.com, join the waiting list or use the Dispatchlet app. If you
@@ -54,10 +54,14 @@ function Terms() {
         someone else’s rights, or for anything that breaks the rules of the networks you post to.
       </p>
 
-      <h2>Free runs and limits</h2>
+      <h2>Free runs, paid plans and limits</h2>
       <p>
         Each account gets 10 free runs and 3 dry runs, paid for by Dispatchlet. After that you can
         add your own Anthropic API key, and runs use your key and are billed to you by Anthropic.
+      </p>
+      <p>
+        Paid plans may be added after launch, including for accounts that use their own key. You
+        will not be charged unless you choose a paid plan, and you will see its price first.
       </p>
       <p>
         Buffer limits how often any app can call it, and that limit is shared by everyone using
@@ -68,8 +72,8 @@ function Terms() {
 
       <h2>The example on the home page</h2>
       <p>
-        The example run is an illustration from testing. Real runs depend on your sources and
-        settings, and will differ.
+        The example run is made up to show how Dispatchlet works. Its account, stories and posts are
+        illustrations. Real runs depend on your sources and settings, and will differ.
       </p>
 
       <h2>Using the site and app</h2>
