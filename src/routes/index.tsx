@@ -293,7 +293,8 @@ function Home() {
               </p>
               <p>
                 If you’d rather not manage a key, a paid plan that covers the AI for you is coming
-                later.
+                later. Pricing may change after launch, including for accounts that use their own
+                key.
               </p>
             </details>
             <details>
