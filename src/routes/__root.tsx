@@ -1,4 +1,5 @@
 import { BrandText } from '../components/brand-text'
+import { Wordmark } from '../components/wordmark'
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
@@ -25,18 +26,24 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  // Laid out like the sign-in screen, so a wrong link still lands somewhere that looks finished.
   notFoundComponent: () => (
-    <main className="not-found" id="main-content">
-      <p>404</p>
-      <h1>This page isn’t here.</h1>
-      <p>
-        <BrandText>
-          Head back to Dispatchlet to see how one brief becomes a day of posts in Buffer.
-        </BrandText>
-      </p>
-      <a href="/">
-        <BrandText>Back to Dispatchlet</BrandText>
-      </a>
+    <main className="app-gate" id="main-content">
+      <div className="app-gate-inner">
+        <a href="/" className="app-gate-home" aria-label="Dispatchlet home">
+          <Wordmark size="md" />
+        </a>
+        <p className="app-gate-note not-found-code">404</p>
+        <h1>This page isn’t here.</h1>
+        <p>
+          <BrandText>
+            Head back to Dispatchlet to see how a few answers become a day of posts in Buffer.
+          </BrandText>
+        </p>
+        <a href="/" className="app-gate-primary">
+          Back to Dispatchlet
+        </a>
+      </div>
     </main>
   ),
 })

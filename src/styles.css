@@ -950,18 +950,6 @@ html {
   line-height: 1.6;
   color: var(--color-pine);
 }
-.not-found {
-  width: min(100% - 48px, 640px);
-  margin: 15vh auto;
-}
-.not-found h1 {
-  font-size: 36px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-}
-.not-found p {
-  line-height: 1.7;
-}
 @media (min-width: 640px) {
   .waitlist-slot {
     min-height: 148px;
@@ -4167,6 +4155,9 @@ header nav button {
   margin: 20px 0 0;
   font-size: 14px;
   color: var(--color-muted);
+}
+.app-gate .not-found-code {
+  margin: 0 0 8px;
 }
 .app-gate-actions {
   display: flex;
