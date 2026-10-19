@@ -77,7 +77,7 @@ your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 `/api/auth/*` through to Convex.
 
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
-Playwright smoke test.
+Playwright tests.
 
 ### Pre-commit checks
 
@@ -101,10 +101,10 @@ walkthrough. The landing page is prerendered, with a self-hosted Schibsted Grote
 (SIL Open Font License in `src/assets/fonts/OFL.txt`). The interactive demo is
 user-started and opens a responsive, full-screen native dialog with persistent
 playback controls. Desktop builds a persistent workspace across the available
-width: brief and playbook, research, channel posts and Buffer schedule. Smaller
+width: your answers and playbook, research, channel posts and Buffer schedule. Smaller
 screens keep the focused chapter layout. Closing it preserves progress and returns focus to the
 launcher. It supports pause/replay and chapter selection, and has a native HTML
-transcript that also works without JavaScript. The 54-second example finds three
+transcript that also works without JavaScript. The 55-second example answers seven setup questions, finds three
 fresh stories, skips previous coverage, writes six channel-specific posts and
 spaces them three hours apart in Buffer. Reserved text and result slots keep
 streaming content steady. Playback holds one short channel comparison on screen,

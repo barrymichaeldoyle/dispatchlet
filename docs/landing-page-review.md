@@ -2,6 +2,10 @@
 
 Reviewed locally on 16 October 2026. This work has not been deployed.
 
+This is a snapshot. The demo has changed since: it now opens on seven setup questions instead
+of a written brief, runs 55 seconds, and the hero shows one example post beside the signup.
+The README describes the current version.
+
 ## Experience and accessibility
 
 The landing page leads with one explanation of the product: an agent researches
