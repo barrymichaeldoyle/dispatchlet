@@ -20,6 +20,7 @@ import {
   createBufferPost,
   ensureTag,
 } from './buffer'
+import { BufferApiError } from './lib/buffer'
 import { anthropicClient, callStructured, modelFor, type CallRecord } from './lib/ai/client'
 import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
@@ -306,9 +307,19 @@ export const finish = internalMutation({
     if (!run.automationId) return null
     const automation = await ctx.db.get(run.automationId)
     if (!automation) return null
-    const failures = status === 'failed' ? (automation.consecutiveFailures ?? 0) + 1 : 0
+    const countsAsFailure = status === 'failed' && run.kind !== 'dry'
+    const failures = countsAsFailure
+      ? (automation.consecutiveFailures ?? 0) + 1
+      : status === 'done'
+        ? 0
+        : (automation.consecutiveFailures ?? 0)
     await ctx.db.patch(automation._id, { consecutiveFailures: failures, updatedAt: Date.now() })
-    if (failures >= 3 && automation.status === 'active') {
+    // Lost Buffer access pauses the automation now; the reconnect email has already gone out.
+    const lostAccess = countsAsFailure && /Sign in with Buffer again/.test(error ?? '')
+    if (lostAccess && automation.status === 'active') {
+      await ctx.db.patch(automation._id, { status: 'paused' })
+      await scheduleNext(ctx, { ...automation, status: 'paused' })
+    } else if (failures >= 3 && automation.status === 'active') {
       await ctx.db.patch(automation._id, { status: 'failed' })
       await scheduleNext(ctx, { ...automation, status: 'failed' })
       await ctx.scheduler.runAfter(0, internal.email.sendPaused, {
@@ -650,16 +661,22 @@ export const execute = internalAction({
             `${channel.name}: ${mode === 'draft' ? 'saved as a draft' : created.dueAt ? `scheduled for ${new Date(created.dueAt).toLocaleString('en-GB', { timeZone: automation.timezone, dateStyle: 'medium', timeStyle: 'short' })}` : 'added to the queue'}.`,
           )
         } catch (error) {
+          // Buffer's allowance is spent, or Buffer asked us to slow down: this post and the rest
+          // of the run wait for the window to reset, nothing is marked failed.
+          const rateLimited =
+            error instanceof BufferBudgetError ||
+            (error instanceof BufferApiError && error.status === 429)
+          if (rateLimited) {
+            const retryAt =
+              error instanceof BufferBudgetError ? error.retryAt : Date.now() + 15 * 60_000
+            held = { retryAt, from: drafts.indexOf(draft) }
+            break
+          }
           const reason = error instanceof Error ? error.message : String(error)
           await ctx.runMutation(internal.runs.savePost, { ...base, status: 'failed', reason })
           await say('publish', `${channel.name}: Buffer did not take the post. ${reason}`)
           if (error instanceof BufferPostError && error.kind === 'limit')
             atLimit.add(channel.channelId)
-          if (error instanceof BufferBudgetError) {
-            // Buffer's shared allowance is spent: the rest of this run waits for the window to reset.
-            held = { retryAt: error.retryAt, from: drafts.indexOf(draft) + 1 }
-            break
-          }
           if (!(error instanceof BufferPostError)) throw error
         }
       }
