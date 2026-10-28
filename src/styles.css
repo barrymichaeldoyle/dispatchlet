@@ -5237,3 +5237,64 @@ header nav button {
     text-align: left;
   }
 }
+
+/* Style check, 28 Oct: no double rules, calmer text figures, readable links in posts, source rows. */
+.app-stats + .app-section {
+  padding-top: 0;
+  border-top: 0;
+}
+.app-stats dd[data-text='true'] {
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+.app-post-link {
+  color: var(--color-pine);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+.app-form fieldset {
+  border-top: 0;
+  padding-top: 0;
+}
+.app-form legend {
+  width: 100%;
+  padding: 16px 0 12px;
+  border-top: 1px solid var(--color-rule);
+}
+.app-form-source {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'url check remove'
+    'note note note';
+  gap: 8px 16px;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-form-source > input:nth-of-type(1) {
+  grid-area: url;
+}
+.app-form-source > input:nth-of-type(2) {
+  grid-area: note;
+}
+.app-form-source > .app-radio {
+  grid-area: check;
+}
+.app-form-source > .app-link {
+  grid-area: remove;
+  align-self: center;
+}
+.app-share {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.app-share .app-link {
+  font-size: 14px;
+}

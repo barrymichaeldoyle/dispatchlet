@@ -67,7 +67,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
       <dl className="app-stats">
         <div data-attention={a.status === 'active'}>
           <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
-          <dd className="tabular">
+          <dd className="tabular" data-text={!(a.status === 'active' && a.nextRunAt)}>
             {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
           </dd>
         </div>
@@ -81,7 +81,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         </div>
         <div>
           <dt>Cost per run</dt>
-          <dd className="tabular">{costPerRun === null ? 'No runs yet' : usd(costPerRun)}</dd>
+          <dd className="tabular" data-text={costPerRun === null}>
+            {costPerRun === null ? 'No runs yet' : usd(costPerRun)}
+          </dd>
         </div>
       </dl>
       {a.status === 'generating' ? (
@@ -580,7 +582,7 @@ function PlaybookEditor({
           <label>
             <span>About</span>
             <textarea
-              rows={3}
+              rows={4}
               value={form.about}
               onChange={(e) => fromForm({ ...form, about: e.target.value })}
             />
@@ -588,7 +590,7 @@ function PlaybookEditor({
           <fieldset>
             <legend>Sources</legend>
             {form.sources.map((s, i) => (
-              <div key={i} className="app-form-row">
+              <div key={i} className="app-form-source">
                 <input
                   value={s.url ?? s.label}
                   aria-label="Source"

@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
+import { PostText } from './post-text'
 import { StepArt } from './step-art'
 import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
 
@@ -102,13 +103,15 @@ export function AppHome() {
         </div>
         <div>
           <dt>Next run</dt>
-          <dd className="tabular">
-            {data.nextRunAt ? whenIn(data.nextRunAt, timezone) : 'Not scheduled'}
+          <dd className="tabular" data-text={!data.nextRunAt}>
+            {data.nextRunAt ? whenIn(data.nextRunAt, timezone) : 'None yet'}
           </dd>
         </div>
         <div>
           <dt>{viewer.ownKey ? 'Runs' : 'Free runs left'}</dt>
-          <dd className="tabular">{viewer.ownKey ? 'On your key' : viewer.runsLeft}</dd>
+          <dd className="tabular" data-text={viewer.ownKey}>
+            {viewer.ownKey ? 'On your key' : viewer.runsLeft}
+          </dd>
         </div>
       </dl>
       {drafts.length ? (
@@ -147,7 +150,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
         <strong>{draft.channelName}</strong>
         <span className="app-muted">draft</span>
       </p>
-      <p className="app-draft-text">{draft.text}</p>
+      <PostText text={draft.text} />
       <div className="app-gate-actions">
         {state === 'done' ? (
           <span className="app-draft-done">{note}</span>

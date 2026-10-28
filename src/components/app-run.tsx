@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { BufferMark, ChannelMark } from './brand-icons'
+import { PostText } from './post-text'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
@@ -132,14 +133,10 @@ function RunView({
           : ''}
       </p>
       {!shared && id ? (
-        <p className="app-muted app-share">
+        <div className="app-share">
           {run.shareToken ? (
             <>
-              Shared at{' '}
-              <a
-                href={`${window.location.origin}/r/${run.shareToken}`}
-              >{`${window.location.host}/r/${run.shareToken.slice(0, 8)}…`}</a>
-              .{' '}
+              <span className="app-muted">Shared. Anyone with the link can read this run.</span>
               <button
                 type="button"
                 className="app-link"
@@ -150,7 +147,10 @@ function RunView({
                 }}
               >
                 Copy link
-              </button>{' '}
+              </button>
+              <a href={`${window.location.origin}/r/${run.shareToken}`} className="app-link">
+                Open it
+              </a>
               <button
                 type="button"
                 className="app-link"
@@ -166,15 +166,15 @@ function RunView({
               onClick={() =>
                 share({ runId }).then((token) => {
                   void navigator.clipboard?.writeText(`${window.location.origin}/r/${token}`)
-                  setShareNote('Anyone with the link can read this run. Link copied.')
+                  setShareNote('Link copied.')
                 })
               }
             >
               Share this run
             </button>
           )}
-          {shareNote ? ` ${shareNote}` : ''}
-        </p>
+          {shareNote ? <span className="app-muted">{shareNote}</span> : null}
+        </div>
       ) : null}
       <div className="app-run" data-live={live}>
         <div className="app-run-bar" aria-hidden="true">
@@ -310,9 +310,7 @@ function RunView({
                   </p>
                   {story ? <p className="app-muted">{story.title}</p> : null}
                   {parts.map((part, i) => (
-                    <p key={i} className="app-draft-text">
-                      {part}
-                    </p>
+                    <PostText key={i} text={part} />
                   ))}
                   {p.metrics?.length ? (
                     <p className="app-muted tabular">
