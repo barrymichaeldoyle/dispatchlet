@@ -4194,9 +4194,28 @@ header nav button {
   cursor: progress;
 }
 .app-gate-secondary {
-  border: 1px solid var(--color-ink);
-  background: transparent;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
   color: var(--color-ink);
+  transition: border-color 150ms ease-out;
+}
+.app-gate-secondary:hover:not(:disabled) {
+  border-color: var(--color-ink);
+}
+.app-gate-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+/* Buffer's own button: white in both themes, like the mark's inner arrow, so it reads as theirs. */
+.app-buffer-link {
+  border-color: #dad9d3;
+  background: #fff;
+  color: #1a1a1a;
+}
+.app-buffer-link:hover {
+  border-color: #1a1a1a;
+}
+.app-buffer-link svg {
+  flex-shrink: 0;
 }
 
 /* Signing in: the mark sends arrows down a lane; the line underneath names the step running. */

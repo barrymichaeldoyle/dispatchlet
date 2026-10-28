@@ -3,7 +3,7 @@ import { ConvexProvider, ConvexReactClient, useAction, useMutation, useQuery } f
 import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { ChannelMark } from './brand-icons'
+import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
@@ -370,8 +370,9 @@ function RunView({
                         href={bufferChannelUrl(p.channelId, p.status)}
                         target="_blank"
                         rel="noreferrer"
-                        className="app-link"
+                        className="app-gate-secondary app-buffer-link"
                       >
+                        <BufferMark size={14} />
                         Open in Buffer
                       </a>
                     ) : null}

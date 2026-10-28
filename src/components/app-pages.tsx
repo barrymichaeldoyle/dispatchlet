@@ -176,8 +176,9 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
           href={bufferChannelUrl(draft.channelId, 'draft')}
           target="_blank"
           rel="noreferrer"
-          className="app-link"
+          className="app-gate-secondary app-buffer-link"
         >
+          <BufferMark size={14} />
           Open in Buffer
         </a>
         <Link
