@@ -1,6 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useMutation, useQuery } from 'convex/react'
-import { useId, useState, type ReactNode } from 'react'
+import { useAction, useMutation, useQuery } from 'convex/react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ChannelMark } from './brand-icons'
 import { errorText, serviceName } from '../lib/format'
@@ -80,7 +80,27 @@ function parseSources(text: string): string[] {
 export function NewAutomation() {
   const connection = useQuery(api.buffer.myConnection)
   const create = useMutation(api.automations.create)
+  const sync = useAction(api.buffer.syncChannels)
   const navigate = useNavigate()
+  const [syncing, setSyncing] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
+  const syncedOnce = useRef(false)
+  const runSync = () => {
+    setSyncing(true)
+    setSyncError(null)
+    sync()
+      .catch((reason: unknown) =>
+        setSyncError(errorText(reason, 'Buffer did not answer. Try again.')),
+      )
+      .finally(() => setSyncing(false))
+  }
+  // The first visit after sign-in often has no channels yet: fetch them once without asking.
+  useEffect(() => {
+    if (!connection || connection.channels.length || syncedOnce.current || connection.needsReauth)
+      return
+    syncedOnce.current = true
+    runSync()
+  })
   const [a, setA] = useState<Answers>(START)
   const [index, setIndex] = useState(0)
   const [pending, setPending] = useState(false)
@@ -117,10 +137,23 @@ export function NewAutomation() {
       label: 'Where should it post?',
       hint: channels.length
         ? 'Text channels in your Buffer account. Pick as many as you like.'
-        : 'No text channels found. Connect X, LinkedIn, Threads, Bluesky or Mastodon in Buffer, then sync channels in settings.',
+        : syncing
+          ? 'Reading your channels from Buffer.'
+          : (syncError ??
+            'No text channels found. Connect X, LinkedIn, Threads, Bluesky or Mastodon in Buffer, then sync again.'),
       valid: a.channelIds.length > 0,
       body: (
         <div className="setup-blocks">
+          {channels.length ? null : (
+            <button
+              type="button"
+              className="app-gate-secondary"
+              disabled={syncing}
+              onClick={runSync}
+            >
+              {syncing ? 'Syncing channels' : 'Sync channels'}
+            </button>
+          )}
           {channels.map((c) => (
             <Block
               key={c.channelId}

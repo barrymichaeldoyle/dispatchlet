@@ -4336,6 +4336,16 @@ header nav button {
   place-items: start center;
   padding-top: 32px;
 }
+.app-gate.is-app .app-gate-inner {
+  width: min(100%, 880px);
+}
+.app-gate.is-app h1 {
+  font-size: 32px;
+}
+.app-gate.is-app > .app-gate-inner > p,
+.app-gate.is-app .app-section > p {
+  max-width: 64ch;
+}
 .app-top {
   display: flex;
   flex-wrap: wrap;
@@ -4853,4 +4863,35 @@ header nav button {
   .app-gate-actions .app-gate-secondary {
     flex: 1 1 100%;
   }
+}
+
+/* The empty dashboard: what happens next, as three ruled rows, not a lonely sentence. */
+.app-steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+.app-steps li {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-rule);
+  counter-increment: step;
+}
+.app-steps li::before {
+  content: counter(step);
+  color: var(--color-pine);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.app-steps strong {
+  display: block;
+  font-weight: 500;
+}
+.app-gate .app-steps p {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 15px;
 }

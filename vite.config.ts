@@ -9,7 +9,7 @@ import { cloudflare } from '@cloudflare/vite-plugin'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  optimizeDeps: { include: ['posthog-js/dist/module.slim'] },
+  optimizeDeps: { include: ['posthog-js/dist/module.slim', 'zod'] },
   plugins: [
     devtools(),
     cloudflare({ viteEnvironment: { name: 'ssr' } }),
