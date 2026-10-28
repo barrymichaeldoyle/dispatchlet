@@ -832,3 +832,25 @@ export async function postMetrics(
   if (!post) return null
   return { metrics: post.metrics ?? [], updatedAt: post.metricsUpdatedAt }
 }
+
+/**
+ * A two-part thread saved as a draft on one channel, to confirm Buffer takes the thread metadata.
+ * Internal only: `npx convex run buffer:probeThread '{"userId": "...", "channelId": "..."}'`.
+ */
+export const probeThread = internalAction({
+  args: { userId: v.id('users'), channelId: v.string() },
+  returns: v.object({ id: v.string(), status: v.string() }),
+  handler: async (ctx, { userId, channelId }) => {
+    const created = await createBufferPost(ctx, userId, {
+      channelId,
+      service: 'twitter',
+      text: 'Dispatchlet thread check, part one. This draft was made to confirm threads reach Buffer in one piece.',
+      thread: [
+        'Part two. If you can read this under the first part in Buffer, threads work. Delete me.',
+      ],
+      mode: 'draft',
+      tagId: null,
+    })
+    return { id: created.id, status: created.status }
+  },
+})
