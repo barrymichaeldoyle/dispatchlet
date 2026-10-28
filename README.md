@@ -38,9 +38,18 @@ the window, in the commits after it.
    what counts as news, what to skip, tone, formats and a schedule. Edit it as
    a form or as text.
 3. Dry-run it to see what it would post. Enable it.
-4. On schedule, it searches the web, dedupes against everything it has covered,
-   writes a post per channel, and creates them in Buffer. Every run is logged:
-   what it searched, what it found, what it skipped and why.
+4. On schedule, it opens the playbook's sources, searches the web, drops
+   anything it has already covered or is not sure about, writes a post per
+   channel within that channel's limit (and asks once for a shorter version
+   when one misses), and creates them in Buffer as drafts, in the queue, or
+   spread through the day, with a Dispatchlet tag. Every run is logged live:
+   what it searched, what it found, what it skipped and why, and what it cost.
+5. Drafts can be approved from the run page or with one click from the digest
+   email. Buffer's status and metrics for each post come back into the log.
+
+Every account gets 10 free runs and 3 dry runs on Dispatchlet's Anthropic key.
+Adding your own key in settings lifts the count. Three failed runs in a row
+pause an automation and send an email.
 
 ## Buffer API surface
 
@@ -48,14 +57,18 @@ OAuth 2.0 with PKCE and rotating, single-use refresh tokens: one refresh at a
 time per connection, guarded by a lock in Convex, because reusing a spent
 refresh token revokes the grant. `account`, `channels`,
 `configuration` and `dailyPostingLimits` for setup and pre-flight. `createPost`
-with `saveToDraft`, `addToQueue` and `customScheduled`. `editPost` to promote a
-draft into the queue from the email digest. `createTag` and `posts` for status.
+with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for X
+threads and LinkedIn, Threads and Bluesky link cards. `editPost` to promote a
+draft into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `posts`
+for status once an hour and `post` for metrics once a day. Every call is
+reserved against the rate-limit budget Buffer reports in its headers.
 
 ## Stack
 
 TanStack Start on Cloudflare Workers. Convex for data, scheduling and the agent
-runs. Convex Auth for sign-in with Buffer. Anthropic (Claude Sonnet 5.5 and Opus 5.5) with server
-side web search. Resend for email.
+runs. Convex Auth for sign-in with Buffer. Claude Sonnet 5.5 through the
+Anthropic API with server-side web search and fetch, structured outputs and
+prompt caching; every call's usage and cost is recorded. Resend for email.
 
 ## Run it yourself
 
@@ -72,7 +85,10 @@ Convex environment variables: `BUFFER_CLIENT_ID`, `BUFFER_CLIENT_SECRET`,
 `SITE_URL` (where the app runs), `JWT_PRIVATE_KEY` and `JWKS` (Convex Auth),
 `TOKEN_ENC_KEY` (32 random bytes, base64) and `ALLOWED_EMAILS` or
 `ALLOWED_BUFFER_IDS` (who may use the app before launch). Set `SIGNUP_OPEN` to
-`true` to let everyone in; it is off until launch. To serve sign-in from
+`true` to let everyone in; it is off until launch. `ANTHROPIC_API_KEY` runs the
+free tier; `RESEND_API_KEY` sends the emails. Optional: `FREE_RUNS_PER_USER`
+(10), `FREE_DRY_RUNS_PER_USER` (3), `GLOBAL_DAILY_USD_CAP` (15, the most a day's
+scheduled runs may cost on the shared key) and `ALERT_EMAIL`. To serve sign-in from
 your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 `/api/auth/*` through to Convex.
 

@@ -892,6 +892,7 @@ export const get = query({
         externalLink: p.externalLink ?? null,
         dueAt: p.dueAt ?? null,
         sentAt: p.sentAt ?? null,
+        metrics: p.metrics ?? null,
       })),
     }
   },

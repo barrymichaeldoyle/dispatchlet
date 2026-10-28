@@ -212,6 +212,11 @@ export default defineSchema({
     dueAt: v.optional(v.number()),
     sentAt: v.optional(v.number()),
     approveToken: v.optional(v.string()),
+    /** Buffer's metrics for a sent post, fetched daily from a day after it went out. */
+    metrics: v.optional(
+      v.array(v.object({ type: v.string(), value: v.number(), unit: v.string() })),
+    ),
+    metricsUpdatedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])

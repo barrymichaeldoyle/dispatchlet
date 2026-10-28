@@ -147,6 +147,17 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
                       {part}
                     </p>
                   ))}
+                  {p.metrics?.length ? (
+                    <p className="app-muted tabular">
+                      {p.metrics
+                        .filter((m) => m.value > 0)
+                        .map(
+                          (m) =>
+                            `${m.value.toLocaleString('en-GB')} ${m.type.replaceAll('_', ' ')}`,
+                        )
+                        .join(', ')}
+                    </p>
+                  ) : null}
                   {p.linkAttachment ? (
                     <p className="app-muted">Link card: {p.linkAttachment.title}</p>
                   ) : null}

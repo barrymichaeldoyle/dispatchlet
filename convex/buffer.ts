@@ -810,3 +810,25 @@ export async function postStatuses(
   )
   return posts.edges.map((e) => ({ ...e.node, error: e.node.error?.message ?? null }))
 }
+
+export type PostMetric = { type: string; value: number; unit: string }
+
+/** A sent post's metrics (SPEC §24.8). One call per post, so the caller rations them. */
+export async function postMetrics(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  bufferPostId: string,
+): Promise<{ metrics: PostMetric[]; updatedAt: string | null } | null> {
+  const { post } = await bufferCallFor<{
+    post: { metrics: PostMetric[] | null; metricsUpdatedAt: string | null } | null
+  }>(
+    ctx,
+    userId,
+    `query DispatchletMetrics($id: PostId!) {
+      post(input: { id: $id }) { id metrics { type value unit } metricsUpdatedAt }
+    }`,
+    { id: bufferPostId },
+  )
+  if (!post) return null
+  return { metrics: post.metrics ?? [], updatedAt: post.metricsUpdatedAt }
+}

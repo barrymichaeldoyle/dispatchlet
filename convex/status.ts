@@ -2,7 +2,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
-import { postStatuses } from './buffer'
+import { postMetrics, postStatuses } from './buffer'
 
 const TWO_DAYS = 2 * 86_400_000
 
@@ -104,6 +104,68 @@ export const poll = internalAction({
             `Status poll skipped: ${error instanceof Error ? error.message : String(error)}`,
           )
         }
+      }
+    }
+    return null
+  },
+})
+
+const DAY = 86_400_000
+/** How many metric reads a day, in total, so they never crowd out posting. */
+const METRIC_READS_PER_DAY = 40
+
+/** Sent posts at least a day old whose metrics are missing or more than a day stale, oldest first. */
+export const wantingMetrics = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now()
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_createdAt', (q) => q.gt('createdAt', now - 30 * DAY))
+      .collect()
+    return posts
+      .filter(
+        (p) =>
+          p.status === 'sent' &&
+          p.bufferPostId &&
+          (p.sentAt ?? p.createdAt) < now - DAY &&
+          (!p.metricsUpdatedAt || p.metricsUpdatedAt < now - DAY) &&
+          (p.sentAt ?? p.createdAt) > now - 14 * DAY,
+      )
+      .sort((a, b) => (a.metricsUpdatedAt ?? 0) - (b.metricsUpdatedAt ?? 0))
+      .slice(0, METRIC_READS_PER_DAY)
+      .map((p) => ({ postId: p._id, userId: p.userId, bufferPostId: p.bufferPostId! }))
+  },
+})
+
+export const storeMetrics = internalMutation({
+  args: {
+    postId: v.id('posts'),
+    metrics: v.array(v.object({ type: v.string(), value: v.number(), unit: v.string() })),
+  },
+  returns: v.null(),
+  handler: async (ctx, { postId, metrics }) => {
+    await ctx.db.patch(postId, { metrics, metricsUpdatedAt: Date.now() })
+    return null
+  },
+})
+
+/** Daily: one Buffer read per sent post that is due a metrics update (SPEC §24.8). */
+export const pollMetrics = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const wanted = await ctx.runQuery(internal.status.wantingMetrics, {})
+    for (const w of wanted) {
+      try {
+        const result = await postMetrics(ctx, w.userId, w.bufferPostId)
+        if (result)
+          await ctx.runMutation(internal.status.storeMetrics, {
+            postId: w.postId,
+            metrics: result.metrics,
+          })
+      } catch (error) {
+        console.log(`Metrics skipped: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
     return null
