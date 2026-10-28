@@ -4971,3 +4971,7 @@ header nav button {
 .app-rule {
   flex: 1 1 280px;
 }
+.app-gate .app-share {
+  margin: 0 0 12px;
+  font-size: 14px;
+}

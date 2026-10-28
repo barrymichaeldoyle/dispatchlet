@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { ChannelMark } from './brand-icons'
+import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
 import { errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
@@ -28,18 +29,64 @@ const POST_WORDS: Record<string, string> = {
   failed: 'failed',
 }
 
+/** A shared run, outside the app: the same log, read-only, with the wordmark on top. */
+export function SharedRun({ token }: { token: string }) {
+  const run = useQuery(api.runs.shared, { token })
+  if (run === undefined) return null
+  return (
+    <main className="app-gate is-app">
+      <div className="app-gate-inner">
+        <header className="app-top">
+          <a href="/" className="app-gate-home" aria-label="Dispatchlet home">
+            <Wordmark size="md" />
+          </a>
+          <nav aria-label="Site" className="app-nav">
+            <a href="/">What Dispatchlet is</a>
+          </nav>
+        </header>
+        {run ? (
+          <RunView run={run} shared />
+        ) : (
+          <>
+            <h1>This link is not valid.</h1>
+            <p>The run may have been unshared, or the link was copied wrongly.</p>
+          </>
+        )}
+      </div>
+    </main>
+  )
+}
+
 /** One run as a log: a timestamp spine on the left, what happened on the right (SPEC §23.4). */
 export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'> }) {
   const run = useQuery(api.runs.get, { runId })
+  if (run === undefined) return <p className="app-muted">Loading.</p>
+  if (run === null) return <p>This run does not exist, or it is not yours.</p>
+  return <RunView run={run} id={id} />
+}
+
+type RunData = NonNullable<ReturnType<typeof useQuery<typeof api.runs.get>>>
+
+function RunView({
+  run,
+  id,
+  shared = false,
+}: {
+  run: RunData
+  id?: Id<'automations'>
+  shared?: boolean
+}) {
+  const runId = run._id
   const approve = useAction(api.runs.approve)
+  const share = useMutation(api.runs.share)
+  const unshare = useMutation(api.runs.unshare)
+  const [shareNote, setShareNote] = useState<string | null>(null)
   const addRule = useMutation(api.automations.addExcludeRule)
   const [ruleFor, setRuleFor] = useState<string | null>(null)
   const [rule, setRule] = useState('')
   const [ruleNote, setRuleNote] = useState<Record<string, string>>({})
   const [approving, setApproving] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
-  if (run === undefined) return <p className="app-muted">Loading.</p>
-  if (run === null) return <p>This run does not exist, or it is not yours.</p>
   const live = !run.finishedAt
   const stepsDone = ['research', 'select', 'write', 'publish'].filter((s) =>
     run.steps.some((x) => x.step === s),
@@ -49,12 +96,16 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
   const title = run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'
   return (
     <>
-      <p className="app-crumbs">
-        <Link to="/app">Home</Link> /{' '}
-        <Link to="/app/a/$id" params={{ id }}>
-          {run.automationName}
-        </Link>
-      </p>
+      {shared || !id ? (
+        <p className="app-crumbs">{run.automationName}, shared from Dispatchlet.</p>
+      ) : (
+        <p className="app-crumbs">
+          <Link to="/app">Home</Link> /{' '}
+          <Link to="/app/a/$id" params={{ id }}>
+            {run.automationName}
+          </Link>
+        </p>
+      )}
       <h1>
         {title}, {whenIn(run.startedAt, tz)}.
       </h1>
@@ -67,6 +118,51 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
           ? ` ${run.usage.webSearches} searches, ${run.usage.webFetches} pages opened.`
           : ''}
       </p>
+      {!shared && id ? (
+        <p className="app-muted app-share">
+          {run.shareToken ? (
+            <>
+              Shared at{' '}
+              <a
+                href={`${window.location.origin}/r/${run.shareToken}`}
+              >{`${window.location.host}/r/${run.shareToken.slice(0, 8)}…`}</a>
+              .{' '}
+              <button
+                type="button"
+                className="app-link"
+                onClick={() => {
+                  void navigator.clipboard
+                    ?.writeText(`${window.location.origin}/r/${run.shareToken}`)
+                    .then(() => setShareNote('Link copied.'))
+                }}
+              >
+                Copy link
+              </button>{' '}
+              <button
+                type="button"
+                className="app-link"
+                onClick={() => unshare({ runId }).then(() => setShareNote('No longer shared.'))}
+              >
+                Stop sharing
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="app-link"
+              onClick={() =>
+                share({ runId }).then((token) => {
+                  void navigator.clipboard?.writeText(`${window.location.origin}/r/${token}`)
+                  setShareNote('Anyone with the link can read this run. Link copied.')
+                })
+              }
+            >
+              Share this run
+            </button>
+          )}
+          {shareNote ? ` ${shareNote}` : ''}
+        </p>
+      ) : null}
       <div className="app-run" data-live={live}>
         <div className="app-run-bar" aria-hidden="true">
           <span style={{ transform: `scaleX(${progress})` }} />
@@ -116,13 +212,13 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
                     {kept ? ` ${s.whyItMatters}` : ''}
                   </p>
                   {kept ? <p>{s.summary}</p> : null}
-                  {kept && !ruleNote[s._id] ? (
+                  {kept && !shared && id && !ruleNote[s._id] ? (
                     ruleFor === s._id ? (
                       <form
                         className="app-field"
                         onSubmit={(e) => {
                           e.preventDefault()
-                          addRule({ id, rule })
+                          addRule({ id: id!, rule })
                             .then((version) => {
                               setRuleNote((n) => ({
                                 ...n,
@@ -227,7 +323,7 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
                     {measuredLength(p.text, p.service as Service)} characters
                     {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
                   </p>
-                  {p.status === 'draft' ? (
+                  {p.status === 'draft' && !shared ? (
                     <div className="app-gate-actions">
                       <button
                         type="button"

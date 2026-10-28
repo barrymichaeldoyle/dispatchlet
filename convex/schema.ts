@@ -167,10 +167,13 @@ export default defineSchema({
     /** What research found, kept on eval runs. */
     result: v.optional(v.any()),
     error: v.optional(v.string()),
+    /** Set when the person shares the run; anyone with the link can read it. */
+    shareToken: v.optional(v.string()),
   })
     .index('by_user', ['userId'])
     .index('by_automation_startedAt', ['automationId', 'startedAt'])
-    .index('by_kind_startedAt', ['kind', 'startedAt']),
+    .index('by_kind_startedAt', ['kind', 'startedAt'])
+    .index('by_shareToken', ['shareToken']),
   /** Every story a run considered, with the decision, so the next run never repeats one. */
   stories: defineTable({
     automationId: v.id('automations'),

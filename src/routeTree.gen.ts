@@ -16,6 +16,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppNewRouteImport } from './routes/app.new'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppAIdRouteImport } from './routes/app.a.$id'
 import { Route as AppAIdRunsRunIdRouteImport } from './routes/app.a.$id_.runs.$runId'
@@ -55,6 +56,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const RTokenRoute = RTokenRouteImport.update({
+  id: '/r/$token',
+  path: '/r/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/r/$token': typeof RTokenRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/a/$id': typeof AppAIdRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/r/$token': typeof RTokenRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/a/$id': typeof AppAIdRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/r/$token': typeof RTokenRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/a/$id': typeof AppAIdRoute
@@ -116,6 +125,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/r/$token'
     | '/app/'
     | '/api/auth/$'
     | '/app/a/$id'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/r/$token'
     | '/app'
     | '/api/auth/$'
     | '/app/a/$id'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/r/$token'
     | '/app/'
     | '/api/auth/$'
     | '/app/a/$id'
@@ -150,6 +162,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  RTokenRoute: typeof RTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/r/$token': {
+      id: '/r/$token'
+      path: '/r/$token'
+      fullPath: '/r/$token'
+      preLoaderRoute: typeof RTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -251,6 +271,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  RTokenRoute: RTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

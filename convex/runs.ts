@@ -10,6 +10,7 @@ import {
   mutation,
   query,
   type ActionCtx,
+  type QueryCtx,
 } from './_generated/server'
 import { scheduleNext } from './automations'
 import {
@@ -850,7 +851,57 @@ export const get = query({
     if (!userId) return null
     const run = await ctx.db.get(runId)
     if (!run || run.userId !== userId || !run.automationId) return null
-    const automation = await ctx.db.get(run.automationId)
+    return await runView(ctx, run, userId)
+  },
+})
+
+/** A shared run, by its link, for anyone. Same view, no approve tokens or ids that matter. */
+export const shared = query({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    if (!token) return null
+    const run = await ctx.db
+      .query('runs')
+      .withIndex('by_shareToken', (q) => q.eq('shareToken', token))
+      .first()
+    if (!run?.userId || !run.automationId) return null
+    return await runView(ctx, run, run.userId)
+  },
+})
+
+/** Makes a run shareable and returns the token; a second call returns the same token. */
+export const share = mutation({
+  args: { runId: v.id('runs') },
+  returns: v.string(),
+  handler: async (ctx, { runId }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    const run = await ctx.db.get(runId)
+    if (!run || run.userId !== userId) throw new Error('Run not found')
+    if (run.shareToken) return run.shareToken
+    const token = crypto.randomUUID().replaceAll('-', '')
+    await ctx.db.patch(runId, { shareToken: token })
+    return token
+  },
+})
+
+export const unshare = mutation({
+  args: { runId: v.id('runs') },
+  returns: v.null(),
+  handler: async (ctx, { runId }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    const run = await ctx.db.get(runId)
+    if (!run || run.userId !== userId) throw new Error('Run not found')
+    await ctx.db.patch(runId, { shareToken: undefined })
+    return null
+  },
+})
+
+async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users'>) {
+  const runId = run._id
+  {
+    const automation = run.automationId ? await ctx.db.get(run.automationId) : null
     const stories = await ctx.db
       .query('stories')
       .withIndex('by_run', (q) => q.eq('runId', runId))
@@ -866,7 +917,7 @@ export const get = query({
     const names = new Map(channels.map((c) => [c.channelId, c.name]))
     return {
       _id: run._id,
-      automationId: run.automationId,
+      automationId: run.automationId!,
       automationName: automation?.name ?? '',
       timezone: automation?.timezone ?? 'UTC',
       kind: run.kind,
@@ -877,6 +928,7 @@ export const get = query({
       usage: run.usage,
       costUsd: run.costUsd,
       error: run.error ?? null,
+      shareToken: run.shareToken ?? null,
       stories: stories.map((s) => ({
         _id: s._id,
         title: s.title,
@@ -908,8 +960,8 @@ export const get = query({
         metrics: p.metrics ?? null,
       })),
     }
-  },
-})
+  }
+}
 
 /** Moves one of this person's drafts into the queue, from the run page. */
 export const approve = action({
