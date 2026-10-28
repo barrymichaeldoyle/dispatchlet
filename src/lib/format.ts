@@ -38,3 +38,9 @@ export function serviceName(service: string): string {
 export function errorText(reason: unknown, fallback: string): string {
   return reason instanceof Error ? reason.message.replace(/^.*Uncaught Error: /s, '') : fallback
 }
+
+/** Buffer's web app, at the channel's drafts or queue tab; the API gives no per-post page. */
+export function bufferChannelUrl(channelId: string, status: string): string {
+  const tab = status === 'draft' ? 'drafts' : status === 'sent' ? 'sent' : 'queue'
+  return `https://publish.buffer.com/channel/${channelId}/tab/${tab}`
+}

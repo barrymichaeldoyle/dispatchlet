@@ -7,7 +7,7 @@ import { ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
-import { errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
+import { bufferChannelUrl, errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
 
 const DECISION_WORDS: Record<string, string> = {
   kept: 'Kept',
@@ -307,7 +307,16 @@ function RunView({
                     </span>
                     {p.externalLink ? (
                       <a href={p.externalLink} target="_blank" rel="noreferrer">
-                        Open
+                        See it live
+                      </a>
+                    ) : null}
+                    {p.bufferStatus && !shared ? (
+                      <a
+                        href={bufferChannelUrl(p.channelId, p.status)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open in Buffer
                       </a>
                     ) : null}
                     {story ? <span className="app-muted">{story.title}</span> : null}

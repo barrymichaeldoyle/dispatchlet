@@ -6,7 +6,7 @@ import { api } from '../../convex/_generated/api'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { StepArt } from './step-art'
-import { errorText as message, whenIn } from '../lib/format'
+import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
 
 export function SignOut() {
   const { signOut } = useAuthActions()
@@ -68,92 +68,213 @@ const STATUS_WORDS: Record<string, string> = {
 
 const RUN_KINDS: Record<string, string> = { scheduled: 'Scheduled run', now: 'Run', dry: 'Dry run' }
 
-/** The home page: each automation in words, and the drafts waiting for a yes (SPEC §17). */
+type Dashboard = NonNullable<
+  NonNullable<ReturnType<typeof useQuery<typeof api.automations.dashboard>>>
+>
+
+/** The home page: numbers first, then what needs a yes, then each automation as a row. */
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
   const data = useQuery(api.automations.dashboard)
   if (!viewer || data === undefined) return null
   const firstName = viewer.name?.trim().split(/\s+/)[0]
-  const { automations, drafts } = data ?? { automations: [], drafts: [] }
   // `?preview-empty` shows the first-visit screen on an account that has automations, for design work.
   const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
-  if (!automations.length || previewEmpty)
+  if (!data || !data.automations.length || previewEmpty)
     return <EmptyHome firstName={firstName} viewer={viewer} />
+  const { automations, drafts, timezone } = data
   return (
     <>
-      <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
+      <div className="app-home-head">
+        <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
+        <Link to="/app/new" className="app-gate-primary">
+          New automation
+        </Link>
+      </div>
+      <dl className="app-stats">
+        <div>
+          <dt>Posts this week</dt>
+          <dd className="tabular">{data.postsThisWeek}</dd>
+        </div>
+        <div data-attention={drafts.length > 0}>
+          <dt>Waiting for a yes</dt>
+          <dd className="tabular">{drafts.length}</dd>
+        </div>
+        <div>
+          <dt>Next run</dt>
+          <dd className="tabular">
+            {data.nextRunAt ? whenIn(data.nextRunAt, timezone) : 'Not scheduled'}
+          </dd>
+        </div>
+        <div>
+          <dt>{viewer.ownKey ? 'Runs' : 'Free runs left'}</dt>
+          <dd className="tabular">{viewer.ownKey ? 'On your key' : viewer.runsLeft}</dd>
+        </div>
+      </dl>
       {drafts.length ? (
         <section className="app-section">
-          <h2>Waiting for you</h2>
-          <p className="app-muted">
-            {drafts.length} {drafts.length === 1 ? 'draft is' : 'drafts are'} in Buffer until you
-            approve {drafts.length === 1 ? 'it' : 'them'}.
-          </p>
-          <ul className="app-posts">
-            {drafts.slice(0, 5).map((d) => (
-              <li key={d._id}>
-                <p className="app-post-head">
-                  <ChannelMark channel={SERVICE_NAMES[d.service] ?? d.service} size={14} />
-                  <strong>{d.channelName}</strong>
-                  <Link to="/app/a/$id/runs/$runId" params={{ id: d.automationId, runId: d.runId }}>
-                    Open the run to approve
-                  </Link>
-                </p>
-                <p className="app-post-text">{d.text.split('\n')[0]}</p>
-              </li>
+          <h2>Waiting for a yes</h2>
+          <ul className="app-drafts">
+            {drafts.slice(0, 6).map((d) => (
+              <DraftCard key={d._id} draft={d} />
             ))}
           </ul>
         </section>
       ) : null}
       <section className="app-section">
-        <div className="app-section-head">
-          <h2>Automations</h2>
-          <Link to="/app/new" className="app-gate-primary">
-            New automation
-          </Link>
-        </div>
-        <ul className="app-automations">
+        <h2>Automations</h2>
+        <ul className="app-rows">
           {automations.map((a) => (
-            <li key={a._id}>
-              <p className="app-automation-head">
-                <Link to="/app/a/$id" params={{ id: a._id }}>
-                  {a.name}
-                </Link>
-                <span className="app-muted">
-                  {describeCadence(a.cadence)}. {STATUS_WORDS[a.status] ?? a.status}
-                  {a.status === 'active' && a.nextRunAt
-                    ? `, next ${whenIn(a.nextRunAt, a.timezone)}`
-                    : ''}
-                  .
-                </span>
-              </p>
-              <p>
-                {a.lastRun ? (
-                  <>
-                    <Link to="/app/a/$id/runs/$runId" params={{ id: a._id, runId: a.lastRun._id }}>
-                      {RUN_KINDS[a.lastRun.kind] ?? 'Run'} {whenIn(a.lastRun.startedAt, a.timezone)}
-                    </Link>
-                    {a.lastRun.finished ? `: ${a.lastRun.note}` : ': running.'}
-                  </>
-                ) : (
-                  'No runs yet. Try a dry run.'
-                )}
-              </p>
-              <p className="app-muted tabular">
-                {`${a.postsThisWeek} ${a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.`}
-              </p>
-            </li>
+            <AutomationRow key={a._id} a={a} timezone={timezone} />
           ))}
         </ul>
       </section>
-      {!viewer.ownKey ? (
-        <p className="app-muted">
-          {viewer.runsLeft} free {viewer.runsLeft === 1 ? 'run' : 'runs'} and {viewer.dryRunsLeft}{' '}
-          dry {viewer.dryRunsLeft === 1 ? 'run' : 'runs'} left on this account.{' '}
-          <Link to="/app/settings">Add your own key</Link> to lift the limit.
-        </p>
-      ) : null}
     </>
+  )
+}
+
+/** A draft as it will look on its channel, with Approve right there. */
+function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
+  const approve = useAction(api.runs.approve)
+  const [state, setState] = useState<'idle' | 'working' | 'done' | 'failed'>('idle')
+  const [note, setNote] = useState('')
+  return (
+    <li className="app-draft">
+      <p className="app-draft-head">
+        <span className="app-draft-avatar" aria-hidden="true">
+          <ChannelMark channel={SERVICE_NAMES[draft.service] ?? draft.service} size={14} />
+        </span>
+        <strong>{draft.channelName}</strong>
+        <span className="app-muted">draft</span>
+      </p>
+      <p className="app-draft-text">{draft.text}</p>
+      <div className="app-gate-actions">
+        {state === 'done' ? (
+          <span className="app-draft-done">{note}</span>
+        ) : (
+          <button
+            type="button"
+            className="app-gate-primary"
+            disabled={state === 'working'}
+            onClick={() => {
+              setState('working')
+              approve({ postId: draft._id })
+                .then((message) => {
+                  setState('done')
+                  setNote(message)
+                })
+                .catch((reason: unknown) => {
+                  setState('failed')
+                  setNote(message(reason, 'Not approved.'))
+                })
+            }}
+          >
+            {state === 'working' ? 'Approving' : 'Approve'}
+          </button>
+        )}
+        <a
+          href={bufferChannelUrl(draft.channelId, 'draft')}
+          target="_blank"
+          rel="noreferrer"
+          className="app-link"
+        >
+          Open in Buffer
+        </a>
+        <Link
+          to="/app/a/$id/runs/$runId"
+          params={{ id: draft.automationId, runId: draft.runId }}
+          className="app-link"
+        >
+          See the run
+        </Link>
+        {state === 'failed' ? <span className="app-connection-error">{note}</span> : null}
+      </div>
+    </li>
+  )
+}
+
+const DAY = 86_400_000
+
+/** The last seven days as cells: posts as a count in pine, a run with no post as a dot, today outlined. */
+function WeekStrip({
+  postTimes,
+  runTimes,
+  timezone,
+}: {
+  postTimes: number[]
+  runTimes: number[]
+  timezone: string
+}) {
+  const [now] = useState(() => Date.now())
+  const dayKey = (at: number) =>
+    new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, day: 'numeric', month: 'short' })
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const at = now - (6 - i) * DAY
+    const key = dayKey(at)
+    return {
+      key,
+      label: new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, weekday: 'narrow' }),
+      posts: postTimes.filter((t) => dayKey(t) === key).length,
+      ran: runTimes.some((t) => dayKey(t) === key),
+      today: i === 6,
+    }
+  })
+  return (
+    <ol className="app-week" aria-label="Posts in the last seven days">
+      {days.map((d) => (
+        <li
+          key={d.key}
+          data-today={d.today}
+          data-posts={d.posts > 0}
+          data-ran={d.ran}
+          title={`${d.key}: ${d.posts} ${d.posts === 1 ? 'post' : 'posts'}`}
+        >
+          <span className="app-week-day" aria-hidden="true">
+            {d.label}
+          </span>
+          <span className="app-week-count tabular">{d.posts > 0 ? d.posts : d.ran ? '·' : ''}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; timezone: string }) {
+  return (
+    <li className="app-row" data-status={a.status}>
+      <div className="app-row-name">
+        <Link to="/app/a/$id" params={{ id: a._id }}>
+          {a.name}
+        </Link>
+        <span className="app-muted">{describeCadence(a.cadence)}</span>
+      </div>
+      <div className="app-row-last">
+        {a.lastRun ? (
+          <>
+            <Link to="/app/a/$id/runs/$runId" params={{ id: a._id, runId: a.lastRun._id }}>
+              {RUN_KINDS[a.lastRun.kind] ?? 'Run'} {whenIn(a.lastRun.startedAt, a.timezone)}
+            </Link>
+            <span>{a.lastRun.finished ? a.lastRun.note : 'Running.'}</span>
+          </>
+        ) : (
+          <span className="app-muted">No runs yet. Try a dry run.</span>
+        )}
+      </div>
+      <WeekStrip postTimes={a.postTimes} runTimes={a.runTimes} timezone={timezone} />
+      <div className="app-row-next">
+        {a.status === 'active' && a.nextRunAt ? (
+          <>
+            <span className="app-muted">Next run</span>
+            <strong className="tabular">{whenIn(a.nextRunAt, a.timezone)}</strong>
+          </>
+        ) : (
+          <>
+            <span className="app-muted">Status</span>
+            <strong>{STATUS_WORDS[a.status] ?? a.status}</strong>
+          </>
+        )}
+      </div>
+    </li>
   )
 }
 

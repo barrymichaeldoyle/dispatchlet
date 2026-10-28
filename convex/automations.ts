@@ -366,6 +366,12 @@ export const dashboard = query({
         .order('desc')
         .first()
       const sent = recentPosts.filter((p) => p.automationId === a._id && p.bufferPostId)
+      const runsThisWeek = await ctx.db
+        .query('runs')
+        .withIndex('by_automation_startedAt', (q) =>
+          q.eq('automationId', a._id).gt('startedAt', weekAgo),
+        )
+        .collect()
       automations.push({
         _id: a._id,
         name: a.name,
@@ -386,6 +392,9 @@ export const dashboard = query({
             }
           : null,
         postsThisWeek: sent.length,
+        /** When each post of the last week reached Buffer, for the activity strip. */
+        postTimes: sent.map((p) => p.createdAt),
+        runTimes: runsThisWeek.filter((r) => r.kind !== 'dry').map((r) => r.startedAt),
       })
     }
     const drafts = recentPosts
@@ -396,11 +405,20 @@ export const dashboard = query({
         runId: p.runId,
         automationId: p.automationId,
         channelName: names.get(p.channelId) ?? p.service,
+        channelId: p.channelId,
         service: p.service,
         text: p.text,
         createdAt: p.createdAt,
       }))
-    return { automations, drafts, postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length }
+    const user = await ctx.db.get(userId)
+    const active = automations.filter((a) => a.status === 'active' && a.nextRunAt)
+    return {
+      automations,
+      drafts,
+      postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length,
+      nextRunAt: active.length ? Math.min(...active.map((a) => a.nextRunAt!)) : null,
+      timezone: user?.timezone ?? 'UTC',
+    }
   },
 })
 
