@@ -59,10 +59,50 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         <Link to="/app">Home</Link>
       </p>
       <div className="app-home-head">
-        <h1>{a.name}</h1>
-        <span className="app-muted">
-          {describeCadence(a.cadence)}, {a.timezone.replaceAll('_', ' ')}
-        </span>
+        <div>
+          <h1>{a.name}</h1>
+          <p className="app-muted app-subtitle">
+            {describeCadence(a.cadence)}, {a.timezone.replaceAll('_', ' ')}
+          </p>
+        </div>
+        <div className="app-gate-actions">
+          <button
+            type="button"
+            className="app-gate-primary"
+            disabled={busy !== null || running || !a.playbook}
+            onClick={() => run(false)}
+          >
+            {busy === 'now' ? 'Starting' : 'Run now'}
+          </button>
+          <button
+            type="button"
+            className="app-gate-secondary"
+            disabled={busy !== null || running || !a.playbook}
+            onClick={() => run(true)}
+          >
+            {busy === 'dry' ? 'Starting' : 'Dry run'}
+          </button>
+          {a.status === 'active' ? (
+            <button
+              type="button"
+              className="app-gate-secondary"
+              disabled={busy !== null}
+              onClick={() => act('pause', () => setStatus({ id, status: 'paused' }))}
+            >
+              Pause
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="app-gate-secondary"
+              disabled={busy !== null || !a.playbook}
+              onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
+            >
+              {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Enable'}
+            </button>
+          )}
+          {running ? <span className="app-muted">A run is going.</span> : null}
+        </div>
       </div>
       <dl className="app-stats">
         <div data-attention={a.status === 'active'}>
@@ -103,44 +143,6 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <Link to="/app/settings">Add your own Anthropic key</Link> to lift the limit.
         </p>
       ) : null}
-      <div className="app-gate-actions app-toolbar">
-        <button
-          type="button"
-          className="app-gate-primary"
-          disabled={busy !== null || running || !a.playbook}
-          onClick={() => run(false)}
-        >
-          {busy === 'now' ? 'Starting' : 'Run now'}
-        </button>
-        <button
-          type="button"
-          className="app-gate-secondary"
-          disabled={busy !== null || running || !a.playbook}
-          onClick={() => run(true)}
-        >
-          {busy === 'dry' ? 'Starting' : 'Dry run'}
-        </button>
-        {a.status === 'active' ? (
-          <button
-            type="button"
-            className="app-gate-secondary"
-            disabled={busy !== null}
-            onClick={() => act('pause', () => setStatus({ id, status: 'paused' }))}
-          >
-            Pause
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="app-gate-secondary"
-            disabled={busy !== null || !a.playbook}
-            onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
-          >
-            {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Enable'}
-          </button>
-        )}
-        {running ? <span className="app-muted">A run is going.</span> : null}
-      </div>
       {error ? (
         <p className="app-connection-error" role="alert">
           {error}

@@ -4,7 +4,7 @@ import { ConvexReactClient, useConvexAuth, useMutation, useQuery } from 'convex/
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ConnectionBanner, SignOut } from './app-pages'
-import { BufferMark } from './brand-icons'
+import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -187,28 +187,94 @@ function Waitlisted({ email }: { email: string | null }) {
  */
 function AppShell({ timezone }: { timezone: string | null }) {
   const setTimezone = useMutation(api.users.setTimezone)
+  const automations = useQuery(api.automations.list)
+  const connection = useQuery(api.buffer.myConnection)
   useEffect(() => {
     if (timezone) return
     const detected = Intl.DateTimeFormat().resolvedOptions().timeZone
     if (detected) void setTimezone({ timezone: detected }).catch(() => {})
   }, [timezone, setTimezone])
+  const channels = connection?.channels ?? []
   return (
-    <main className="app-gate is-app">
-      <div className="app-gate-inner">
-        <header className="app-top">
-          <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
-            <Wordmark size="md" />
+    <div className="app-frame">
+      <aside className="app-side">
+        <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
+          <Wordmark size="md" />
+        </Link>
+        <nav aria-label="App" className="app-side-nav">
+          <Link to="/app" activeOptions={{ exact: true }}>
+            Home
           </Link>
-          <nav aria-label="App" className="app-nav">
-            <Link to="/app" activeOptions={{ exact: true }}>
-              Home
+          <Link to="/app/new">New automation</Link>
+          <Link to="/app/settings">Settings</Link>
+        </nav>
+        {automations && automations.length ? (
+          <div className="app-side-group">
+            <h2>Automations</h2>
+            <ul>
+              {automations.map((a) => (
+                <li key={a._id} data-status={a.status}>
+                  <Link to="/app/a/$id" params={{ id: a._id }}>
+                    <span className="app-side-name">{a.name}</span>
+                    <span className="app-side-state">{SIDE_STATES[a.status] ?? a.status}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {channels.length ? (
+          <div className="app-side-group">
+            <h2>Channels</h2>
+            <ul>
+              {channels.map((c) => (
+                <li key={c.channelId} data-usable={c.usable}>
+                  <span className="app-side-channel">
+                    <ChannelMark channel={SERVICE_NAMES[c.service] ?? c.service} size={14} />
+                    <span className="app-side-name">{c.name}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <Link to="/app/settings" className="app-side-small">
+              Manage in settings
             </Link>
-            <Link to="/app/settings">Settings</Link>
-          </nav>
-        </header>
-        <ConnectionBanner />
-        <Outlet />
-      </div>
-    </main>
+          </div>
+        ) : null}
+      </aside>
+      <main className="app-gate is-app">
+        <div className="app-gate-inner">
+          <header className="app-top">
+            <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
+              <Wordmark size="md" />
+            </Link>
+            <nav aria-label="App" className="app-nav">
+              <Link to="/app" activeOptions={{ exact: true }}>
+                Home
+              </Link>
+              <Link to="/app/settings">Settings</Link>
+            </nav>
+          </header>
+          <ConnectionBanner />
+          <Outlet />
+        </div>
+      </main>
+    </div>
   )
+}
+
+const SIDE_STATES: Record<string, string> = {
+  generating: 'writing',
+  ready: 'not enabled',
+  active: 'on',
+  paused: 'paused',
+  failed: 'paused',
+}
+
+const SERVICE_NAMES: Record<string, string> = {
+  twitter: 'X',
+  linkedin: 'LinkedIn',
+  threads: 'Threads',
+  bluesky: 'Bluesky',
+  mastodon: 'Mastodon',
 }
