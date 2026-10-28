@@ -269,3 +269,68 @@ export const usage = query({
     }
   },
 })
+
+/** Whether this is the owner's account: the address in OWNER_EMAIL, or the alert address. */
+function isOwner(email: string | undefined): boolean {
+  const owner = (
+    process.env.OWNER_EMAIL ??
+    process.env.ALERT_EMAIL ??
+    'barry@dispatchlet.com'
+  ).toLowerCase()
+  return Boolean(email) && email!.toLowerCase() === owner
+}
+
+/** Totals across every account, for the owner only: the numbers pricing will come from. */
+export const ownerTotals = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+    const me = await ctx.db.get(userId)
+    if (!me || !isOwner(me.email)) return null
+    const now = Date.now()
+    const monthStart = Date.UTC(new Date(now).getUTCFullYear(), new Date(now).getUTCMonth(), 1)
+    const users = await ctx.db.query('users').collect()
+    const automations = (await ctx.db.query('automations').collect()).filter((a) => !a.deletedAt)
+    const runs = (
+      await ctx.db
+        .query('runs')
+        .withIndex('by_kind_startedAt', (q) =>
+          q.eq('kind', 'scheduled').gt('startedAt', monthStart),
+        )
+        .collect()
+    ).concat(
+      await ctx.db
+        .query('runs')
+        .withIndex('by_kind_startedAt', (q) => q.eq('kind', 'now').gt('startedAt', monthStart))
+        .collect(),
+      await ctx.db
+        .query('runs')
+        .withIndex('by_kind_startedAt', (q) => q.eq('kind', 'dry').gt('startedAt', monthStart))
+        .collect(),
+    )
+    const calls = await ctx.db
+      .query('aiCalls')
+      .withIndex('by_createdAt', (q) => q.gt('createdAt', monthStart))
+      .collect()
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_createdAt', (q) => q.gt('createdAt', monthStart))
+      .collect()
+    const done = runs.filter((r) => r.status === 'done')
+    return {
+      accounts: users.length,
+      withKey: users.filter((u) => u.anthropicKeyEnc).length,
+      automations: automations.length,
+      active: automations.filter((a) => a.status === 'active').length,
+      runs: runs.length,
+      failed: runs.filter((r) => r.status === 'failed').length,
+      costUsd: Math.round(calls.reduce((sum, c) => sum + c.costUsd, 0) * 100) / 100,
+      costPerRunUsd: done.length
+        ? Math.round((done.reduce((s, r) => s + r.costUsd, 0) / done.length) * 1000) / 1000
+        : 0,
+      posts: posts.filter((p) => p.bufferPostId).length,
+      sent: posts.filter((p) => p.status === 'sent').length,
+    }
+  },
+})

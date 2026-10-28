@@ -202,6 +202,7 @@ export function AppSettings() {
       </section>
       <BufferConnection />
       <Usage />
+      <OwnerTotals />
       <EmailPrefs />
       <AnthropicKey
         ownKey={viewer.ownKey}
@@ -361,6 +362,58 @@ function Usage() {
           ? 'The AI cost is billed to your own Anthropic key.'
           : `On Dispatchlet’s key: ${usage.runsLeft} free ${usage.runsLeft === 1 ? 'run' : 'runs'} and ${usage.dryRunsLeft} dry ${usage.dryRunsLeft === 1 ? 'run' : 'runs'} left.`}
       </p>
+    </section>
+  )
+}
+
+/** Only the owner sees this: this month across every account. */
+function OwnerTotals() {
+  const t = useQuery(api.users.ownerTotals)
+  if (!t) return null
+  return (
+    <section className="app-section" aria-labelledby="owner-title">
+      <h2 id="owner-title">Every account, this month</h2>
+      <table className="app-table app-usage">
+        <tbody>
+          <tr>
+            <th>Accounts</th>
+            <td className="tabular">
+              {t.accounts}
+              {t.withKey ? ` (${t.withKey} with their own key)` : ''}
+            </td>
+          </tr>
+          <tr>
+            <th>Automations</th>
+            <td className="tabular">
+              {t.automations}
+              {t.active ? ` (${t.active} enabled)` : ''}
+            </td>
+          </tr>
+          <tr>
+            <th>Runs</th>
+            <td className="tabular">
+              {t.runs}
+              {t.failed ? ` (${t.failed} failed)` : ''}
+            </td>
+          </tr>
+          <tr>
+            <th>AI cost</th>
+            <td className="tabular">${t.costUsd.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <th>Cost per finished run</th>
+            <td className="tabular">${t.costPerRunUsd.toFixed(3)}</td>
+          </tr>
+          <tr>
+            <th>Posts in Buffer</th>
+            <td className="tabular">
+              {t.posts}
+              {t.sent ? ` (${t.sent} sent)` : ''}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p className="app-muted">Only you see this. It is what pricing will be worked out from.</p>
     </section>
   )
 }
