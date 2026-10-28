@@ -18,6 +18,7 @@ const POST_WORDS: Record<string, string> = {
   dry: 'would be sent',
   rejected: 'not used',
   skipped: 'skipped',
+  held: 'waiting for Buffer',
   draft: 'draft',
   queued: 'queued',
   scheduled: 'scheduled',

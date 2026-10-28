@@ -12,7 +12,13 @@ import {
   type ActionCtx,
 } from './_generated/server'
 import { scheduleNext } from './automations'
-import { BufferPostError, channelsAtLimit, createBufferPost, ensureTag } from './buffer'
+import {
+  BufferBudgetError,
+  BufferPostError,
+  channelsAtLimit,
+  createBufferPost,
+  ensureTag,
+} from './buffer'
 import { anthropicClient, callStructured, MODELS, type CallRecord } from './lib/ai/client'
 import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
@@ -565,6 +571,7 @@ export const execute = internalAction({
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let published = 0
+      let held: { retryAt: number; from: number } | null = null
       for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
@@ -648,8 +655,40 @@ export const execute = internalAction({
           await say('publish', `${channel.name}: Buffer did not take the post. ${reason}`)
           if (error instanceof BufferPostError && error.kind === 'limit')
             atLimit.add(channel.channelId)
+          if (error instanceof BufferBudgetError) {
+            // Buffer's shared allowance is spent: the rest of this run waits for the window to reset.
+            held = { retryAt: error.retryAt, from: drafts.indexOf(draft) + 1 }
+            break
+          }
           if (!(error instanceof BufferPostError)) throw error
         }
+      }
+      if (held) {
+        for (const draft of drafts.slice(held.from)) {
+          const channel = targets.find((t) => t.channelId === draft.channelId)
+          const story = byUrl.get(draft.storyUrl) ?? byUrl.get(canonicalUrl(draft.storyUrl))
+          if (!channel || !story) continue
+          await ctx.runMutation(internal.runs.savePost, {
+            userId: user._id,
+            automationId: automation._id,
+            runId,
+            storyId: story._id,
+            channelId: channel.channelId,
+            service: channel.service,
+            text: draft.text,
+            thread: draft.thread ?? undefined,
+            linkAttachment: draft.linkAttachment ?? undefined,
+            status: 'held',
+            reason: 'Waiting for Buffer’s API allowance to reset.',
+          })
+        }
+        await ctx.runMutation(internal.runs.finish, {
+          runId,
+          status: 'done',
+          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest waited for Buffer’s API allowance, which resets at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}; they will be sent then.`,
+        })
+        await ctx.scheduler.runAt(held.retryAt + 30_000, internal.runs.sendHeld, { runId })
+        return null
       }
       await ctx.runMutation(internal.runs.finish, {
         runId,
@@ -663,6 +702,114 @@ export const execute = internalAction({
       if (/401|invalid x-api-key|authentication/i.test(message) && user.anthropicKeyEnc)
         await ctx.runMutation(internal.users.markKeyInvalid, { userId: user._id })
       await fail(message)
+    }
+    return null
+  },
+})
+
+export const heldPosts = internalQuery({
+  args: { runId: v.id('runs') },
+  handler: async (ctx, { runId }) => {
+    const run = await ctx.db.get(runId)
+    if (!run?.automationId) return null
+    const automation = await ctx.db.get(run.automationId)
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_run', (q) => q.eq('runId', runId))
+      .collect()
+    const channels = automation
+      ? await ctx.db
+          .query('bufferChannels')
+          .withIndex('by_user', (q) => q.eq('userId', automation.userId))
+          .collect()
+      : []
+    return { automation, held: posts.filter((p) => p.status === 'held'), channels }
+  },
+})
+
+export const markSent = internalMutation({
+  args: {
+    postId: v.id('posts'),
+    status: v.string(),
+    reason: v.optional(v.string()),
+    bufferPostId: v.optional(v.string()),
+    bufferStatus: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
+    dueAt: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { postId, ...patch }) => {
+    const post = await ctx.db.get(postId)
+    if (!post) return null
+    await ctx.db.patch(postId, {
+      ...patch,
+      approveToken: patch.status === 'draft' ? crypto.randomUUID() : undefined,
+    })
+    if (patch.bufferPostId) {
+      const run = await ctx.db.get(post.runId)
+      if (run)
+        await ctx.db.patch(post.runId, {
+          posted: (run.posted ?? 0) + 1,
+          steps: [
+            ...run.steps,
+            { step: 'publish', at: Date.now(), note: 'A held post was sent to Buffer.' },
+          ],
+        })
+    }
+    return null
+  },
+})
+
+/** Sends the posts a run held back when Buffer's allowance ran out, once it has reset. */
+export const sendHeld = internalAction({
+  args: { runId: v.id('runs') },
+  returns: v.null(),
+  handler: async (ctx, { runId }) => {
+    const loaded = await ctx.runQuery(internal.runs.heldPosts, { runId })
+    if (!loaded?.automation || !loaded.held.length) return null
+    const { automation, held, channels } = loaded
+    const mode = automation.postingMode as 'draft' | 'queue' | 'spread'
+    const tagByOrg = new Map<string, string | null>()
+    let dueAt = Date.now() + SPREAD_FIRST_MS
+    for (const post of held) {
+      const row = channels.find((c) => c.channelId === post.channelId)
+      if (!row) continue
+      try {
+        if (!tagByOrg.has(row.organizationId))
+          tagByOrg.set(
+            row.organizationId,
+            await ensureTag(ctx, automation.userId, row.organizationId),
+          )
+        const created = await createBufferPost(ctx, automation.userId, {
+          channelId: post.channelId,
+          service: post.service,
+          text: post.text,
+          thread: post.thread,
+          linkAttachment: post.linkAttachment,
+          mode,
+          dueAt: mode === 'spread' ? dueAt : undefined,
+          tagId: tagByOrg.get(row.organizationId) ?? null,
+        })
+        if (mode === 'spread') dueAt += SPREAD_GAP_MS
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: mode === 'draft' ? 'draft' : created.dueAt ? 'scheduled' : 'queued',
+          bufferPostId: created.id,
+          bufferStatus: created.status,
+          externalLink: created.externalLink ?? undefined,
+          dueAt: created.dueAt ? Date.parse(created.dueAt) : undefined,
+        })
+      } catch (error) {
+        if (error instanceof BufferBudgetError) {
+          await ctx.scheduler.runAt(error.retryAt + 30_000, internal.runs.sendHeld, { runId })
+          return null
+        }
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: 'failed',
+          reason: error instanceof Error ? error.message : String(error),
+        })
+      }
     }
     return null
   },
