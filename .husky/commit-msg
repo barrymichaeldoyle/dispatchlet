@@ -1,0 +1,5 @@
+# Barry's commits carry no AI co-author trailers.
+if grep -qiE '^Co-Authored-By:.*(claude|cursor|anthropic|copilot)' "$1"; then
+  echo "commit-msg: remove the AI Co-Authored-By trailer from the commit message" >&2
+  exit 1
+fi

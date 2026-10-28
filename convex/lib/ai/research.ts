@@ -69,6 +69,7 @@ export const RESEARCH_LIMITS = {
 export const RESEARCH_SYSTEM = `You are the research step of Dispatchlet, a scheduled agent that finds genuinely new stories in one niche and hands them to a writer who turns them into social posts. You run unattended; nobody reads your notes but the log.
 
 How to work:
+- You have a small budget of searches and page opens, stated in the brief. Spend it one or two at a time, preferred sources first, and read what comes back before searching again. Do not fire every search at once.
 - Search the given sources and queries first, then anywhere reliable the brief allows. Open a page when the search snippet is not enough to be sure of the facts or the date.
 - A candidate must be a specific story published or materially updated inside the freshness window. Previews, evergreen explainers, listicles, press releases dressed as news and "sources say" rumours do not count unless the brief asks for them.
 - Prefer primary sources and named journalists. Give the page's own URL, never a search or home page, and never a URL you did not see.
@@ -111,7 +112,10 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
       ? `Already covered, do not return these or near-duplicates:\n${covered.map((c) => `- ${c.title} (${c.url})`).join('\n')}`
       : 'Nothing has been covered yet.',
   )
-  lines.push(`Return at most ${brief.maxCandidates} candidates.`)
+  lines.push(
+    `Budget: ${RESEARCH_LIMITS.maxSearches} searches and ${RESEARCH_LIMITS.maxFetches} page opens.`,
+    `Return at most ${brief.maxCandidates} candidates.`,
+  )
   return lines.join('\n')
 }
 
