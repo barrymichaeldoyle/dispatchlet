@@ -8,12 +8,18 @@
  * @module
  */
 
+import type * as ai from "../ai.js";
 import type * as alerts from "../alerts.js";
 import type * as auth from "../auth.js";
 import type * as buffer from "../buffer.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
+import type * as evals_setupAnswers from "../evals/setupAnswers.js";
 import type * as http from "../http.js";
+import type * as lib_ai_client from "../lib/ai/client.js";
+import type * as lib_ai_pricing from "../lib/ai/pricing.js";
+import type * as lib_ai_research from "../lib/ai/research.js";
+import type * as lib_ai_setup from "../lib/ai/setup.js";
 import type * as lib_allowlist from "../lib/allowlist.js";
 import type * as lib_budget from "../lib/budget.js";
 import type * as lib_buffer from "../lib/buffer.js";
@@ -29,12 +35,18 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  ai: typeof ai;
   alerts: typeof alerts;
   auth: typeof auth;
   buffer: typeof buffer;
   crons: typeof crons;
   email: typeof email;
+  "evals/setupAnswers": typeof evals_setupAnswers;
   http: typeof http;
+  "lib/ai/client": typeof lib_ai_client;
+  "lib/ai/pricing": typeof lib_ai_pricing;
+  "lib/ai/research": typeof lib_ai_research;
+  "lib/ai/setup": typeof lib_ai_setup;
   "lib/allowlist": typeof lib_allowlist;
   "lib/budget": typeof lib_budget;
   "lib/buffer": typeof lib_buffer;

@@ -66,6 +66,58 @@ export default defineSchema({
     'kind',
     'sentAt',
   ]),
+  /**
+   * One row per scheduled or manual run of an automation, and per eval run. Totals are summed from
+   * aiCalls as each step finishes, so the live run log and the cost per run come from one place.
+   */
+  runs: defineTable({
+    userId: v.optional(v.id('users')),
+    /** Why the run exists: 'eval' (a fixture run from the CLI) now; 'scheduled', 'now', 'dry' later. */
+    kind: v.string(),
+    /** Which eval fixture (lib/evals), when kind is 'eval'. */
+    fixtureId: v.optional(v.number()),
+    status: v.string(),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    /** The step log, newest last. */
+    steps: v.array(v.object({ step: v.string(), at: v.number(), note: v.string() })),
+    usage: v.object({
+      inputTokens: v.number(),
+      outputTokens: v.number(),
+      cacheWriteTokens: v.number(),
+      cacheReadTokens: v.number(),
+      webSearches: v.number(),
+      webFetches: v.number(),
+    }),
+    costUsd: v.number(),
+    /** What research found, kept on the run until the stories table exists. */
+    result: v.optional(v.any()),
+    error: v.optional(v.string()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_kind_startedAt', ['kind', 'startedAt']),
+  /** Every model call, with what it cost, so the cost per run is measured and not guessed. */
+  aiCalls: defineTable({
+    runId: v.optional(v.id('runs')),
+    userId: v.optional(v.id('users')),
+    purpose: v.string(),
+    model: v.string(),
+    stopReason: v.union(v.string(), v.null()),
+    usage: v.object({
+      inputTokens: v.number(),
+      outputTokens: v.number(),
+      cacheWriteTokens: v.number(),
+      cacheReadTokens: v.number(),
+      webSearches: v.number(),
+      webFetches: v.number(),
+    }),
+    costUsd: v.number(),
+    durationMs: v.number(),
+    refusal: v.union(v.string(), v.null()),
+    createdAt: v.number(),
+  })
+    .index('by_run', ['runId'])
+    .index('by_createdAt', ['createdAt']),
   waitlist: defineTable({
     email: v.string(),
     createdAt: v.number(),
