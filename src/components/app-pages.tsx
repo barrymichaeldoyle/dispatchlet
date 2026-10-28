@@ -327,7 +327,7 @@ export function AppSettings() {
   return (
     <>
       <h1>Settings.</h1>
-      <section className="app-section" aria-labelledby="account-title">
+      <section className="app-section app-settings-account" aria-labelledby="account-title">
         <h2 id="account-title">Account</h2>
         <p>
           {viewer.name ?? 'Your Buffer account'}

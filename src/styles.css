@@ -5544,3 +5544,15 @@ header nav button {
 .setup-live > div {
   padding-left: 16px;
 }
+.app-frame .app-settings-account .app-gate-secondary {
+  display: none;
+}
+@media (max-width: 900px) {
+  .app-frame .app-settings-account .app-gate-secondary {
+    display: inline-flex;
+  }
+}
+.app-settings-account ~ .app-section,
+.app-settings-account {
+  max-width: 760px;
+}
