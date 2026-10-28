@@ -521,7 +521,7 @@ export const execute = internalAction({
         const channel = targets.find((t) => t.channelId === d.channelId)
         return channel ? withLink(d, channel) : d
       })
-      for (let round = 0; round < 2; round++) {
+      for (let round = 0; round < 3; round++) {
         const failed = drafts.flatMap((draft) => {
           const channel = targets.find((t) => t.channelId === draft.channelId)
           if (!channel) return []

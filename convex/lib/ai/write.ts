@@ -69,9 +69,9 @@ export function textLimitFor(channel: TargetChannel, playbook: Playbook): number
   return SERVICE_LIMITS[channel.service].linkCard ? limit : limit - LINK_ALLOWANCE
 }
 
-/** What the writer aims for: comfortably under the limit, since the models tend to run to it. */
+/** What the writer aims for: well under the limit, since the models overshoot a target by about a tenth. */
 export function targetFor(channel: TargetChannel, playbook: Playbook): number {
-  return Math.max(80, Math.round(textLimitFor(channel, playbook) * 0.85))
+  return Math.max(80, Math.round(textLimitFor(channel, playbook) * 0.75))
 }
 
 /** Adds the story's link after the text on channels that have no link card, unless it is there. */
@@ -189,7 +189,7 @@ export function repairUserMessage(
   ]
   failed.forEach((f, i) => {
     lines.push(
-      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}). Your text may be ${f.limit} characters at most${f.over > 0 ? `; this one is ${f.over} over, so cut at least ${f.over + 20}` : ''}. Problem: ${f.reason}`,
+      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}). Your text may be ${f.limit} characters at most; write it in ${Math.min(Math.round(f.limit * 0.75), Math.max(80, f.limit - f.over - 40))} or fewer${f.over > 0 ? `, since this one is ${f.over} over` : ''}. Drop a sentence rather than trim words. Problem: ${f.reason}`,
       `   storyUrl: ${f.post.storyUrl}`,
       `   text: ${f.post.text}`,
       ...(f.post.thread?.length ? [`   thread: ${f.post.thread.join(' || ')}`] : []),

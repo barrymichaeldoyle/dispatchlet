@@ -75,7 +75,10 @@ export function AppHome() {
   if (!viewer || data === undefined) return null
   const firstName = viewer.name?.trim().split(/\s+/)[0]
   const { automations, drafts } = data ?? { automations: [], drafts: [] }
-  if (!automations.length) return <EmptyHome firstName={firstName} viewer={viewer} />
+  // `?preview-empty` shows the first-visit screen on an account that has automations, for design work.
+  const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
+  if (!automations.length || previewEmpty)
+    return <EmptyHome firstName={firstName} viewer={viewer} />
   return (
     <>
       <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
