@@ -18,7 +18,7 @@ import { Route as AppNewRouteImport } from './routes/app.new'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppAIdRouteImport } from './routes/app.a.$id'
-import { Route as AppAIdRunsRunIdRouteImport } from './routes/app.a.$id.runs.$runId'
+import { Route as AppAIdRunsRunIdRouteImport } from './routes/app.a.$id_.runs.$runId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -66,9 +66,9 @@ const AppAIdRoute = AppAIdRouteImport.update({
   getParentRoute: () => AppRoute,
 } as any)
 const AppAIdRunsRunIdRoute = AppAIdRunsRunIdRouteImport.update({
-  id: '/runs/$runId',
-  path: '/runs/$runId',
-  getParentRoute: () => AppAIdRoute,
+  id: '/a/$id_/runs/$runId',
+  path: '/a/$id/runs/$runId',
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -80,7 +80,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/a/$id': typeof AppAIdRouteWithChildren
+  '/app/a/$id': typeof AppAIdRoute
   '/app/a/$id/runs/$runId': typeof AppAIdRunsRunIdRoute
 }
 export interface FileRoutesByTo {
@@ -91,7 +91,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/a/$id': typeof AppAIdRouteWithChildren
+  '/app/a/$id': typeof AppAIdRoute
   '/app/a/$id/runs/$runId': typeof AppAIdRunsRunIdRoute
 }
 export interface FileRoutesById {
@@ -104,8 +104,8 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
-  '/app/a/$id': typeof AppAIdRouteWithChildren
-  '/app/a/$id/runs/$runId': typeof AppAIdRunsRunIdRoute
+  '/app/a/$id': typeof AppAIdRoute
+  '/app/a/$id_/runs/$runId': typeof AppAIdRunsRunIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -142,7 +142,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/auth/$'
     | '/app/a/$id'
-    | '/app/a/$id/runs/$runId'
+    | '/app/a/$id_/runs/$runId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -218,39 +218,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/a/$id/runs/$runId': {
-      id: '/app/a/$id/runs/$runId'
-      path: '/runs/$runId'
+    '/app/a/$id_/runs/$runId': {
+      id: '/app/a/$id_/runs/$runId'
+      path: '/a/$id/runs/$runId'
       fullPath: '/app/a/$id/runs/$runId'
       preLoaderRoute: typeof AppAIdRunsRunIdRouteImport
-      parentRoute: typeof AppAIdRoute
+      parentRoute: typeof AppRoute
     }
   }
 }
-
-interface AppAIdRouteChildren {
-  AppAIdRunsRunIdRoute: typeof AppAIdRunsRunIdRoute
-}
-
-const AppAIdRouteChildren: AppAIdRouteChildren = {
-  AppAIdRunsRunIdRoute: AppAIdRunsRunIdRoute,
-}
-
-const AppAIdRouteWithChildren =
-  AppAIdRoute._addFileChildren(AppAIdRouteChildren)
 
 interface AppRouteChildren {
   AppNewRoute: typeof AppNewRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppAIdRoute: typeof AppAIdRouteWithChildren
+  AppAIdRoute: typeof AppAIdRoute
+  AppAIdRunsRunIdRoute: typeof AppAIdRunsRunIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppNewRoute: AppNewRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppAIdRoute: AppAIdRouteWithChildren,
+  AppAIdRoute: AppAIdRoute,
+  AppAIdRunsRunIdRoute: AppAIdRunsRunIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
