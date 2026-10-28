@@ -25,7 +25,7 @@ function Gate() {
   if (isLoading || (isAuthenticated && viewer === undefined)) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
-  return <AppShell timezone={viewer.timezone} />
+  return <AppShell timezone={viewer.timezone} name={viewer.name} email={viewer.email} />
 }
 
 function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -185,7 +185,15 @@ function Waitlisted({ email }: { email: string | null }) {
  * The app for allowlisted accounts: a header with the pages, the Buffer connection warning when
  * there is one, then the page. The time zone is filled in from the browser on the first visit.
  */
-function AppShell({ timezone }: { timezone: string | null }) {
+function AppShell({
+  timezone,
+  name,
+  email,
+}: {
+  timezone: string | null
+  name: string | null
+  email: string | null
+}) {
   const setTimezone = useMutation(api.users.setTimezone)
   const automations = useQuery(api.automations.list)
   const connection = useQuery(api.buffer.myConnection)
@@ -241,6 +249,11 @@ function AppShell({ timezone }: { timezone: string | null }) {
             </Link>
           </div>
         ) : null}
+        <div className="app-side-account">
+          <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
+          {name && email ? <span className="app-side-small">{email}</span> : null}
+          <SignOut />
+        </div>
       </aside>
       <main className="app-gate is-app">
         <div className="app-gate-inner">
