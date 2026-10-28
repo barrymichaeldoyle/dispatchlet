@@ -218,7 +218,8 @@ export const setEmailPrefs = mutation({
   handler: async (ctx, { prefs }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
-    if (!(EMAIL_PREFS as readonly string[]).includes(prefs)) throw new Error('Not a choice')
+    if (!(EMAIL_PREFS as readonly string[]).includes(prefs))
+      throw new Error('That is not one of the choices.')
     await ctx.db.patch(userId, { emailPrefs: prefs })
     return null
   },

@@ -87,7 +87,7 @@ export const trigger = mutation({
       .order('desc')
       .first()
     if (running && !running.finishedAt && Date.now() - running.startedAt < 15 * 60_000)
-      throw new Error('A run is already going')
+      throw new Error('A run is already going. Wait for it to finish.')
     const runId = await beginRun(ctx, automation, dry ? 'dry' : 'now')
     if (!runId)
       throw new Error(

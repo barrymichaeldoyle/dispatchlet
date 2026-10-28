@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ChannelMark } from './brand-icons'
+import { TEMPLATES } from '../../convex/lib/templates'
 import { errorText, serviceName } from '../lib/format'
 
 const WEEKDAYS = [
@@ -122,15 +123,46 @@ export function NewAutomation() {
       hint: 'One line is enough.',
       valid: a.research.trim().length > 0,
       body: (
-        <input
-          id={`${id}-research`}
-          className="setup-input setup-field"
-          value={a.research}
-          maxLength={300}
-          autoFocus
-          onChange={(e) => set('research', e.target.value)}
-          placeholder="F1 news: race results, driver and team news"
-        />
+        <>
+          <input
+            id={`${id}-research`}
+            className="setup-input setup-field"
+            value={a.research}
+            maxLength={300}
+            autoFocus
+            onChange={(e) => set('research', e.target.value)}
+            placeholder="F1 news: race results, driver and team news"
+          />
+          <p className="setup-hint">Or start from an example and change what you like.</p>
+          <div className="setup-templates">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className="setup-template"
+                onClick={() => {
+                  const w = t.answers
+                  setA((prev) => ({
+                    ...prev,
+                    research: w.research,
+                    avoid: w.avoid,
+                    sources: w.sources.join(', '),
+                    onlyTheseSources: w.onlyTheseSources,
+                    preset: w.cadence.preset,
+                    time: w.cadence.time,
+                    weekday: (w.cadence.weekday ?? 'mon') as Answers['weekday'],
+                    maxStories: w.maxStories,
+                    postingMode: w.postingMode,
+                  }))
+                  setIndex(1)
+                }}
+              >
+                <strong>{t.name}</strong>
+                <span>{t.line}</span>
+              </button>
+            ))}
+          </div>
+        </>
       ),
     },
     {

@@ -33,6 +33,7 @@ import type * as lib_email from "../lib/email.js";
 import type * as lib_limits from "../lib/limits.js";
 import type * as lib_playbook from "../lib/playbook.js";
 import type * as lib_schedule from "../lib/schedule.js";
+import type * as lib_templates from "../lib/templates.js";
 import type * as playbooks from "../playbooks.js";
 import type * as runs from "../runs.js";
 import type * as status from "../status.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   "lib/limits": typeof lib_limits;
   "lib/playbook": typeof lib_playbook;
   "lib/schedule": typeof lib_schedule;
+  "lib/templates": typeof lib_templates;
   playbooks: typeof playbooks;
   runs: typeof runs;
   status: typeof status;
