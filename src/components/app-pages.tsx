@@ -140,7 +140,7 @@ export function AppHome() {
                   )}
                 </p>
                 <p className="app-muted tabular">
-                  {a.postsThisWeek} {a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.
+                  {`${a.postsThisWeek} ${a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.`}
                 </p>
               </li>
             ))}
@@ -470,7 +470,7 @@ function AnthropicKey({
           <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">
             platform.claude.com
           </a>{' '}
-          and runs are not counted; you pay Anthropic for what they use, about $0.15 a run.
+          and runs are not counted; you pay Anthropic for what they use, about 6 cents a run.
         </p>
       )}
       <div className="app-field">
