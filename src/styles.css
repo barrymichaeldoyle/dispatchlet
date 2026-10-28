@@ -4895,3 +4895,13 @@ header nav button {
   max-width: 64ch;
   font-size: 15px;
 }
+.app-form input[type='checkbox'],
+.app-radio input,
+.app-choices input {
+  accent-color: var(--color-ink);
+}
+@media (max-width: 720px) {
+  .setup-form .setup-stage {
+    min-height: 0;
+  }
+}
