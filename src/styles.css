@@ -1531,7 +1531,12 @@ header nav button {
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  /* Columns scroll on small laptops. Keep the bar off the content: overlay bars (Mac) sit in the
+     padding, classic bars (Windows, Mac with bars always on) get a reserved gutter. */
+  padding-right: 12px;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-rule) transparent;
 }
 .is-overview .flow-context > .flow-panel {
   flex-shrink: 0;
@@ -1539,8 +1544,11 @@ header nav button {
 .is-overview .flow-scene > .flow-panel {
   border-left: 1px solid var(--color-rule);
   padding-left: 24px;
+  padding-right: 12px;
   overflow-y: auto;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-rule) transparent;
 }
 .is-overview .flow-panel {
   min-width: 0;
