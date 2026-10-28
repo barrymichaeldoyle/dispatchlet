@@ -5,6 +5,7 @@ import {
   briefFromSetup,
   freshnessFor,
   lookbackHours,
+  researchTools,
   researchUserMessage,
 } from './research'
 import { hostOf, SetupAnswers } from './setup'
@@ -70,6 +71,18 @@ describe('the research user message', () => {
     expect(researchUserMessage(briefFromSetup(rust), { ...context, covered: [] })).toContain(
       'Sources, and only these: github.com, blog.rust-lang.org.\nNothing has been covered yet.',
     )
+  })
+
+  it('defaults to the basic web tools with four searches, and the filtered ones on request', () => {
+    const basic = researchTools(undefined)
+    expect(basic.map((t) => t.type)).toEqual(['web_search_20250305', 'web_fetch_20250910'])
+    expect(basic[0]!.max_uses).toBe(4)
+    const filtered = researchTools(['formula1.com'], 'filtered')
+    expect(filtered.map((t) => t.type)).toEqual(['web_search_20260209', 'web_fetch_20260209'])
+    expect(filtered[1]).toMatchObject({
+      allowed_domains: ['formula1.com'],
+      max_content_tokens: 6000,
+    })
   })
 
   it('looks back twice as far on the first run, up to two weeks', () => {

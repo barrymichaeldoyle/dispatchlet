@@ -86,6 +86,8 @@ export function briefFromPlaybook(
 /** Per-run ceilings on the tool loop. Together with caching they bound what a run can cost. */
 export const RESEARCH_LIMITS = {
   maxSearches: 6,
+  /** Unfiltered search results cost about 2.5k input tokens each, so fewer of them. */
+  maxBasicSearches: 4,
   maxFetches: 8,
   maxFetchTokens: 6_000,
   coveredShown: 100,
@@ -151,7 +153,7 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
       : 'Nothing has been covered yet.',
   )
   lines.push(
-    `Budget: ${RESEARCH_LIMITS.maxSearches} searches and ${RESEARCH_LIMITS.maxFetches} page opens.`,
+    `Budget: ${process.env.RESEARCH_TOOLS === 'filtered' ? RESEARCH_LIMITS.maxSearches : RESEARCH_LIMITS.maxBasicSearches} searches and ${RESEARCH_LIMITS.maxFetches} page opens.`,
     `Return at most ${brief.maxCandidates} candidates.`,
   )
   return lines.join('\n')
@@ -165,13 +167,14 @@ export function allowedDomains(brief: ResearchBrief): string[] | undefined {
 }
 
 /**
- * The web tools for a research call. The newer variants filter results with code and cut tokens,
- * but their filtering can fail mid-run and spend the allowance on retries; RESEARCH_TOOLS=basic
- * switches to the plain variants for comparison.
+ * The web tools for a research call. The basic variants are the default: the newer ones filter
+ * results with code and cut tokens, but on the 28 Oct eval their filtering failed mid-run and the
+ * retries spent the allowance, while the basic ones were twice as fast and found more. Basic search
+ * results are large, so searches are capped lower. RESEARCH_TOOLS=filtered switches back.
  */
 export function researchTools(
   domains: string[] | undefined,
-  variant: 'filtered' | 'basic' = process.env.RESEARCH_TOOLS === 'basic' ? 'basic' : 'filtered',
+  variant: 'filtered' | 'basic' = process.env.RESEARCH_TOOLS === 'filtered' ? 'filtered' : 'basic',
 ) {
   const scope = domains ? { allowed_domains: domains } : {}
   return [
@@ -179,7 +182,8 @@ export function researchTools(
       type:
         variant === 'basic' ? ('web_search_20250305' as const) : ('web_search_20260209' as const),
       name: 'web_search' as const,
-      max_uses: RESEARCH_LIMITS.maxSearches,
+      max_uses:
+        variant === 'basic' ? RESEARCH_LIMITS.maxBasicSearches : RESEARCH_LIMITS.maxSearches,
       ...scope,
     },
     {
