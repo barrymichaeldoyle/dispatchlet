@@ -6,14 +6,18 @@ import { FIXTURES } from './evals/setupAnswers'
 import { usageValidator } from './schema'
 import { anthropicClient, callStructured, MODELS } from './lib/ai/client'
 import { addUsage, EMPTY_USAGE } from './lib/ai/pricing'
+import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import {
   allowedDomains,
+  briefFromPlaybook,
   briefFromSetup,
   RESEARCH_LIMITS,
   RESEARCH_SYSTEM,
   ResearchResult,
   researchUserMessage,
+  type ResearchBrief,
 } from './lib/ai/research'
+import { renderPlaybook } from './lib/playbook'
 
 type UsageShape = {
   inputTokens: number
@@ -39,7 +43,7 @@ type EvalSummary = {
  * Two runs of the same fixture inside five minutes show the prompt cache working.
  */
 export const researchEval = internalAction({
-  args: { fixtureId: v.number(), timezone: v.optional(v.string()) },
+  args: { fixtureId: v.number(), timezone: v.optional(v.string()), full: v.optional(v.boolean()) },
   returns: v.object({
     runId: v.id('runs'),
     candidates: v.number(),
@@ -55,11 +59,44 @@ export const researchEval = internalAction({
       kind: 'eval',
       fixtureId: fixture.id,
     })
-    const brief = briefFromSetup(fixture.answers)
     const timezone = args.timezone ?? 'Europe/London'
-    const domains = allowedDomains(brief)
     const client = anthropicClient()
+    let brief: ResearchBrief = briefFromSetup(fixture.answers)
     try {
+      // The real path: a playbook first, then research from it.
+      if (args.full) {
+        const generated = await callStructured(client, {
+          model: MODELS.playbook,
+          effort: 'high',
+          maxTokens: 8_000,
+          system: GENERATE_SYSTEM,
+          user: generateUserMessage(
+            fixture.answers,
+            fixture.answers.services,
+            new Date(),
+            timezone,
+          ),
+          schema: Playbook,
+          tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 4 }],
+        })
+        await ctx.runMutation(internal.ai.recordCall, {
+          runId,
+          purpose: 'playbook',
+          ...generated.record,
+        })
+        if (!generated.output) throw new Error(generated.record.refusal ?? 'No playbook')
+        await ctx.runMutation(internal.ai.finishRun, {
+          runId,
+          status: 'researching',
+          note: 'playbook written',
+          result: { playbook: renderPlaybook(generated.output) },
+        })
+        brief = briefFromPlaybook(generated.output, {
+          onlyTheseSources: fixture.answers.onlyTheseSources,
+          maxPostsPerRun: fixture.answers.maxStories,
+        })
+      }
+      const domains = allowedDomains(brief)
       const { output, record } = await callStructured(client, {
         model: MODELS.research,
         effort: 'medium',
@@ -90,7 +127,7 @@ export const researchEval = internalAction({
         runId,
         status: output ? 'done' : 'failed',
         note: `${candidates} candidates, ${record.usage.webSearches} searches, ${record.usage.webFetches} fetches`,
-        result: output ?? undefined,
+        result: output ? { research: output } : undefined,
         error: output ? undefined : notes,
       })
       return {
@@ -186,9 +223,9 @@ export const finishRun = internalMutation({
     if (!run) throw new Error('Run not found')
     await ctx.db.patch(runId, {
       status,
-      finishedAt: Date.now(),
+      finishedAt: status === 'researching' ? undefined : Date.now(),
       steps: [...run.steps, { step: 'research', at: Date.now(), note }],
-      result,
+      result: result && run.result ? { ...run.result, ...result } : (result ?? run.result),
       error,
     })
     return null
@@ -222,7 +259,11 @@ export const evalRuns = internalQuery({
       costUsd: run.costUsd,
       usage: run.usage,
       seconds: run.finishedAt ? Math.round((run.finishedAt - run.startedAt) / 1000) : null,
-      candidates: Array.isArray(run.result?.candidates) ? run.result.candidates.length : 0,
+      candidates: Array.isArray(run.result?.research?.candidates)
+        ? run.result.research.candidates.length
+        : Array.isArray(run.result?.candidates)
+          ? run.result.candidates.length
+          : 0,
     }))
   },
 })

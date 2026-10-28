@@ -23,12 +23,12 @@ import { anthropicClient, callStructured, MODELS, type CallRecord } from './lib/
 import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
   allowedDomains,
+  briefFromPlaybook,
   RESEARCH_LIMITS,
   RESEARCH_SYSTEM,
   ResearchResult,
   researchUserMessage,
   type Candidate,
-  type ResearchBrief,
 } from './lib/ai/research'
 import type { Service } from './lib/ai/setup'
 import {
@@ -318,23 +318,6 @@ export const finish = internalMutation({
   },
 })
 
-/** Builds the research brief from a playbook plus the automation's own settings. */
-function briefFrom(playbook: Playbook, automation: Doc<'automations'>): ResearchBrief {
-  return {
-    name: playbook.name,
-    topic: playbook.about,
-    include: playbook.include,
-    exclude: playbook.exclude,
-    sources: [
-      ...playbook.sources.map((s) => (s.url ? `${s.url}${s.note ? ` (${s.note})` : ''}` : s.label)),
-      ...playbook.searchQueries.map((q) => `search: "${q}"`),
-    ],
-    onlyTheseSources: automation.setup.onlyTheseSources,
-    freshnessHours: playbook.freshnessHours,
-    maxCandidates: Math.min(automation.maxPostsPerRun + 2, 5),
-  }
-}
-
 async function record(ctx: ActionCtx, runId: Id<'runs'>, purpose: string, r: CallRecord) {
   await ctx.runMutation(internal.ai.recordCall, { runId, purpose, ...r })
 }
@@ -380,7 +363,10 @@ export const execute = internalAction({
         if (!c.usable) await say('channels', `${c.name} skipped: it needs attention in Buffer.`)
 
       const client = anthropicClient(await keyFor(user))
-      const brief = briefFrom(playbook, automation)
+      const brief = briefFromPlaybook(playbook, {
+        onlyTheseSources: automation.setup.onlyTheseSources,
+        maxPostsPerRun: automation.maxPostsPerRun,
+      })
       const domains = allowedDomains(brief)
       const research = await callStructured(client, {
         model: MODELS.research,

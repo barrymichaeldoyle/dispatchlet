@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { Playbook } from '../playbook'
 import { hostOf, type SetupAnswers } from './setup'
 
 /**
@@ -58,6 +59,30 @@ export function briefFromSetup(answers: SetupAnswers): ResearchBrief {
   }
 }
 
+/** The brief a run uses once a playbook exists; the automation's own settings fill the rest. */
+export function briefFromPlaybook(
+  playbook: Playbook,
+  settings: { onlyTheseSources: boolean; maxPostsPerRun: number },
+): ResearchBrief {
+  return {
+    name: playbook.name,
+    topic: playbook.about,
+    include: playbook.include,
+    exclude: playbook.exclude,
+    sources: [
+      ...playbook.sources.map((s) =>
+        s.url
+          ? `${s.url}${s.note ? ` (${s.note})` : ''}${s.priority === 'high' ? ' [open first]' : ''}`
+          : s.label,
+      ),
+      ...playbook.searchQueries.map((q) => `search: "${q}"`),
+    ],
+    onlyTheseSources: settings.onlyTheseSources,
+    freshnessHours: playbook.freshnessHours,
+    maxCandidates: Math.min(settings.maxPostsPerRun + 2, 5),
+  }
+}
+
 /** Per-run ceilings on the tool loop. Together with caching they bound what a run can cost. */
 export const RESEARCH_LIMITS = {
   maxSearches: 6,
@@ -69,8 +94,10 @@ export const RESEARCH_LIMITS = {
 export const RESEARCH_SYSTEM = `You are the research step of Dispatchlet, a scheduled agent that finds genuinely new stories in one niche and hands them to a writer who turns them into social posts. You run unattended; nobody reads your notes but the log.
 
 How to work:
-- You have a small budget of searches and page opens, stated in the brief. Spend it one or two at a time, preferred sources first, and read what comes back before searching again. Do not fire every search at once.
-- Search the given sources and queries first, then anywhere reliable the brief allows. Open a page when the search snippet is not enough to be sure of the facts or the date.
+- You have a small budget of searches and page opens, stated in the brief. Spend it one or two at a time and read what comes back before going on. Do not fire every search at once.
+- Start by opening the source pages marked [open first]: a publisher's own latest-news page lists today's stories with dates, which search engines rarely do. Then run the brief's searches, then anything else reliable the brief allows.
+- When a preferred source does not show up in results, search it directly with site:host and the topic.
+- Open the article itself, not a tag or archive page, when a snippet is not enough to be sure of the facts or the date. A page that fails to open still costs an open; move on rather than retry it.
 - A candidate must be a specific story published or materially updated inside the freshness window. Previews, evergreen explainers, listicles, press releases dressed as news and "sources say" rumours do not count unless the brief asks for them.
 - Prefer primary sources and named journalists. Give the page's own URL, never a search or home page, and never a URL you did not see.
 - Keep facts to what the pages say. keyFacts is the writer's whole evidence; put dates, names, numbers and quotes there.
