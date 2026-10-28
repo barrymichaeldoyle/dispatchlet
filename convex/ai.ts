@@ -4,7 +4,7 @@ import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { FIXTURES } from './evals/setupAnswers'
 import { usageValidator } from './schema'
-import { anthropicClient, callStructured, MODELS } from './lib/ai/client'
+import { anthropicClient, callStructured, modelFor } from './lib/ai/client'
 import { addUsage, EMPTY_USAGE } from './lib/ai/pricing'
 import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import {
@@ -18,6 +18,13 @@ import {
   type ResearchBrief,
 } from './lib/ai/research'
 import { renderPlaybook } from './lib/playbook'
+import {
+  checkPost,
+  WRITE_SYSTEM,
+  WriteResult,
+  writeUserMessage,
+  type TargetChannel,
+} from './lib/ai/write'
 
 type UsageShape = {
   inputTokens: number
@@ -31,6 +38,9 @@ type UsageShape = {
 type EvalSummary = {
   runId: Id<'runs'>
   candidates: number
+  posts?: unknown
+  writeModel: string
+  researchModel: string
   costUsd: number
   usage: UsageShape
   durationMs: number
@@ -43,7 +53,13 @@ type EvalSummary = {
  * Two runs of the same fixture inside five minutes show the prompt cache working.
  */
 export const researchEval = internalAction({
-  args: { fixtureId: v.number(), timezone: v.optional(v.string()), full: v.optional(v.boolean()) },
+  args: {
+    fixtureId: v.number(),
+    timezone: v.optional(v.string()),
+    full: v.optional(v.boolean()),
+    /** Also write the posts for the kept candidates, against an X and a LinkedIn channel. */
+    write: v.optional(v.boolean()),
+  },
   returns: v.object({
     runId: v.id('runs'),
     candidates: v.number(),
@@ -51,6 +67,9 @@ export const researchEval = internalAction({
     usage: usageValidator,
     durationMs: v.number(),
     notes: v.string(),
+    posts: v.optional(v.any()),
+    writeModel: v.string(),
+    researchModel: v.string(),
   }),
   handler: async (ctx, args): Promise<EvalSummary> => {
     const fixture = FIXTURES.find((f) => f.id === args.fixtureId)
@@ -62,11 +81,12 @@ export const researchEval = internalAction({
     const timezone = args.timezone ?? 'Europe/London'
     const client = anthropicClient()
     let brief: ResearchBrief = briefFromSetup(fixture.answers)
+    let playbook: Playbook | null = null
     try {
       // The real path: a playbook first, then research from it.
       if (args.full) {
         const generated = await callStructured(client, {
-          model: MODELS.playbook,
+          model: modelFor('playbook'),
           effort: 'high',
           maxTokens: 8_000,
           system: GENERATE_SYSTEM,
@@ -85,6 +105,7 @@ export const researchEval = internalAction({
           ...generated.record,
         })
         if (!generated.output) throw new Error(generated.record.refusal ?? 'No playbook')
+        playbook = generated.output
         await ctx.runMutation(internal.ai.finishRun, {
           runId,
           status: 'researching',
@@ -98,7 +119,7 @@ export const researchEval = internalAction({
       }
       const domains = allowedDomains(brief)
       const { output, record } = await callStructured(client, {
-        model: MODELS.research,
+        model: modelFor('research'),
         effort: 'high',
         maxTokens: 8_000,
         system: RESEARCH_SYSTEM,
@@ -108,18 +129,58 @@ export const researchEval = internalAction({
       })
       await ctx.runMutation(internal.ai.recordCall, { runId, purpose: 'research', ...record })
       const candidates = output?.candidates.length ?? 0
+      let posts: unknown = undefined
+      let writeCostUsd = 0
+      if (args.write && playbook && output?.candidates.length) {
+        const kept = output.candidates
+          .filter((c) => c.confidence >= 0.5)
+          .slice(0, fixture.answers.maxStories)
+        const targets: TargetChannel[] = [
+          { channelId: 'x', service: 'twitter', name: 'X test', maxLength: null },
+          { channelId: 'li', service: 'linkedin', name: 'LinkedIn test', maxLength: null },
+        ]
+        const written = await callStructured(client, {
+          model: modelFor('write'),
+          effort: 'medium',
+          maxTokens: 8_000,
+          system: WRITE_SYSTEM,
+          user: writeUserMessage(playbook, kept, targets),
+          schema: WriteResult,
+        })
+        await ctx.runMutation(internal.ai.recordCall, {
+          runId,
+          purpose: 'write',
+          ...written.record,
+        })
+        writeCostUsd = written.record.costUsd
+        const urls = new Set(kept.map((k) => k.canonicalUrl))
+        posts = (written.output?.posts ?? []).map((p) => {
+          const channel = targets.find((t) => t.channelId === p.channelId) ?? targets[0]!
+          const checked = checkPost(p, channel, playbook!, urls)
+          return {
+            channel: channel.service,
+            text: p.text,
+            thread: p.thread,
+            ok: checked.ok,
+            reason: checked.ok ? null : checked.reason,
+          }
+        })
+      }
       const notes = output?.notes ?? (record.refusal ? `Refused: ${record.refusal}` : 'No output')
       await ctx.runMutation(internal.ai.finishRun, {
         runId,
         status: output ? 'done' : 'failed',
         note: `${candidates} candidates, ${record.usage.webSearches} searches, ${record.usage.webFetches} fetches`,
-        result: output ? { research: output } : undefined,
+        result: output ? { research: output, posts } : undefined,
         error: output ? undefined : notes,
       })
       return {
         runId,
         candidates,
-        costUsd: record.costUsd,
+        posts,
+        writeModel: modelFor('write'),
+        researchModel: modelFor('research'),
+        costUsd: record.costUsd + writeCostUsd,
         usage: record.usage,
         durationMs: record.durationMs,
         notes,

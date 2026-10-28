@@ -1,15 +1,23 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
-import { costOf, EMPTY_USAGE, type ModelId, type Usage } from './pricing'
+import { costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
 
 /** The one place a model is chosen. Barry's key runs everything on Sonnet 5.5 (SPEC §4). */
-export const MODELS = {
+const DEFAULT_MODELS = {
   research: 'claude-sonnet-5-5',
   write: 'claude-sonnet-5-5',
   playbook: 'claude-sonnet-5-5',
   reparse: 'claude-haiku-5-5',
 } as const satisfies Record<string, ModelId>
+
+export type Step = keyof typeof DEFAULT_MODELS
+
+/** The model for a step, overridable per deployment with MODEL_RESEARCH, MODEL_WRITE, MODEL_PLAYBOOK. */
+export function modelFor(step: Step): ModelId {
+  const override = process.env[`MODEL_${step.toUpperCase()}`]
+  return override && isKnownModel(override) ? override : DEFAULT_MODELS[step]
+}
 
 export type Effort = 'low' | 'medium' | 'high'
 

@@ -19,7 +19,7 @@ import {
   createBufferPost,
   ensureTag,
 } from './buffer'
-import { anthropicClient, callStructured, MODELS, type CallRecord } from './lib/ai/client'
+import { anthropicClient, callStructured, modelFor, type CallRecord } from './lib/ai/client'
 import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
   allowedDomains,
@@ -369,7 +369,7 @@ export const execute = internalAction({
       })
       const domains = allowedDomains(brief)
       const research = await callStructured(client, {
-        model: MODELS.research,
+        model: modelFor('research'),
         effort: 'high',
         maxTokens: 8_000,
         system: RESEARCH_SYSTEM,
@@ -483,7 +483,7 @@ export const execute = internalAction({
         maxLength: c.maxLength ?? null,
       }))
       const written = await callStructured(client, {
-        model: MODELS.write,
+        model: modelFor('write'),
         effort: 'medium',
         maxTokens: 8_000,
         system: WRITE_SYSTEM,
@@ -518,7 +518,7 @@ export const execute = internalAction({
           `${failed.length} ${failed.length === 1 ? 'post' : 'posts'} missed the limit. Asking for a shorter version.`,
         )
         const repaired = await callStructured(client, {
-          model: MODELS.write,
+          model: modelFor('write'),
           effort: 'medium',
           maxTokens: 4_000,
           system: WRITE_SYSTEM,

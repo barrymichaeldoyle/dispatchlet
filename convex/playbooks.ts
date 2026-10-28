@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalAction, internalQuery } from './_generated/server'
-import { anthropicClient, callStructured, MODELS } from './lib/ai/client'
+import { anthropicClient, callStructured, modelFor } from './lib/ai/client'
 import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import type { SetupAnswers } from './lib/ai/setup'
 import { keyFor } from './users'
@@ -27,7 +27,7 @@ export const generate = internalAction({
     try {
       const client = anthropicClient(await keyFor(user))
       const { output, record } = await callStructured(client, {
-        model: MODELS.playbook,
+        model: modelFor('playbook'),
         effort: 'high',
         maxTokens: 8_000,
         system: GENERATE_SYSTEM,
