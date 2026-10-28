@@ -27,9 +27,12 @@ import {
 import type { Service } from './lib/ai/setup'
 import {
   checkPost,
+  limitFor,
+  repairUserMessage,
   WRITE_SYSTEM,
   WriteResult,
   writeUserMessage,
+  type PostDraft,
   type TargetChannel,
 } from './lib/ai/write'
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
@@ -520,6 +523,38 @@ export const execute = internalAction({
       }
       const storyUrls = new Set(keep.map((k) => k.canonicalUrl))
       const byUrl = new Map(keep.map((k) => [k.canonicalUrl, k]))
+
+      // Posts that miss their limit get one more chance, as a narrower ask.
+      let drafts: PostDraft[] = written.output.posts
+      const failed = drafts.flatMap((draft) => {
+        const channel = targets.find((t) => t.channelId === draft.channelId)
+        if (!channel) return []
+        const checked = checkPost(draft, channel, playbook, storyUrls)
+        return checked.ok
+          ? []
+          : [{ post: draft, channel, limit: limitFor(channel, playbook), reason: checked.reason }]
+      })
+      if (failed.length) {
+        await say(
+          'write',
+          `${failed.length} ${failed.length === 1 ? 'post' : 'posts'} missed the limit. Asking for a shorter version.`,
+        )
+        const repaired = await callStructured(client, {
+          model: MODELS.write,
+          effort: 'medium',
+          maxTokens: 4_000,
+          system: WRITE_SYSTEM,
+          user: repairUserMessage(failed),
+          schema: WriteResult,
+        })
+        await record(ctx, runId, 'repair', repaired.record)
+        for (const fix of repaired.output?.posts ?? []) {
+          const index = drafts.findIndex(
+            (d) => d.channelId === fix.channelId && d.storyUrl === fix.storyUrl,
+          )
+          if (index >= 0) drafts = drafts.map((d, i) => (i === index ? fix : d))
+        }
+      }
       const atLimit = dry
         ? new Set<string>()
         : await channelsAtLimit(
@@ -530,7 +565,7 @@ export const execute = internalAction({
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let published = 0
-      for (const draft of written.output.posts) {
+      for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
         const story = byUrl.get(draft.storyUrl) ?? byUrl.get(canonicalUrl(draft.storyUrl))

@@ -61,7 +61,7 @@ export function briefFromSetup(answers: SetupAnswers): ResearchBrief {
 /** Per-run ceilings on the tool loop. Together with caching they bound what a run can cost. */
 export const RESEARCH_LIMITS = {
   maxSearches: 6,
-  maxFetches: 4,
+  maxFetches: 8,
   maxFetchTokens: 3_000,
   coveredShown: 100,
 } as const

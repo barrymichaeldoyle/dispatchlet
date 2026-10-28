@@ -1,10 +1,9 @@
-import { WEEKDAYS } from './ai/setup'
-
 export type Cadence = {
   preset: 'daily' | 'weekly'
   /** Local time, HH:MM. */
   time: string
-  weekday: (typeof WEEKDAYS)[number] | null
+  /** mon to sun, for weekly. */
+  weekday: string | null
 }
 
 /** The wall-clock parts of an instant in a zone. */
@@ -26,7 +25,7 @@ function partsIn(zone: string, at: Date) {
     day: Number(p.day),
     hour: Number(p.hour),
     minute: Number(p.minute),
-    weekday: p.weekday!.toLowerCase().slice(0, 3) as (typeof WEEKDAYS)[number],
+    weekday: p.weekday!.toLowerCase().slice(0, 3),
   }
 }
 

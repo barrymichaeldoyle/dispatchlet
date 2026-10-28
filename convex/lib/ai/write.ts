@@ -50,6 +50,16 @@ Rules:
 - No hashtags unless the playbook allows them. No emoji unless the playbook allows them. No exclamation marks. Plain words. Never say "exciting", "game-changer", "heartwarming" or the like.
 - Write every post, even when several stories go to the same channel.`
 
+const URL_PATTERN = /https?:\/\/\S+/g
+/** X wraps every link in t.co, so a URL counts as 23 characters there whatever its length. */
+const X_LINK_LENGTH = 23
+
+/** How many characters a service will count the text as. */
+export function measuredLength(text: string, service: Service): number {
+  if (service === 'twitter') return [...text.replace(URL_PATTERN, 'x'.repeat(X_LINK_LENGTH))].length
+  return [...text].length
+}
+
 /** The limit a channel's posts must fit. The playbook may tighten it, never loosen it. */
 export function limitFor(channel: TargetChannel, playbook: Playbook): number {
   const base = channel.maxLength ?? SERVICE_LIMITS[channel.service].maxLength
@@ -84,7 +94,8 @@ export function writeUserMessage(
       `- channelId ${c.channelId}: ${SERVICE_NAMES[c.service]} (${c.name}). Limit ${limitFor(c, playbook)} characters.`,
       limits.threads && format?.thread ? 'Threads allowed.' : 'No threads.',
       limits.linkCard ? 'Shows a link card.' : 'No link card; the URL goes in the text.',
-    ]
+      c.service === 'twitter' ? 'A URL counts as 23 characters whatever its length.' : '',
+    ].filter(Boolean)
     if (format?.style) bits.push(`Style: ${format.style}`)
     if (format?.linkBack) bits.push(`Link: ${format.linkBack}`)
     lines.push(bits.join(' '))
@@ -134,4 +145,23 @@ export function checkPost(
   if (playbook.voice.hashtags === 'none' && /(^|\s)#\w/.test(parts.join(' ')))
     return { ok: false, post, reason: 'It used a hashtag and the playbook says none.' }
   return { ok: true, post }
+}
+
+/** A second, narrower ask for the posts that missed their limit: same posts, cut to fit. */
+export function repairUserMessage(
+  failed: { post: PostDraft; channel: TargetChannel; limit: number; reason: string }[],
+): string {
+  const lines = [
+    'These posts did not pass. Rewrite each one so it does, keeping the facts and the link. Return only these posts, with the same storyUrl and channelId.',
+    '',
+  ]
+  failed.forEach((f, i) => {
+    lines.push(
+      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}), limit ${f.limit} characters${f.channel.service === 'twitter' ? ', a URL counts as 23' : ''}. Problem: ${f.reason}`,
+      `   storyUrl: ${f.post.storyUrl}`,
+      `   text: ${f.post.text}`,
+      ...(f.post.thread?.length ? [`   thread: ${f.post.thread.join(' || ')}`] : []),
+    )
+  })
+  return lines.join('\n')
 }

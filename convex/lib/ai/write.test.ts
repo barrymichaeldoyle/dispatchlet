@@ -77,3 +77,12 @@ describe('post limits', () => {
     )
   })
 })
+
+describe('X link counting', () => {
+  it('counts a URL as 23 characters on X and at full length elsewhere', async () => {
+    const { measuredLength } = await import('./write')
+    const text = `Antonelli wins. https://formula1.com/en/latest/article/a-very-long-slug-that-goes-on-and-on.6kmBQv9FNTW7LzkDj8S34j`
+    expect(measuredLength(text, 'twitter')).toBe(16 + 23)
+    expect(measuredLength(text, 'linkedin')).toBe([...text].length)
+  })
+})
