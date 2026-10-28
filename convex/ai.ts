@@ -11,8 +11,8 @@ import {
   allowedDomains,
   briefFromPlaybook,
   briefFromSetup,
-  RESEARCH_LIMITS,
   RESEARCH_SYSTEM,
+  researchTools,
   ResearchResult,
   researchUserMessage,
   type ResearchBrief,
@@ -104,21 +104,7 @@ export const researchEval = internalAction({
         system: RESEARCH_SYSTEM,
         user: researchUserMessage(brief, { now: new Date(), timezone, covered: [] }),
         schema: ResearchResult,
-        tools: [
-          {
-            type: 'web_search_20260209',
-            name: 'web_search',
-            max_uses: RESEARCH_LIMITS.maxSearches,
-            ...(domains ? { allowed_domains: domains } : {}),
-          },
-          {
-            type: 'web_fetch_20260209',
-            name: 'web_fetch',
-            max_uses: RESEARCH_LIMITS.maxFetches,
-            max_content_tokens: RESEARCH_LIMITS.maxFetchTokens,
-            ...(domains ? { allowed_domains: domains } : {}),
-          },
-        ],
+        tools: researchTools(domains),
       })
       await ctx.runMutation(internal.ai.recordCall, { runId, purpose: 'research', ...record })
       const candidates = output?.candidates.length ?? 0

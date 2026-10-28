@@ -24,8 +24,8 @@ import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
   allowedDomains,
   briefFromPlaybook,
-  RESEARCH_LIMITS,
   RESEARCH_SYSTEM,
+  researchTools,
   ResearchResult,
   researchUserMessage,
   type Candidate,
@@ -379,21 +379,7 @@ export const execute = internalAction({
           covered: covered.map((c) => ({ title: c.title, url: c.canonicalUrl })),
         }),
         schema: ResearchResult,
-        tools: [
-          {
-            type: 'web_search_20260209',
-            name: 'web_search',
-            max_uses: RESEARCH_LIMITS.maxSearches,
-            ...(domains ? { allowed_domains: domains } : {}),
-          },
-          {
-            type: 'web_fetch_20260209',
-            name: 'web_fetch',
-            max_uses: RESEARCH_LIMITS.maxFetches,
-            max_content_tokens: RESEARCH_LIMITS.maxFetchTokens,
-            ...(domains ? { allowed_domains: domains } : {}),
-          },
-        ],
+        tools: researchTools(domains),
       })
       await record(ctx, runId, 'research', research.record)
       if (!research.output) {

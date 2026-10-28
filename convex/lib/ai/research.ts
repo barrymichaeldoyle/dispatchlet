@@ -163,3 +163,31 @@ export function allowedDomains(brief: ResearchBrief): string[] | undefined {
   const hosts = [...new Set(brief.sources.map(hostOf).filter((h): h is string => h !== null))]
   return hosts.length ? hosts : undefined
 }
+
+/**
+ * The web tools for a research call. The newer variants filter results with code and cut tokens,
+ * but their filtering can fail mid-run and spend the allowance on retries; RESEARCH_TOOLS=basic
+ * switches to the plain variants for comparison.
+ */
+export function researchTools(
+  domains: string[] | undefined,
+  variant: 'filtered' | 'basic' = process.env.RESEARCH_TOOLS === 'basic' ? 'basic' : 'filtered',
+) {
+  const scope = domains ? { allowed_domains: domains } : {}
+  return [
+    {
+      type:
+        variant === 'basic' ? ('web_search_20250305' as const) : ('web_search_20260209' as const),
+      name: 'web_search' as const,
+      max_uses: RESEARCH_LIMITS.maxSearches,
+      ...scope,
+    },
+    {
+      type: variant === 'basic' ? ('web_fetch_20250910' as const) : ('web_fetch_20260209' as const),
+      name: 'web_fetch' as const,
+      max_uses: RESEARCH_LIMITS.maxFetches,
+      max_content_tokens: RESEARCH_LIMITS.maxFetchTokens,
+      ...scope,
+    },
+  ]
+}
