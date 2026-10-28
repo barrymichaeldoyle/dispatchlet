@@ -5556,3 +5556,16 @@ header nav button {
 .app-settings-account {
   max-width: 760px;
 }
+.legal-main pre {
+  margin: 0 0 16px;
+  padding: 16px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  overflow-x: auto;
+  white-space: pre;
+}
