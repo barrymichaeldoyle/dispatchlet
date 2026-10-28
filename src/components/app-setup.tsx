@@ -120,7 +120,6 @@ export function NewAutomation() {
   }[] = [
     {
       label: 'What should it research?',
-      hint: 'One line is enough.',
       valid: a.research.trim().length > 0,
       body: (
         <>

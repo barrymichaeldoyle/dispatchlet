@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useAction, useQuery } from 'convex/react'
+import { useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -32,6 +32,10 @@ const POST_WORDS: Record<string, string> = {
 export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'> }) {
   const run = useQuery(api.runs.get, { runId })
   const approve = useAction(api.runs.approve)
+  const addRule = useMutation(api.automations.addExcludeRule)
+  const [ruleFor, setRuleFor] = useState<string | null>(null)
+  const [rule, setRule] = useState('')
+  const [ruleNote, setRuleNote] = useState<Record<string, string>>({})
   const [approving, setApproving] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   if (run === undefined) return <p className="app-muted">Loading.</p>
@@ -112,6 +116,63 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
                     {kept ? ` ${s.whyItMatters}` : ''}
                   </p>
                   {kept ? <p>{s.summary}</p> : null}
+                  {kept && !ruleNote[s._id] ? (
+                    ruleFor === s._id ? (
+                      <form
+                        className="app-field"
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          addRule({ id, rule })
+                            .then((version) => {
+                              setRuleNote((n) => ({
+                                ...n,
+                                [s._id]: `Added to the playbook as version ${version}. The next run skips it.`,
+                              }))
+                              setRuleFor(null)
+                              setRule('')
+                            })
+                            .catch((reason: unknown) =>
+                              setRuleNote((n) => ({
+                                ...n,
+                                [s._id]: errorText(reason, 'Not saved.'),
+                              })),
+                            )
+                        }}
+                      >
+                        <input
+                          className="app-select app-rule"
+                          value={rule}
+                          autoFocus
+                          maxLength={200}
+                          placeholder="What should it skip from now on? One sentence."
+                          aria-label="Skip rule"
+                          onChange={(e) => setRule(e.target.value)}
+                        />
+                        <button
+                          type="submit"
+                          className="app-gate-secondary"
+                          disabled={rule.trim().length < 3}
+                        >
+                          Add to playbook
+                        </button>
+                        <button type="button" className="app-link" onClick={() => setRuleFor(null)}>
+                          Cancel
+                        </button>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        className="app-link"
+                        onClick={() => {
+                          setRuleFor(s._id)
+                          setRule('')
+                        }}
+                      >
+                        Don’t post things like this
+                      </button>
+                    )
+                  ) : null}
+                  {ruleNote[s._id] ? <p className="app-muted">{ruleNote[s._id]}</p> : null}
                 </li>
               )
             })}

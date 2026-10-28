@@ -403,3 +403,74 @@ export const dashboard = query({
     return { automations, drafts, postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length }
   },
 })
+
+/** Posts on one automation in the last 30 days, with Buffer's metrics summed, for its page. */
+export const performance = query({
+  args: { id: v.id('automations') },
+  handler: async (ctx, { id }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+    const a = await ctx.db.get(id)
+    if (!a || a.userId !== userId) return null
+    const since = Date.now() - 30 * 86_400_000
+    const posts = (
+      await ctx.db
+        .query('posts')
+        .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', since))
+        .collect()
+    ).filter((p) => p.automationId === id && p.bufferPostId)
+    const sent = posts.filter((p) => p.status === 'sent')
+    const totals = new Map<string, number>()
+    let best: { title: string; value: number; type: string; runId: Id<'runs'> } | null = null
+    for (const p of sent) {
+      for (const m of p.metrics ?? []) {
+        totals.set(m.type, (totals.get(m.type) ?? 0) + m.value)
+        if (m.type === 'impressions' || m.type === 'views') {
+          if (!best || m.value > best.value) {
+            const story = await ctx.db.get(p.storyId)
+            best = { title: story?.title ?? '', value: m.value, type: m.type, runId: p.runId }
+          }
+        }
+      }
+    }
+    return {
+      posts: posts.length,
+      sent: sent.length,
+      drafts: posts.filter((p) => p.status === 'draft').length,
+      withMetrics: sent.filter((p) => p.metrics?.length).length,
+      totals: [...totals]
+        .map(([type, value]) => ({ type, value }))
+        .sort((x, y) => y.value - x.value),
+      best,
+    }
+  },
+})
+
+/** Adds a skip rule to the playbook as a new version, from a story the person did not want. */
+export const addExcludeRule = mutation({
+  args: { id: v.id('automations'), rule: v.string() },
+  returns: v.number(),
+  handler: async (ctx, { id, rule }) => {
+    await ownAutomation(ctx, id)
+    const text = rule.trim().replace(/\s+/g, ' ')
+    if (text.length < 3 || text.length > 200) throw new Error('A rule is one short sentence.')
+    const latest = await latestVersion(ctx, id)
+    if (!latest) throw new Error('The playbook is not ready yet')
+    const playbook = Playbook.parse(latest.playbook)
+    const sentence = /[.!?]$/.test(text) ? text : `${text}.`
+    if (playbook.exclude.some((e) => e.toLowerCase() === sentence.toLowerCase()))
+      return latest.version
+    const next = { ...playbook, exclude: [...playbook.exclude, sentence] }
+    const version = latest.version + 1
+    const versionId = await ctx.db.insert('playbookVersions', {
+      automationId: id,
+      version,
+      playbook: next,
+      text: renderPlaybook(next),
+      createdBy: 'user',
+      createdAt: Date.now(),
+    })
+    await ctx.db.patch(id, { playbookVersionId: versionId, updatedAt: Date.now() })
+    return version
+  },
+})

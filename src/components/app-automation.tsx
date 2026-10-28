@@ -19,6 +19,7 @@ const STATUS_WORDS: Record<string, string> = {
 export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const a = useQuery(api.automations.get, { id })
   const runs = useQuery(api.runs.listByAutomation, { automationId: id })
+  const perf = useQuery(api.automations.performance, { id })
   const setStatus = useMutation(api.automations.setStatus)
   const trigger = useMutation(api.runs.trigger)
   const regenerate = useMutation(api.automations.regenerate)
@@ -117,6 +118,29 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
       {error ? (
         <p className="app-connection-error" role="alert">
           {error}
+        </p>
+      ) : null}
+      {perf && perf.posts > 0 ? (
+        <p className="app-muted app-performance">
+          {`Last 30 days: ${perf.posts} ${perf.posts === 1 ? 'post' : 'posts'} in Buffer, ${perf.sent} sent${perf.drafts ? `, ${perf.drafts} still ${perf.drafts === 1 ? 'a draft' : 'drafts'}` : ''}.`}
+          {perf.totals.length
+            ? ` ${perf.totals
+                .slice(0, 3)
+                .map((t) => `${t.value.toLocaleString('en-GB')} ${t.type.replaceAll('_', ' ')}`)
+                .join(', ')} across the ${perf.withMetrics} with metrics so far.`
+            : perf.sent
+              ? ' Metrics arrive a day after a post goes out.'
+              : ''}
+          {perf.best ? (
+            <>
+              {' '}
+              Best so far:{' '}
+              <Link to="/app/a/$id/runs/$runId" params={{ id, runId: perf.best.runId }}>
+                {perf.best.title}
+              </Link>
+              {`, ${perf.best.value.toLocaleString('en-GB')} ${perf.best.type}.`}
+            </>
+          ) : null}
         </p>
       ) : null}
       <nav className="app-tabs" aria-label="Sections">
