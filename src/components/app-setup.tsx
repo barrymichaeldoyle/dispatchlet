@@ -480,7 +480,7 @@ export function NewAutomation() {
         </div>
         <dl className="setup-answers setup-live" aria-label="Your answers">
           {rows.map(([name, value], i) => (
-            <div key={name} data-current={i === index}>
+            <div key={name} data-current={i === index} data-done={i < index && value !== ''}>
               <dt>
                 <button
                   type="button"

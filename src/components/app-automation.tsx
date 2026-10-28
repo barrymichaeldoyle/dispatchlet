@@ -220,38 +220,33 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
       {tab === 'runs' ? (
         <section className="app-section">
           {runs && runs.length ? (
-            <table className="app-table">
-              <thead>
-                <tr>
-                  <th>Started</th>
-                  <th>Run</th>
-                  <th>Found</th>
-                  <th>Kept</th>
-                  <th>Posted</th>
-                  <th>Cost</th>
-                  <th>Outcome</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.map((r) => (
-                  <tr key={r._id}>
-                    <td className="tabular">
-                      <Link to="/app/a/$id/runs/$runId" params={{ id, runId: r._id }}>
-                        {whenIn(r.startedAt, a.timezone)}
-                      </Link>
-                    </td>
-                    <td>
-                      {r.kind === 'dry' ? 'dry run' : r.kind === 'now' ? 'run now' : 'scheduled'}
-                    </td>
-                    <td className="tabular">{r.found}</td>
-                    <td className="tabular">{r.kept}</td>
-                    <td className="tabular">{r.posted}</td>
-                    <td className="tabular">{usd(r.costUsd)}</td>
-                    <td>{r.finishedAt ? r.status : 'running'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="app-runs">
+              {runs.map((r) => (
+                <li key={r._id} data-status={r.finishedAt ? r.status : 'running'}>
+                  <div className="app-runs-when">
+                    <Link
+                      to="/app/a/$id/runs/$runId"
+                      params={{ id, runId: r._id }}
+                      className="tabular"
+                    >
+                      {whenIn(r.startedAt, a.timezone)}
+                    </Link>
+                    <span className="app-muted">
+                      {r.kind === 'dry' ? 'Dry run' : r.kind === 'now' ? 'Run now' : 'Scheduled'}
+                    </span>
+                  </div>
+                  <p className="app-runs-outcome">
+                    {r.finishedAt ? r.last || r.status : 'Running.'}
+                  </p>
+                  <p className="app-runs-counts tabular">
+                    <span>{r.found} found</span>
+                    <span>{r.kept} kept</span>
+                    <span>{r.posted} posted</span>
+                  </p>
+                  <p className="app-runs-cost tabular">{usd(r.costUsd)}</p>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="app-muted">No runs yet. Try a dry run.</p>
           )}
