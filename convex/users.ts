@@ -209,3 +209,62 @@ export const deleteAccount = action({
     return { revoked }
   },
 })
+
+const EMAIL_PREFS = ['every', 'drafts', 'problems', 'never'] as const
+
+export const setEmailPrefs = mutation({
+  args: { prefs: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { prefs }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    if (!(EMAIL_PREFS as readonly string[]).includes(prefs)) throw new Error('Not a choice')
+    await ctx.db.patch(userId, { emailPrefs: prefs })
+    return null
+  },
+})
+
+/** This month's runs, cost and posts by channel, for settings. Cost is what the AI calls cost. */
+export const usage = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+    const user = await ctx.db.get(userId)
+    if (!user) return null
+    const now = new Date()
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+    const runs = (
+      await ctx.db
+        .query('runs')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .order('desc')
+        .take(400)
+    ).filter((r) => r.startedAt >= monthStart)
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', monthStart))
+      .collect()
+    const channels = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    const names = new Map(channels.map((c) => [c.channelId, c.name]))
+    const byChannel = new Map<string, number>()
+    for (const p of posts)
+      if (p.bufferPostId)
+        byChannel.set(
+          names.get(p.channelId) ?? p.service,
+          (byChannel.get(names.get(p.channelId) ?? p.service) ?? 0) + 1,
+        )
+    return {
+      month: now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+      runs: runs.filter((r) => r.kind !== 'dry' && r.status !== 'skipped').length,
+      dryRuns: runs.filter((r) => r.kind === 'dry').length,
+      costUsd: Math.round(runs.reduce((sum, r) => sum + r.costUsd, 0) * 100) / 100,
+      posts: [...byChannel].map(([channel, count]) => ({ channel, count })),
+      emailPrefs: user.emailPrefs ?? 'every',
+      ...allowanceFor(user),
+    }
+  },
+})

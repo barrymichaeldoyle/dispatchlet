@@ -4905,3 +4905,34 @@ header nav button {
     min-height: 0;
   }
 }
+.app-automations {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-automations li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-gate .app-automations p {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+.app-automation-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+}
+.app-automation-head a {
+  font-weight: 500;
+}
+.app-usage {
+  max-width: 420px;
+  margin-bottom: 12px;
+}
+.app-usage th {
+  width: 60%;
+  font-weight: 400;
+  color: var(--color-ink);
+}

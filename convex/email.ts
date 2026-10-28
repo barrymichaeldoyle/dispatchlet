@@ -203,6 +203,31 @@ export function pausedMessage(to: string, automationName: string, automationId: 
   }
 }
 
+export function runFailedMessage(
+  to: string,
+  automationName: string,
+  automationId: string,
+  reason: string,
+): Message {
+  const url = `${APP}/a/${automationId}`
+  return {
+    from: FROM,
+    to,
+    subject: `A run of ${automationName} failed`,
+    text: `A run of ${automationName} failed: ${reason}\n\nThe next run is still booked. Two more failures in a row would pause it.\n\n${url}\n\nBarry\n`,
+    html: html(
+      [
+        `A run of ${escapeHtml(automationName)} failed: ${escapeHtml(reason)}`,
+        'The next run is still booked. Two more failures in a row would pause it.',
+        `<a href="${url}" style="${LINK}">Open the run log</a>`,
+        'Barry',
+      ],
+      `Sent on the first failure only. Read the ${PRIVACY}.`,
+    ),
+    headers: {},
+  }
+}
+
 export function runsUsedUpMessage(to: string): Message {
   return {
     from: FROM,
@@ -310,6 +335,25 @@ export const sendDigest = internalAction({
     const digest = await ctx.runQuery(internal.approvals.digestFor, { runId })
     if (!digest?.email || !digest.posts.length) return null
     await resend('/emails', digestMessage(digest.email, digest.run, digest.posts))
+    return null
+  },
+})
+
+export const sendRunFailed = internalAction({
+  args: { runId: v.id('runs') },
+  returns: v.null(),
+  handler: async (ctx, { runId }) => {
+    const digest = await ctx.runQuery(internal.approvals.digestFor, { runId })
+    if (!digest?.email) return null
+    await resend(
+      '/emails',
+      runFailedMessage(
+        digest.email,
+        digest.run.automationName,
+        digest.run.automationId,
+        digest.run.note,
+      ),
+    )
     return null
   },
 })

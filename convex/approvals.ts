@@ -74,14 +74,34 @@ export const postById = internalQuery({
 })
 
 export const markApproved = internalMutation({
-  args: { postId: v.id('posts'), bufferStatus: v.string() },
+  args: { postId: v.id('posts'), bufferStatus: v.string(), from: v.string() },
   returns: v.null(),
-  handler: async (ctx, { postId, bufferStatus }) => {
+  handler: async (ctx, { postId, bufferStatus, from }) => {
+    const post = await ctx.db.get(postId)
+    if (!post) return null
     await ctx.db.patch(postId, {
       status: bufferStatus === 'draft' ? 'draft' : 'queued',
       bufferStatus,
       approveToken: undefined,
     })
+    const run = await ctx.db.get(post.runId)
+    const channel = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user_channel', (q) =>
+        q.eq('userId', post.userId).eq('channelId', post.channelId),
+      )
+      .first()
+    if (run)
+      await ctx.db.patch(run._id, {
+        steps: [
+          ...run.steps,
+          {
+            step: 'approve',
+            at: Date.now(),
+            note: `${channel?.name ?? post.service}: approved from ${from === 'email' ? 'the email' : 'the run page'} and added to the queue.`,
+          },
+        ],
+      })
     return null
   },
 })
@@ -89,6 +109,7 @@ export const markApproved = internalMutation({
 async function approve(
   ctx: ActionCtx,
   post: { _id: Id<'posts'>; userId: Id<'users'>; bufferPostId?: string; status: string },
+  from: 'email' | 'app',
 ): Promise<string> {
   if (!post.bufferPostId) throw new Error('This post never reached Buffer.')
   if (post.status !== 'draft') return 'This post is already in the queue.'
@@ -97,6 +118,7 @@ async function approve(
     await ctx.runMutation(internal.approvals.markApproved, {
       postId: post._id,
       bufferStatus: status,
+      from,
     })
     return 'Added to your Buffer queue.'
   } catch (error) {
@@ -119,7 +141,7 @@ export const approveByToken = internalAction({
         message: 'This link is not valid, or the post was already approved.',
       }
     try {
-      return { ok: true, status: 200, message: await approve(ctx, post) }
+      return { ok: true, status: 200, message: await approve(ctx, post, 'email') }
     } catch (error) {
       return {
         ok: false,
@@ -137,6 +159,6 @@ export const approveForUser = internalAction({
   handler: async (ctx, { userId, postId }): Promise<string> => {
     const post: Doc<'posts'> | null = await ctx.runQuery(internal.approvals.postById, { postId })
     if (!post || post.userId !== userId) throw new Error('Post not found')
-    return await approve(ctx, post)
+    return await approve(ctx, post, 'app')
   },
 })

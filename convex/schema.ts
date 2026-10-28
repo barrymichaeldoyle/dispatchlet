@@ -48,6 +48,8 @@ export default defineSchema({
     /** The person's own Anthropic key, AES-GCM encrypted, which lifts the run allowance. */
     anthropicKeyEnc: v.optional(v.string()),
     anthropicKeyInvalidAt: v.optional(v.number()),
+    /** When to email after a run: every, drafts (only when drafts wait), problems, never. */
+    emailPrefs: v.optional(v.string()),
     /** Set once, so the first-run milestones are only said once. */
     firstPlaybookAt: v.optional(v.number()),
     firstPostAt: v.optional(v.number()),

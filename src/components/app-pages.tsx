@@ -65,15 +65,41 @@ const STATUS_WORDS: Record<string, string> = {
   failed: 'paused after failures',
 }
 
-/** The automations, one row each, with the empty state as a row too (SPEC §23.6). */
+const RUN_KINDS: Record<string, string> = { scheduled: 'Scheduled run', now: 'Run', dry: 'Dry run' }
+
+/** The home page: each automation in words, and the drafts waiting for a yes (SPEC §17). */
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
-  const automations = useQuery(api.automations.list)
-  if (!viewer || automations === undefined) return null
+  const data = useQuery(api.automations.dashboard)
+  if (!viewer || data === undefined) return null
   const firstName = viewer.name?.trim().split(/\s+/)[0]
+  const { automations, drafts } = data ?? { automations: [], drafts: [] }
   return (
     <>
       <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
+      {drafts.length ? (
+        <section className="app-section">
+          <h2>Waiting for you</h2>
+          <p className="app-muted">
+            {drafts.length} {drafts.length === 1 ? 'draft is' : 'drafts are'} in Buffer until you
+            approve {drafts.length === 1 ? 'it' : 'them'}.
+          </p>
+          <ul className="app-posts">
+            {drafts.slice(0, 5).map((d) => (
+              <li key={d._id}>
+                <p className="app-post-head">
+                  <ChannelMark channel={SERVICE_NAMES[d.service] ?? d.service} size={14} />
+                  <strong>{d.channelName}</strong>
+                  <Link to="/app/a/$id/runs/$runId" params={{ id: d.automationId, runId: d.runId }}>
+                    Open the run to approve
+                  </Link>
+                </p>
+                <p className="app-post-text">{d.text.split('\n')[0]}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className="app-section">
         <div className="app-section-head">
           <h2>Automations</h2>
@@ -82,42 +108,72 @@ export function AppHome() {
           </Link>
         </div>
         {automations.length ? (
-          <table className="app-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Runs</th>
-                <th>Status</th>
-                <th>Next run</th>
-                <th>Last run</th>
-              </tr>
-            </thead>
-            <tbody>
-              {automations.map((a) => (
-                <tr key={a._id}>
-                  <td>
-                    <Link to="/app/a/$id" params={{ id: a._id }}>
-                      {a.name}
-                    </Link>
-                  </td>
-                  <td>{describeCadence(a.cadence)}</td>
-                  <td>{STATUS_WORDS[a.status] ?? a.status}</td>
-                  <td className="tabular">{a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : ''}</td>
-                  <td className="tabular">{a.lastRunAt ? whenIn(a.lastRunAt, a.timezone) : ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ul className="app-automations">
+            {automations.map((a) => (
+              <li key={a._id}>
+                <p className="app-automation-head">
+                  <Link to="/app/a/$id" params={{ id: a._id }}>
+                    {a.name}
+                  </Link>
+                  <span className="app-muted">
+                    {describeCadence(a.cadence)}. {STATUS_WORDS[a.status] ?? a.status}
+                    {a.status === 'active' && a.nextRunAt
+                      ? `, next ${whenIn(a.nextRunAt, a.timezone)}`
+                      : ''}
+                    .
+                  </span>
+                </p>
+                <p>
+                  {a.lastRun ? (
+                    <>
+                      <Link
+                        to="/app/a/$id/runs/$runId"
+                        params={{ id: a._id, runId: a.lastRun._id }}
+                      >
+                        {RUN_KINDS[a.lastRun.kind] ?? 'Run'}{' '}
+                        {whenIn(a.lastRun.startedAt, a.timezone)}
+                      </Link>
+                      {a.lastRun.finished ? `: ${a.lastRun.note}` : ': running.'}
+                    </>
+                  ) : (
+                    'No runs yet. Try a dry run.'
+                  )}
+                </p>
+                <p className="app-muted tabular">
+                  {a.postsThisWeek} {a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.
+                </p>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <p className="app-muted">
-            No automations yet. Answer seven questions and Dispatchlet writes the first playbook.
-          </p>
+          <ol className="app-steps">
+            <li>
+              <p>
+                <strong>Answer seven questions.</strong>What to research, where to post, what to
+                avoid, which sources, when, how many stories, drafts or queue.
+              </p>
+            </li>
+            <li>
+              <p>
+                <strong>Dispatchlet writes the playbook.</strong>It reads your sources first, then
+                writes the rules it follows on every run. You can edit any of it.
+              </p>
+            </li>
+            <li>
+              <p>
+                <strong>Try a dry run, then enable it.</strong>A dry run finds the stories and
+                writes the posts without sending anything to Buffer. Enable it and it runs on your
+                schedule.
+              </p>
+            </li>
+          </ol>
         )}
       </section>
       {!viewer.ownKey ? (
         <p className="app-muted">
           {viewer.runsLeft} free {viewer.runsLeft === 1 ? 'run' : 'runs'} and {viewer.dryRunsLeft}{' '}
-          dry {viewer.dryRunsLeft === 1 ? 'run' : 'runs'} left on this account.
+          dry {viewer.dryRunsLeft === 1 ? 'run' : 'runs'} left on this account.{' '}
+          <Link to="/app/settings">Add your own key</Link> to lift the limit.
         </p>
       ) : null}
     </>
@@ -145,6 +201,8 @@ export function AppSettings() {
         <SignOut />
       </section>
       <BufferConnection />
+      <Usage />
+      <EmailPrefs />
       <AnthropicKey
         ownKey={viewer.ownKey}
         invalid={viewer.keyInvalid}
@@ -261,6 +319,105 @@ function BufferConnection() {
           {error}
         </p>
       ) : null}
+    </section>
+  )
+}
+
+/** This month in numbers: runs, what the AI cost, posts by channel. */
+function Usage() {
+  const usage = useQuery(api.users.usage)
+  if (!usage) return null
+  return (
+    <section className="app-section" aria-labelledby="usage-title">
+      <h2 id="usage-title">Usage in {usage.month}</h2>
+      <table className="app-table app-usage">
+        <tbody>
+          <tr>
+            <th>Runs</th>
+            <td className="tabular">{usage.runs}</td>
+          </tr>
+          <tr>
+            <th>Dry runs</th>
+            <td className="tabular">{usage.dryRuns}</td>
+          </tr>
+          <tr>
+            <th>AI cost</th>
+            <td className="tabular">
+              {usage.costUsd < 0.01 && usage.costUsd > 0
+                ? 'under $0.01'
+                : `$${usage.costUsd.toFixed(2)}`}
+            </td>
+          </tr>
+          {usage.posts.map((p) => (
+            <tr key={p.channel}>
+              <th>Posts on {p.channel}</th>
+              <td className="tabular">{p.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="app-muted">
+        {usage.ownKey
+          ? 'The AI cost is billed to your own Anthropic key.'
+          : `On Dispatchlet’s key: ${usage.runsLeft} free ${usage.runsLeft === 1 ? 'run' : 'runs'} and ${usage.dryRunsLeft} dry ${usage.dryRunsLeft === 1 ? 'run' : 'runs'} left.`}
+      </p>
+    </section>
+  )
+}
+
+const PREFS: [string, string, string][] = [
+  [
+    'every',
+    'After every run that creates posts',
+    'What was posted or saved, with approve links for drafts.',
+  ],
+  ['drafts', 'Only when drafts are waiting', 'Nothing for runs that went straight into the queue.'],
+  [
+    'problems',
+    'Only when something goes wrong',
+    'A failed run, a paused automation, lost Buffer access.',
+  ],
+  ['never', 'Never', 'You check the run log yourself.'],
+]
+
+function EmailPrefs() {
+  const usage = useQuery(api.users.usage)
+  const save = useMutation(api.users.setEmailPrefs)
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  if (!usage) return null
+  return (
+    <section className="app-section" aria-labelledby="email-title">
+      <h2 id="email-title">Email</h2>
+      <ul className="app-choices">
+        {PREFS.map(([value, title, detail]) => (
+          <li key={value} data-checked={usage.emailPrefs === value}>
+            <label>
+              <input
+                type="radio"
+                name="emailPrefs"
+                checked={usage.emailPrefs === value}
+                onChange={() => {
+                  setState('saving')
+                  save({ prefs: value })
+                    .then(() => setState('saved'))
+                    .catch(() => setState('failed'))
+                }}
+              />
+              <span>{title}</span>
+              <span className="app-muted">{detail}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+      <p className="app-muted" role="status">
+        {state === 'saving'
+          ? 'Saving'
+          : state === 'saved'
+            ? 'Saved'
+            : state === 'failed'
+              ? 'Not saved. Try again.'
+              : ''}
+      </p>
     </section>
   )
 }

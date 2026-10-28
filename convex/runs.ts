@@ -315,8 +315,17 @@ export const finish = internalMutation({
         automationId: automation._id,
       })
     }
-    if (status === 'done' && run.kind !== 'dry' && (run.posted ?? 0) > 0)
-      await ctx.scheduler.runAfter(0, internal.email.sendDigest, { runId })
+    const user = await ctx.db.get(automation.userId)
+    const prefs = user?.emailPrefs ?? 'every'
+    const drafts = automation.postingMode === 'draft' && (run.posted ?? 0) > 0
+    const wantsDigest =
+      status === 'done' &&
+      run.kind !== 'dry' &&
+      (run.posted ?? 0) > 0 &&
+      (prefs === 'every' || (prefs === 'drafts' && drafts))
+    if (wantsDigest) await ctx.scheduler.runAfter(0, internal.email.sendDigest, { runId })
+    if (status === 'failed' && prefs !== 'never' && failures === 1)
+      await ctx.scheduler.runAfter(0, internal.email.sendRunFailed, { runId })
     return null
   },
 })

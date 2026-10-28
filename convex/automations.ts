@@ -332,3 +332,74 @@ export const remove = mutation({
     return null
   },
 })
+
+/**
+ * The home page in one query: each automation with its last run in words, posts this week, and
+ * the drafts waiting for a yes.
+ */
+export const dashboard = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) return null
+    const weekAgo = Date.now() - 7 * 86_400_000
+    const rows = await ctx.db
+      .query('automations')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .order('desc')
+      .collect()
+    const recentPosts = await ctx.db
+      .query('posts')
+      .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', weekAgo))
+      .collect()
+    const channels = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    const names = new Map(channels.map((c) => [c.channelId, c.name]))
+    const automations = []
+    for (const a of rows) {
+      if (a.deletedAt) continue
+      const last = await ctx.db
+        .query('runs')
+        .withIndex('by_automation_startedAt', (q) => q.eq('automationId', a._id))
+        .order('desc')
+        .first()
+      const sent = recentPosts.filter((p) => p.automationId === a._id && p.bufferPostId)
+      automations.push({
+        _id: a._id,
+        name: a.name,
+        status: a.status,
+        cadence: a.cadence,
+        timezone: a.timezone,
+        nextRunAt: a.nextRunAt ?? null,
+        lastRun: last
+          ? {
+              _id: last._id,
+              startedAt: last.startedAt,
+              finished: Boolean(last.finishedAt),
+              status: last.status,
+              kind: last.kind,
+              note: last.steps.at(-1)?.note ?? '',
+              posted: last.posted ?? 0,
+              kept: last.kept ?? 0,
+            }
+          : null,
+        postsThisWeek: sent.length,
+      })
+    }
+    const drafts = recentPosts
+      .filter((p) => p.status === 'draft' && p.bufferPostId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .map((p) => ({
+        _id: p._id,
+        runId: p.runId,
+        automationId: p.automationId,
+        channelName: names.get(p.channelId) ?? p.service,
+        service: p.service,
+        text: p.text,
+        createdAt: p.createdAt,
+      }))
+    return { automations, drafts, postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length }
+  },
+})
