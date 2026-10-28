@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { useAction, useMutation, useQuery } from 'convex/react'
+import { ConvexProvider, ConvexReactClient, useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
@@ -29,8 +29,21 @@ const POST_WORDS: Record<string, string> = {
   failed: 'failed',
 }
 
-/** A shared run, outside the app: the same log, read-only, with the wordmark on top. */
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
+const publicClient = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
+
+/** A shared run, outside the app, so it brings its own Convex client with no sign-in. */
 export function SharedRun({ token }: { token: string }) {
+  if (!publicClient) return null
+  return (
+    <ConvexProvider client={publicClient}>
+      <SharedRunInner token={token} />
+    </ConvexProvider>
+  )
+}
+
+/** The same log, read-only, with the wordmark on top. */
+function SharedRunInner({ token }: { token: string }) {
   const run = useQuery(api.runs.shared, { token })
   if (run === undefined) return null
   return (
