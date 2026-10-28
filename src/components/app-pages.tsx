@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
+import { StepArt } from './step-art'
 import { errorText as message, whenIn } from '../lib/format'
 
 export function SignOut() {
@@ -74,6 +75,7 @@ export function AppHome() {
   if (!viewer || data === undefined) return null
   const firstName = viewer.name?.trim().split(/\s+/)[0]
   const { automations, drafts } = data ?? { automations: [], drafts: [] }
+  if (!automations.length) return <EmptyHome firstName={firstName} viewer={viewer} />
   return (
     <>
       <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
@@ -107,67 +109,39 @@ export function AppHome() {
             New automation
           </Link>
         </div>
-        {automations.length ? (
-          <ul className="app-automations">
-            {automations.map((a) => (
-              <li key={a._id}>
-                <p className="app-automation-head">
-                  <Link to="/app/a/$id" params={{ id: a._id }}>
-                    {a.name}
-                  </Link>
-                  <span className="app-muted">
-                    {describeCadence(a.cadence)}. {STATUS_WORDS[a.status] ?? a.status}
-                    {a.status === 'active' && a.nextRunAt
-                      ? `, next ${whenIn(a.nextRunAt, a.timezone)}`
-                      : ''}
-                    .
-                  </span>
-                </p>
-                <p>
-                  {a.lastRun ? (
-                    <>
-                      <Link
-                        to="/app/a/$id/runs/$runId"
-                        params={{ id: a._id, runId: a.lastRun._id }}
-                      >
-                        {RUN_KINDS[a.lastRun.kind] ?? 'Run'}{' '}
-                        {whenIn(a.lastRun.startedAt, a.timezone)}
-                      </Link>
-                      {a.lastRun.finished ? `: ${a.lastRun.note}` : ': running.'}
-                    </>
-                  ) : (
-                    'No runs yet. Try a dry run.'
-                  )}
-                </p>
-                <p className="app-muted tabular">
-                  {`${a.postsThisWeek} ${a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.`}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <ol className="app-steps">
-            <li>
+        <ul className="app-automations">
+          {automations.map((a) => (
+            <li key={a._id}>
+              <p className="app-automation-head">
+                <Link to="/app/a/$id" params={{ id: a._id }}>
+                  {a.name}
+                </Link>
+                <span className="app-muted">
+                  {describeCadence(a.cadence)}. {STATUS_WORDS[a.status] ?? a.status}
+                  {a.status === 'active' && a.nextRunAt
+                    ? `, next ${whenIn(a.nextRunAt, a.timezone)}`
+                    : ''}
+                  .
+                </span>
+              </p>
               <p>
-                <strong>Answer seven questions.</strong>What to research, where to post, what to
-                avoid, which sources, when, how many stories, drafts or queue.
+                {a.lastRun ? (
+                  <>
+                    <Link to="/app/a/$id/runs/$runId" params={{ id: a._id, runId: a.lastRun._id }}>
+                      {RUN_KINDS[a.lastRun.kind] ?? 'Run'} {whenIn(a.lastRun.startedAt, a.timezone)}
+                    </Link>
+                    {a.lastRun.finished ? `: ${a.lastRun.note}` : ': running.'}
+                  </>
+                ) : (
+                  'No runs yet. Try a dry run.'
+                )}
+              </p>
+              <p className="app-muted tabular">
+                {`${a.postsThisWeek} ${a.postsThisWeek === 1 ? 'post' : 'posts'} in Buffer this week.`}
               </p>
             </li>
-            <li>
-              <p>
-                <strong>Dispatchlet writes the playbook.</strong>It reads your sources first, then
-                writes the rules it follows on every run. You can edit any of it.
-              </p>
-            </li>
-            <li>
-              <p>
-                <strong>Try a dry run, then enable it.</strong>A dry run finds the stories and
-                writes the posts without sending anything to Buffer. Enable it and it runs on your
-                schedule.
-              </p>
-            </li>
-          </ol>
-        )}
+          ))}
+        </ul>
       </section>
       {!viewer.ownKey ? (
         <p className="app-muted">
@@ -177,6 +151,45 @@ export function AppHome() {
         </p>
       ) : null}
     </>
+  )
+}
+
+type Viewer = NonNullable<ReturnType<typeof useQuery<typeof api.users.viewer>>>
+
+/** The first visit: what happens next, as three drawings and one button, not a wall of text. */
+function EmptyHome({ firstName, viewer }: { firstName: string | undefined; viewer: Viewer }) {
+  return (
+    <div className="app-empty">
+      <h1>{firstName ? `Welcome, ${firstName}.` : 'Welcome.'}</h1>
+      <p className="app-empty-lead">Your first automation takes about three minutes.</p>
+      <ol className="app-empty-steps">
+        <li>
+          <StepArt kind="brief" />
+          <h2>Answer seven questions</h2>
+          <p>What to research, where to post, when.</p>
+        </li>
+        <li>
+          <StepArt kind="playbook" />
+          <h2>Get a playbook</h2>
+          <p>Written from your sources. Edit anything.</p>
+        </li>
+        <li>
+          <StepArt kind="repeat" />
+          <h2>Dry run, then enable</h2>
+          <p>See what it would post before it posts.</p>
+        </li>
+      </ol>
+      <div className="app-gate-actions">
+        <Link to="/app/new" className="app-gate-primary">
+          Create your first automation
+        </Link>
+      </div>
+      {!viewer.ownKey ? (
+        <p className="app-muted app-empty-note">
+          {viewer.runsLeft} free runs and {viewer.dryRunsLeft} dry runs are on the house.
+        </p>
+      ) : null}
+    </div>
   )
 }
 

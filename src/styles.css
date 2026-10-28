@@ -4975,3 +4975,58 @@ header nav button {
   margin: 0 0 12px;
   font-size: 14px;
 }
+
+/* The first visit to the app. */
+.app-empty {
+  padding-top: 24px;
+}
+.app-gate .app-empty h1 {
+  margin-bottom: 8px;
+}
+.app-gate .app-empty-lead {
+  margin: 0 0 40px;
+  font-size: 18px;
+  color: var(--color-muted);
+}
+.app-empty-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  margin: 0 0 40px;
+  padding: 32px 0 0;
+  border-top: 1px solid var(--color-rule);
+  list-style: none;
+  counter-reset: step;
+}
+.app-empty-steps li {
+  counter-increment: step;
+}
+.app-empty-steps .step-art {
+  display: block;
+  margin-bottom: 16px;
+}
+.app-empty-steps h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.app-empty-steps h2::before {
+  content: counter(step) '. ';
+  color: var(--color-pine);
+  font-variant-numeric: tabular-nums;
+}
+.app-gate .app-empty-steps p {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-muted);
+}
+.app-gate .app-empty-note {
+  margin-top: 16px;
+  font-size: 14px;
+}
+@media (max-width: 720px) {
+  .app-empty-steps {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
