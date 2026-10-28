@@ -47,24 +47,48 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     )
   const allowance = a.allowance
   const status = STATUS_WORDS[a.status] ?? a.status
-  const nextLine =
-    a.status === 'active' && a.nextRunAt
-      ? `Next run ${whenIn(a.nextRunAt, a.timezone)}.`
-      : a.status === 'generating'
-        ? 'Reading your sources and writing the playbook. About a minute.'
-        : a.status === 'ready'
-          ? 'Try a dry run, then enable it.'
-          : ''
+  const finished = (runs ?? []).filter(
+    (r) => r.kind !== 'dry' && r.finishedAt && r.status === 'done',
+  )
+  const costPerRun = finished.length
+    ? finished.reduce((sum, r) => sum + r.costUsd, 0) / finished.length
+    : null
   return (
     <>
       <p className="app-crumbs">
         <Link to="/app">Home</Link>
       </p>
-      <h1>{a.name}</h1>
-      <p className="app-status-line">
-        {describeCadence(a.cadence)} in {a.timezone.replaceAll('_', ' ')}. Status: {status}.{' '}
-        {nextLine}
-      </p>
+      <div className="app-home-head">
+        <h1>{a.name}</h1>
+        <span className="app-muted">
+          {describeCadence(a.cadence)}, {a.timezone.replaceAll('_', ' ')}
+        </span>
+      </div>
+      <dl className="app-stats">
+        <div data-attention={a.status === 'active'}>
+          <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
+          <dd className="tabular">
+            {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
+          </dd>
+        </div>
+        <div>
+          <dt>Posts, last 30 days</dt>
+          <dd className="tabular">{perf ? perf.posts : 0}</dd>
+        </div>
+        <div data-attention={Boolean(perf?.drafts)}>
+          <dt>Sent / drafts</dt>
+          <dd className="tabular">{perf ? `${perf.sent} / ${perf.drafts}` : '0 / 0'}</dd>
+        </div>
+        <div>
+          <dt>Cost per run</dt>
+          <dd className="tabular">{costPerRun === null ? 'No runs yet' : usd(costPerRun)}</dd>
+        </div>
+      </dl>
+      {a.status === 'generating' ? (
+        <p className="app-muted">Reading your sources and writing the playbook. About a minute.</p>
+      ) : a.status === 'ready' ? (
+        <p className="app-muted">Try a dry run, then enable it.</p>
+      ) : null}
       {a.generationError ? (
         <p className="app-connection-error" role="alert">
           The playbook could not be written. {a.generationError}
@@ -120,17 +144,14 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           {error}
         </p>
       ) : null}
-      {perf && perf.posts > 0 ? (
+      {perf?.best || perf?.totals.length ? (
         <p className="app-muted app-performance">
-          {`Last 30 days: ${perf.posts} ${perf.posts === 1 ? 'post' : 'posts'} in Buffer, ${perf.sent} sent${perf.drafts ? `, ${perf.drafts} still ${perf.drafts === 1 ? 'a draft' : 'drafts'}` : ''}.`}
           {perf.totals.length
-            ? ` ${perf.totals
+            ? `${perf.totals
                 .slice(0, 3)
                 .map((t) => `${t.value.toLocaleString('en-GB')} ${t.type.replaceAll('_', ' ')}`)
-                .join(', ')} across the ${perf.withMetrics} with metrics so far.`
-            : perf.sent
-              ? ' Metrics arrive a day after a post goes out.'
-              : ''}
+                .join(', ')} across the ${perf.withMetrics} posts with metrics so far.`
+            : ''}
           {perf.best ? (
             <>
               {' '}

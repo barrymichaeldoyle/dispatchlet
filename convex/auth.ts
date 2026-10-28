@@ -62,8 +62,12 @@ const Buffer: OAuthConfig<BufferAccount> = {
   },
 }
 
+const YEAR_MS = 365 * 24 * 60 * 60 * 1000
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Buffer],
+  /** A sign-in lasts a year, used or not; a scheduled agent should not sign its owner out. */
+  session: { totalDurationMs: YEAR_MS, inactiveDurationMs: YEAR_MS },
   callbacks: {
     /**
      * One user per Buffer account. Everyone who signs in before launch joins the waiting list.

@@ -291,13 +291,13 @@ function RunView({
       {run.posts.length ? (
         <section className="app-section">
           <h2>Posts</h2>
-          <ul className="app-posts">
+          <ul className="app-drafts">
             {run.posts.map((p) => {
               const story = run.stories.find((s) => s._id === p.storyId)
               const parts = [p.text, ...(p.thread ?? [])]
               return (
-                <li key={p._id}>
-                  <p className="app-post-head">
+                <li key={p._id} className="app-draft">
+                  <p className="app-draft-head">
                     <ChannelMark channel={serviceName(p.service)} size={14} />
                     <strong>{p.channelName}</strong>
                     <span className="app-muted">
