@@ -1518,7 +1518,10 @@ header nav button {
 .flow-workspace.is-overview .flow-scene {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 24px;
+  /* Half of the 24px between columns is each column's own right padding (below), so a scrollbar
+     has somewhere to sit without covering the text. No reserved gutter: it would narrow every
+     column on classic-scrollbar platforms even when nothing scrolls. */
+  column-gap: 12px;
   max-width: none;
   height: 100%;
   min-height: 0;
@@ -1530,12 +1533,9 @@ header nav button {
   gap: 20px;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
-  /* Columns scroll on small laptops. Keep the bar off the content: overlay bars (Mac) sit in the
-     padding, classic bars (Windows, Mac with bars always on) get a reserved gutter. */
   padding-right: 12px;
+  overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-gutter: stable;
   scrollbar-color: var(--color-rule) transparent;
 }
 .is-overview .flow-context > .flow-panel {
@@ -1547,7 +1547,6 @@ header nav button {
   padding-right: 12px;
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-gutter: stable;
   scrollbar-color: var(--color-rule) transparent;
 }
 .is-overview .flow-panel {
