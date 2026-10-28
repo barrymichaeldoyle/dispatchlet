@@ -46,7 +46,7 @@ Rules:
 - Count characters. Each post, and each thread part, must fit the limit given for its channel, and the brief gives a target below it: write to the target, not to the limit. A post that stops early is fine; one that runs over is thrown away. When a story will not fit, cut words, not facts.
 - Only state what is in the story's key facts and summary. Never add numbers, names, quotes or dates that are not there. Never speculate.
 - Use a thread only on channels that allow one, and only when the story needs more than one post. Most do not.
-- Put the link where the format says. On channels that show a link card, give a linkAttachment and keep the URL out of the text unless the format asks for it.
+- Never put a URL in the text. On channels that show a link card, give a linkAttachment. On the others the story's link is added after your text by the system, and the limit you are given already allows for it.
 - No hashtags unless the playbook allows them. No emoji unless the playbook allows them. No exclamation marks. Plain words. Never say "exciting", "game-changer", "heartwarming" or the like.
 - Write every post, even when several stories go to the same channel.`
 
@@ -60,10 +60,31 @@ export function measuredLength(text: string, service: Service): number {
   return [...text].length
 }
 
+/** A link on X counts as 23 plus the blank line before it; other services count it as written. */
+const LINK_ALLOWANCE = 2 + X_LINK_LENGTH
+
+/** The limit for the writer's own text: the channel's, less room for the link the system adds. */
+export function textLimitFor(channel: TargetChannel, playbook: Playbook): number {
+  const limit = limitFor(channel, playbook)
+  return SERVICE_LIMITS[channel.service].linkCard ? limit : limit - LINK_ALLOWANCE
+}
+
 /** What the writer aims for: comfortably under the limit, since the models tend to run to it. */
 export function targetFor(channel: TargetChannel, playbook: Playbook): number {
-  const limit = limitFor(channel, playbook)
-  return Math.max(80, Math.round(limit * 0.85))
+  return Math.max(80, Math.round(textLimitFor(channel, playbook) * 0.85))
+}
+
+/** Adds the story's link after the text on channels that have no link card, unless it is there. */
+export function withLink(post: PostDraft, channel: TargetChannel): PostDraft {
+  if (SERVICE_LIMITS[channel.service].linkCard) return post
+  const parts = [post.text, ...(post.thread ?? [])]
+  if (parts.some((p) => p.includes(post.storyUrl))) return post
+  if (post.thread?.length)
+    return {
+      ...post,
+      thread: [...post.thread.slice(0, -1), `${post.thread.at(-1)}\n\n${post.storyUrl}`],
+    }
+  return { ...post, text: `${post.text.trimEnd()}\n\n${post.storyUrl}` }
 }
 
 /** The limit a channel's posts must fit. The playbook may tighten it, never loosen it. */
@@ -97,11 +118,10 @@ export function writeUserMessage(
     const format = playbook.formats.find((f) => f.service === c.service)
     const limits = SERVICE_LIMITS[c.service]
     const bits = [
-      `- channelId ${c.channelId}: ${SERVICE_NAMES[c.service]} (${c.name}). Limit ${limitFor(c, playbook)} characters; aim for ${targetFor(c, playbook)}.`,
+      `- channelId ${c.channelId}: ${SERVICE_NAMES[c.service]} (${c.name}). Your text may be ${textLimitFor(c, playbook)} characters at most; aim for ${targetFor(c, playbook)}.`,
       limits.threads && format?.thread ? 'Threads allowed.' : 'No threads.',
-      limits.linkCard ? 'Shows a link card.' : 'No link card; the URL goes in the text.',
-      c.service === 'twitter' ? 'A URL counts as 23 characters whatever its length.' : '',
-    ].filter(Boolean)
+      limits.linkCard ? 'Shows a link card.' : 'No link card; the link is added after your text.',
+    ]
     if (format?.style) bits.push(`Style: ${format.style}`)
     if (format?.linkBack) bits.push(`Link: ${format.linkBack}`)
     lines.push(bits.join(' '))
@@ -155,19 +175,45 @@ export function checkPost(
 
 /** A second, narrower ask for the posts that missed their limit: same posts, cut to fit. */
 export function repairUserMessage(
-  failed: { post: PostDraft; channel: TargetChannel; limit: number; reason: string }[],
+  failed: {
+    post: PostDraft
+    channel: TargetChannel
+    limit: number
+    reason: string
+    over: number
+  }[],
 ): string {
   const lines = [
-    'These posts did not pass. Rewrite each one so it does, keeping the facts and the link. Return only these posts, with the same storyUrl and channelId.',
+    'These posts did not pass. Rewrite each one so it does, keeping the facts. Do not include a URL; the link is added after your text. Return only these posts, with the same storyUrl and channelId.',
     '',
   ]
   failed.forEach((f, i) => {
     lines.push(
-      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}), limit ${f.limit} characters, aim for ${Math.round(f.limit * 0.85)}${f.channel.service === 'twitter' ? ', a URL counts as 23' : ''}. Problem: ${f.reason}`,
+      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}). Your text may be ${f.limit} characters at most${f.over > 0 ? `; this one is ${f.over} over, so cut at least ${f.over + 20}` : ''}. Problem: ${f.reason}`,
       `   storyUrl: ${f.post.storyUrl}`,
       `   text: ${f.post.text}`,
       ...(f.post.thread?.length ? [`   thread: ${f.post.thread.join(' || ')}`] : []),
     )
   })
   return lines.join('\n')
+}
+
+/** Strips the link the system adds, so a post can go back to the writer as it wrote it. */
+export function withoutLink(post: PostDraft): PostDraft {
+  const escaped = post.storyUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const strip = (t: string) => t.replace(new RegExp(`\\s*${escaped}\\s*$`), '')
+  return {
+    ...post,
+    text: strip(post.text),
+    thread: post.thread ? post.thread.map(strip) : post.thread,
+  }
+}
+
+/** How far a post's longest part is over its channel's limit, in characters, or 0. */
+export function overBy(post: PostDraft, channel: TargetChannel, playbook: Playbook): number {
+  const limit = limitFor(channel, playbook)
+  return Math.max(
+    0,
+    ...[post.text, ...(post.thread ?? [])].map((p) => measuredLength(p, channel.service) - limit),
+  )
 }

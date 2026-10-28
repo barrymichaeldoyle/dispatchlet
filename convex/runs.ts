@@ -33,8 +33,11 @@ import {
 import type { Service } from './lib/ai/setup'
 import {
   checkPost,
-  limitFor,
+  overBy,
   repairUserMessage,
+  textLimitFor,
+  withLink,
+  withoutLink,
   WRITE_SYSTEM,
   WriteResult,
   writeUserMessage,
@@ -502,24 +505,37 @@ export const execute = internalAction({
       const storyUrls = new Set(keep.map((k) => k.canonicalUrl))
       const byUrl = new Map(keep.map((k) => [k.canonicalUrl, k]))
 
-      // Posts that miss their limit get one more chance, as a narrower ask.
-      let drafts: PostDraft[] = written.output.posts
-      const failed = drafts.flatMap((draft) => {
-        const channel = targets.find((t) => t.channelId === draft.channelId)
-        if (!channel) return []
-        const checked = checkPost(draft, channel, playbook, storyUrls)
-        return checked.ok
-          ? []
-          : [{ post: draft, channel, limit: limitFor(channel, playbook), reason: checked.reason }]
+      // The system adds the link on channels without a card, then posts that miss their limit get
+      // up to two narrower asks that say how much to cut.
+      let drafts: PostDraft[] = written.output.posts.map((d) => {
+        const channel = targets.find((t) => t.channelId === d.channelId)
+        return channel ? withLink(d, channel) : d
       })
-      if (failed.length) {
+      for (let round = 0; round < 2; round++) {
+        const failed = drafts.flatMap((draft) => {
+          const channel = targets.find((t) => t.channelId === draft.channelId)
+          if (!channel) return []
+          const checked = checkPost(draft, channel, playbook, storyUrls)
+          return checked.ok
+            ? []
+            : [
+                {
+                  post: withoutLink(draft),
+                  channel,
+                  limit: textLimitFor(channel, playbook),
+                  reason: checked.reason,
+                  over: overBy(draft, channel, playbook),
+                },
+              ]
+        })
+        if (!failed.length) break
         await say(
           'write',
           `${failed.length} ${failed.length === 1 ? 'post' : 'posts'} missed the limit. Asking for a shorter version.`,
         )
         const repaired = await callStructured(client, {
           model: modelFor('write'),
-          effort: 'medium',
+          effort: 'high',
           maxTokens: 4_000,
           system: WRITE_SYSTEM,
           user: repairUserMessage(failed),
@@ -527,10 +543,12 @@ export const execute = internalAction({
         })
         await record(ctx, runId, 'repair', repaired.record)
         for (const fix of repaired.output?.posts ?? []) {
+          const channel = targets.find((t) => t.channelId === fix.channelId)
           const index = drafts.findIndex(
             (d) => d.channelId === fix.channelId && d.storyUrl === fix.storyUrl,
           )
-          if (index >= 0) drafts = drafts.map((d, i) => (i === index ? fix : d))
+          if (index >= 0 && channel)
+            drafts = drafts.map((d, i) => (i === index ? withLink(fix, channel) : d))
         }
       }
       const atLimit = dry

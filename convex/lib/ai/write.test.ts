@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { checkPost, limitFor, writeUserMessage, type TargetChannel } from './write'
+import {
+  checkPost,
+  limitFor,
+  overBy,
+  withLink,
+  withoutLink,
+  writeUserMessage,
+  type TargetChannel,
+} from './write'
 import type { Playbook } from '../playbook'
 
 const playbook: Playbook = {
@@ -70,10 +78,10 @@ describe('post limits', () => {
   it('tells the writer each channel’s limit and card support', () => {
     const text = writeUserMessage(playbook, [], [x, li])
     expect(text).toContain(
-      'channelId c1: X (GrandPrixPicks). Limit 240 characters; aim for 204. Threads allowed. No link card',
+      'channelId c1: X (GrandPrixPicks). Your text may be 215 characters at most; aim for 183. Threads allowed. No link card',
     )
     expect(text).toContain(
-      'channelId c2: LinkedIn (Barry). Limit 3000 characters; aim for 2550. No threads. Shows a link card. Style: Longer. Link: the article',
+      'channelId c2: LinkedIn (Barry). Your text may be 3000 characters at most; aim for 2550. No threads. Shows a link card. Style: Longer. Link: the article',
     )
   })
 })
@@ -84,5 +92,29 @@ describe('X link counting', () => {
     const text = `Antonelli wins. https://formula1.com/en/latest/article/a-very-long-slug-that-goes-on-and-on.6kmBQv9FNTW7LzkDj8S34j`
     expect(measuredLength(text, 'twitter')).toBe(16 + 23)
     expect(measuredLength(text, 'linkedin')).toBe([...text].length)
+  })
+})
+
+describe('the link the system adds', () => {
+  const post = {
+    storyUrl: 'https://a.com/1',
+    channelId: 'c1',
+    text: 'News.',
+    thread: null,
+    linkAttachment: null,
+  }
+  it('goes after the text on X and nowhere on LinkedIn, and comes off again for a rewrite', () => {
+    const linked = withLink(post, x)
+    expect(linked.text).toBe('News.\n\nhttps://a.com/1')
+    expect(withLink(post, li).text).toBe('News.')
+    expect(withLink(linked, x).text).toBe(linked.text)
+    expect(withoutLink(linked).text).toBe('News.')
+  })
+  it('goes on the last part of a thread', () => {
+    expect(withLink({ ...post, thread: ['Two.'] }, x).thread).toEqual(['Two.\n\nhttps://a.com/1'])
+  })
+  it('says how far over a post is', () => {
+    expect(overBy({ ...post, text: 'x'.repeat(250) }, x, playbook)).toBe(10)
+    expect(overBy(post, x, playbook)).toBe(0)
   })
 })
