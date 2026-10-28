@@ -314,3 +314,43 @@ export const evalRuns = internalQuery({
     }))
   },
 })
+
+/** The stories an eval run found, for reading by eye. */
+export const evalDetail = internalQuery({
+  args: { fixtureId: v.number(), take: v.optional(v.number()) },
+  handler: async (ctx, { fixtureId, take }) => {
+    const runs = await ctx.db
+      .query('runs')
+      .withIndex('by_kind_startedAt', (q) => q.eq('kind', 'eval'))
+      .order('desc')
+      .take(80)
+    return runs
+      .filter((r) => r.fixtureId === fixtureId && r.status === 'done')
+      .slice(0, take ?? 2)
+      .map((r) => {
+        const calls = r.steps
+        void calls
+        const research = r.result?.research
+        return {
+          runId: r._id,
+          startedAt: r.startedAt,
+          costUsd: r.costUsd,
+          candidates: (research?.candidates ?? []).map(
+            (c: {
+              title: string
+              source: string
+              publishedAt: string
+              confidence: number
+              canonicalUrl: string
+            }) => ({
+              title: c.title,
+              source: c.source,
+              publishedAt: c.publishedAt,
+              confidence: c.confidence,
+              url: c.canonicalUrl,
+            }),
+          ),
+        }
+      })
+  },
+})

@@ -3,10 +3,14 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 import { costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
 
-/** The one place a model is chosen. Barry's key runs everything on Sonnet 5.5 (SPEC §4). */
+/**
+ * The one place a model is chosen. On the 28 Oct eval Haiku 5.5 matched Sonnet 5.5 on research
+ * picks and on the posts, at a fifth of the cost, so runs use it; the playbook, a one-off that
+ * needs judgement about sources, stays on Sonnet.
+ */
 const DEFAULT_MODELS = {
-  research: 'claude-sonnet-5-5',
-  write: 'claude-sonnet-5-5',
+  research: 'claude-haiku-5-5',
+  write: 'claude-haiku-5-5',
   playbook: 'claude-sonnet-5-5',
   reparse: 'claude-haiku-5-5',
 } as const satisfies Record<string, ModelId>
@@ -60,17 +64,8 @@ export function usageFrom(usage: Anthropic.Beta.BetaUsage): Usage {
   }
 }
 
-/**
- * One model call that must come back as JSON matching `schema`. The system prompt is cached, so
- * the per-run text goes in `user`. A safety refusal retries on the server's default fallback model
- * before it is reported as a refusal.
- */
-export async function callStructured<T extends z.ZodType>(
-  client: Anthropic,
-  call: StructuredCall<T>,
-): Promise<{ output: z.infer<T> | null; record: CallRecord }> {
-  const startedAt = Date.now()
-  const message = await client.beta.messages.parse({
+function parse<T extends z.ZodType>(client: Anthropic, call: StructuredCall<T>) {
+  return client.beta.messages.parse({
     model: call.model,
     max_tokens: call.maxTokens,
     betas: ['server-side-fallback-2026-07-01'],
@@ -80,6 +75,28 @@ export async function callStructured<T extends z.ZodType>(
     messages: [{ role: 'user', content: call.user }],
     ...(call.tools ? { tools: call.tools } : {}),
   })
+}
+
+/**
+ * One model call that must come back as JSON matching `schema`. The system prompt is cached, so
+ * the per-run text goes in `user`. A safety refusal retries on the server's default fallback model
+ * before it is reported as a refusal. A reply the SDK cannot parse (a broken string in the JSON,
+ * seen once on Haiku) gets one more try; an API error does not.
+ */
+export async function callStructured<T extends z.ZodType>(
+  client: Anthropic,
+  call: StructuredCall<T>,
+  attempt = 0,
+): Promise<{ output: z.infer<T> | null; record: CallRecord }> {
+  const startedAt = Date.now()
+  let message: Awaited<ReturnType<typeof parse<T>>>
+  try {
+    message = await parse(client, call)
+  } catch (error) {
+    if (attempt === 0 && !(error instanceof Anthropic.APIError))
+      return callStructured(client, call, 1)
+    throw error
+  }
   const usage = usageFrom(message.usage)
   const refused = message.stop_reason === 'refusal'
   return {

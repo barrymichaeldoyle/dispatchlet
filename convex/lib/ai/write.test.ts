@@ -70,10 +70,10 @@ describe('post limits', () => {
   it('tells the writer each channel’s limit and card support', () => {
     const text = writeUserMessage(playbook, [], [x, li])
     expect(text).toContain(
-      'channelId c1: X (GrandPrixPicks). Limit 240 characters. Threads allowed. No link card',
+      'channelId c1: X (GrandPrixPicks). Limit 240 characters; aim for 204. Threads allowed. No link card',
     )
     expect(text).toContain(
-      'channelId c2: LinkedIn (Barry). Limit 3000 characters. No threads. Shows a link card. Style: Longer. Link: the article',
+      'channelId c2: LinkedIn (Barry). Limit 3000 characters; aim for 2550. No threads. Shows a link card. Style: Longer. Link: the article',
     )
   })
 })

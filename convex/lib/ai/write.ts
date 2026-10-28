@@ -43,7 +43,7 @@ export const WRITE_SYSTEM = `You are the writer of Dispatchlet, a scheduled agen
 
 Rules:
 - Write one post per story per channel, in the voice and format the playbook gives for that channel.
-- Count characters. Each post, and each thread part, must fit the limit given for its channel. URLs count as written. When a story will not fit, cut words, not facts.
+- Count characters. Each post, and each thread part, must fit the limit given for its channel, and the brief gives a target below it: write to the target, not to the limit. A post that stops early is fine; one that runs over is thrown away. When a story will not fit, cut words, not facts.
 - Only state what is in the story's key facts and summary. Never add numbers, names, quotes or dates that are not there. Never speculate.
 - Use a thread only on channels that allow one, and only when the story needs more than one post. Most do not.
 - Put the link where the format says. On channels that show a link card, give a linkAttachment and keep the URL out of the text unless the format asks for it.
@@ -58,6 +58,12 @@ const X_LINK_LENGTH = 23
 export function measuredLength(text: string, service: Service): number {
   if (service === 'twitter') return [...text.replace(URL_PATTERN, 'x'.repeat(X_LINK_LENGTH))].length
   return [...text].length
+}
+
+/** What the writer aims for: comfortably under the limit, since the models tend to run to it. */
+export function targetFor(channel: TargetChannel, playbook: Playbook): number {
+  const limit = limitFor(channel, playbook)
+  return Math.max(80, Math.round(limit * 0.85))
 }
 
 /** The limit a channel's posts must fit. The playbook may tighten it, never loosen it. */
@@ -91,7 +97,7 @@ export function writeUserMessage(
     const format = playbook.formats.find((f) => f.service === c.service)
     const limits = SERVICE_LIMITS[c.service]
     const bits = [
-      `- channelId ${c.channelId}: ${SERVICE_NAMES[c.service]} (${c.name}). Limit ${limitFor(c, playbook)} characters.`,
+      `- channelId ${c.channelId}: ${SERVICE_NAMES[c.service]} (${c.name}). Limit ${limitFor(c, playbook)} characters; aim for ${targetFor(c, playbook)}.`,
       limits.threads && format?.thread ? 'Threads allowed.' : 'No threads.',
       limits.linkCard ? 'Shows a link card.' : 'No link card; the URL goes in the text.',
       c.service === 'twitter' ? 'A URL counts as 23 characters whatever its length.' : '',
@@ -157,7 +163,7 @@ export function repairUserMessage(
   ]
   failed.forEach((f, i) => {
     lines.push(
-      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}), limit ${f.limit} characters${f.channel.service === 'twitter' ? ', a URL counts as 23' : ''}. Problem: ${f.reason}`,
+      `${i + 1}. channelId ${f.channel.channelId} (${SERVICE_NAMES[f.channel.service]}), limit ${f.limit} characters, aim for ${Math.round(f.limit * 0.85)}${f.channel.service === 'twitter' ? ', a URL counts as 23' : ''}. Problem: ${f.reason}`,
       `   storyUrl: ${f.post.storyUrl}`,
       `   text: ${f.post.text}`,
       ...(f.post.thread?.length ? [`   thread: ${f.post.thread.join(' || ')}`] : []),
