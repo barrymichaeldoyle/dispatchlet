@@ -346,6 +346,7 @@ type ChannelRow = {
   displayName?: string
   avatar?: string
   usable: boolean
+  maxLength?: number
 }
 
 export const saveChannels = internalMutation({
@@ -360,6 +361,7 @@ export const saveChannels = internalMutation({
         displayName: v.optional(v.string()),
         avatar: v.optional(v.string()),
         usable: v.boolean(),
+        maxLength: v.optional(v.number()),
       }),
     ),
   },
@@ -378,6 +380,16 @@ export const saveChannels = internalMutation({
     }
   },
 })
+
+/** A channel's own limit when Buffer reports one: Premium X is 25,000; Mastodon servers vary. */
+function channelLimit(
+  service: string,
+  metadata?: { subscriptionType?: string | null; maxCharacters?: number | null } | null,
+): number | undefined {
+  if (service === 'twitter' && metadata?.subscriptionType === 'Premium') return 25_000
+  if (service === 'mastodon' && metadata?.maxCharacters) return metadata.maxCharacters
+  return undefined
+}
 
 /** Reads the user's organizations and their text channels from Buffer and stores them. */
 export const syncChannels = action({
@@ -403,6 +415,7 @@ export const syncChannels = action({
           avatar?: string | null
           isDisconnected?: boolean | null
           isLocked?: boolean | null
+          metadata?: { subscriptionType?: string | null; maxCharacters?: number | null } | null
         }[]
       }>(
         ctx,
@@ -411,6 +424,10 @@ export const syncChannels = action({
         `query DispatchletChannels($orgId: OrganizationId!) {
           channels(input: { organizationId: $orgId }) {
             id name displayName service avatar isDisconnected isLocked
+            metadata {
+              ... on TwitterMetadata { subscriptionType }
+              ... on MastodonMetadata { maxCharacters }
+            }
           }
         }`,
         { orgId: organization.id },
@@ -425,6 +442,7 @@ export const syncChannels = action({
           displayName: channel.displayName ?? undefined,
           avatar: channel.avatar ?? undefined,
           usable: !channel.isDisconnected && !channel.isLocked,
+          maxLength: channelLimit(channel.service, channel.metadata),
         })
       }
     }
@@ -513,3 +531,282 @@ export const myConnection = query({
     }
   },
 })
+
+/**
+ * A Buffer call for another module, with the token looked up and 401 handled: Buffer rejecting the
+ * token means the grant is gone, so the connection is marked and the person emailed once.
+ */
+export async function bufferCallFor<T>(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  document: string,
+  variables?: Record<string, unknown>,
+  priority: Priority = 'background',
+): Promise<T> {
+  const { token } = await accessTokenFor(ctx, userId)
+  try {
+    return await callBuffer<T>(ctx, userId, token, document, variables, priority)
+  } catch (error) {
+    if (error instanceof BufferApiError && error.status === 401) {
+      const connection = await ctx.runQuery(internal.buffer.connectionFor, { userId })
+      if (connection)
+        await ctx.runMutation(internal.buffer.releaseRefresh, {
+          connectionId: connection._id,
+          needsReauth: true,
+        })
+    }
+    throw error
+  }
+}
+
+type MutationPayload = { __typename: string; message?: string }
+
+/** The "Dispatchlet" tag in an organization, created the first time it is needed. */
+export async function ensureTag(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  organizationId: string,
+): Promise<string | null> {
+  const connection = await ctx.runQuery(internal.buffer.connectionFor, { userId })
+  const known = connection?.tags?.find((t) => t.organizationId === organizationId)
+  if (known) return known.tagId
+  let tagId: string | null = null
+  try {
+    const { createTag } = await bufferCallFor<{
+      createTag: MutationPayload & { tag?: { id: string } }
+    }>(
+      ctx,
+      userId,
+      `mutation DispatchletTag($orgId: OrganizationId!) {
+        createTag(input: { organizationId: $orgId, tag: { name: "Dispatchlet", color: "#0F6E56" } }) {
+          __typename
+          ... on TagActionSuccess { tag { id name } }
+          ... on DuplicateError { message }
+          ... on MutationError { message }
+        }
+      }`,
+      { orgId: organizationId },
+    )
+    tagId = createTag.tag?.id ?? null
+    if (!tagId && createTag.__typename === 'DuplicateError') {
+      const { tagsV2 } = await bufferCallFor<{
+        tagsV2: { edges: { node: { id: string; name: string } }[] }
+      }>(
+        ctx,
+        userId,
+        `query DispatchletTags($orgId: OrganizationId!) {
+          tagsV2(input: { organizationId: $orgId }) { edges { node { id name } } }
+        }`,
+        { orgId: organizationId },
+      )
+      tagId = tagsV2.edges.find((e) => e.node.name === 'Dispatchlet')?.node.id ?? null
+    }
+  } catch (error) {
+    // Tags are a nicety; a post without one is still a post.
+    console.log(`Tag not available: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+  if (tagId && connection)
+    await ctx.runMutation(internal.buffer.storeTag, {
+      connectionId: connection._id,
+      organizationId,
+      tagId,
+    })
+  return tagId
+}
+
+export const storeTag = internalMutation({
+  args: { connectionId: v.id('bufferConnections'), organizationId: v.string(), tagId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { connectionId, organizationId, tagId }) => {
+    const connection = await ctx.db.get(connectionId)
+    if (!connection) return null
+    const tags = (connection.tags ?? []).filter((t) => t.organizationId !== organizationId)
+    await ctx.db.patch(connectionId, { tags: [...tags, { organizationId, tagId }] })
+    return null
+  },
+})
+
+/** Which channels have hit Buffer's daily posting limit, before a run publishes. */
+export async function channelsAtLimit(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  channelIds: string[],
+): Promise<Set<string>> {
+  try {
+    const { dailyPostingLimits } = await bufferCallFor<{
+      dailyPostingLimits: { channelId: string; isAtLimit: boolean }[]
+    }>(
+      ctx,
+      userId,
+      `query DispatchletLimits($ids: [ChannelId!]!) {
+        dailyPostingLimits(input: { channelIds: $ids }) { channelId isAtLimit }
+      }`,
+      { ids: channelIds },
+    )
+    return new Set(dailyPostingLimits.filter((l) => l.isAtLimit).map((l) => l.channelId))
+  } catch {
+    return new Set()
+  }
+}
+
+export type CreatePostInput = {
+  channelId: string
+  service: string
+  text: string
+  thread?: string[]
+  linkAttachment?: { url: string; title: string; description: string }
+  mode: 'draft' | 'queue' | 'spread'
+  dueAt?: number
+  tagId: string | null
+}
+
+export type CreatedPost = {
+  id: string
+  status: string
+  dueAt: string | null
+  externalLink: string | null
+}
+
+/** Thrown when Buffer accepted the request but refused the post; `kind` says whether to go on. */
+export class BufferPostError extends Error {
+  constructor(
+    message: string,
+    readonly kind: 'limit' | 'invalid' | 'other',
+  ) {
+    super(message)
+  }
+}
+
+/** One post into Buffer, as a draft, into the queue, or at a time (SPEC §24.5). */
+export async function createBufferPost(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  post: CreatePostInput,
+): Promise<CreatedPost> {
+  const metadata: Record<string, unknown> = {}
+  if (post.service === 'twitter') {
+    metadata.twitter = {
+      isAiGenerated: true,
+      ...(post.thread?.length
+        ? { thread: [post.text, ...post.thread].map((text) => ({ text })) }
+        : {}),
+    }
+  } else if (post.linkAttachment && post.service === 'linkedin') {
+    metadata.linkedin = { linkAttachment: post.linkAttachment }
+  } else if (post.linkAttachment && (post.service === 'threads' || post.service === 'bluesky')) {
+    metadata[post.service] = {
+      linkAttachment: { url: post.linkAttachment.url, title: post.linkAttachment.title },
+    }
+  }
+  const input: Record<string, unknown> = {
+    channelId: post.channelId,
+    text: post.text,
+    schedulingType: 'automatic',
+    aiAssisted: true,
+    source: 'dispatchlet',
+    ...(post.tagId ? { tagIds: [post.tagId] } : {}),
+    ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(post.mode === 'draft'
+      ? { mode: 'addToQueue', saveToDraft: true }
+      : post.mode === 'queue'
+        ? { mode: 'addToQueue' }
+        : { mode: 'customScheduled', dueAt: new Date(post.dueAt ?? Date.now()).toISOString() }),
+  }
+  const { createPost } = await bufferCallFor<{
+    createPost: MutationPayload & {
+      post?: { id: string; status: string; dueAt: string | null; externalLink: string | null }
+    }
+  }>(
+    ctx,
+    userId,
+    `mutation DispatchletCreatePost($input: CreatePostInput!) {
+      createPost(input: $input) {
+        __typename
+        ... on PostActionSuccess { post { id status dueAt externalLink } }
+        ... on LimitReachedError { message }
+        ... on InvalidInputError { message }
+        ... on MutationError { message }
+      }
+    }`,
+    { input },
+  )
+  if (createPost.post) return createPost.post
+  const kind =
+    createPost.__typename === 'LimitReachedError'
+      ? 'limit'
+      : createPost.__typename === 'InvalidInputError'
+        ? 'invalid'
+        : 'other'
+  throw new BufferPostError(createPost.message ?? `Buffer returned ${createPost.__typename}`, kind)
+}
+
+/** Moves a draft into the queue (SPEC §24.6). Returns the post's new status. */
+export async function approveBufferPost(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  bufferPostId: string,
+): Promise<string> {
+  const { editPost } = await bufferCallFor<{
+    editPost: MutationPayload & { post?: { id: string; status: string } }
+  }>(
+    ctx,
+    userId,
+    `mutation DispatchletApprove($id: PostId!) {
+      editPost(input: { id: $id, saveToDraft: false, mode: addToQueue }) {
+        __typename
+        ... on PostActionSuccess { post { id status } }
+        ... on MutationError { message }
+      }
+    }`,
+    { id: bufferPostId },
+    'interactive',
+  )
+  if (editPost.post) return editPost.post.status
+  throw new BufferPostError(editPost.message ?? 'Buffer did not move the post', 'other')
+}
+
+/** The current status of posts Dispatchlet created, one query per organization (SPEC §24.7). */
+export async function postStatuses(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  organizationId: string,
+  channelIds: string[],
+  since: number,
+): Promise<
+  {
+    id: string
+    status: string
+    sentAt: string | null
+    externalLink: string | null
+    error: string | null
+  }[]
+> {
+  const { posts } = await bufferCallFor<{
+    posts: {
+      edges: {
+        node: {
+          id: string
+          status: string
+          sentAt: string | null
+          externalLink: string | null
+          error: { message: string } | null
+        }
+      }[]
+    }
+  }>(
+    ctx,
+    userId,
+    `query DispatchletStatus($orgId: OrganizationId!, $ids: [ChannelId!], $since: DateTime!) {
+      posts(first: 50, input: {
+        organizationId: $orgId,
+        filter: { channelIds: $ids, createdAt: { start: $since } },
+        sort: [{ field: createdAt, direction: desc }]
+      }) {
+        edges { node { id status sentAt externalLink error { message } } }
+      }
+    }`,
+    { orgId: organizationId, ids: channelIds, since: new Date(since).toISOString() },
+  )
+  return posts.edges.map((e) => ({ ...e.node, error: e.node.error?.message ?? null }))
+}

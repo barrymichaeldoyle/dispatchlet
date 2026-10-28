@@ -2,6 +2,33 @@ import { authTables } from '@convex-dev/auth/server'
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
+export const usageValidator = v.object({
+  inputTokens: v.number(),
+  outputTokens: v.number(),
+  cacheWriteTokens: v.number(),
+  cacheReadTokens: v.number(),
+  webSearches: v.number(),
+  webFetches: v.number(),
+})
+
+export const cadenceValidator = v.object({
+  preset: v.union(v.literal('daily'), v.literal('weekly')),
+  time: v.string(),
+  weekday: v.union(v.string(), v.null()),
+})
+
+/** The seven setup answers (lib/ai/setup), as the automation keeps them. */
+export const setupValidator = v.object({
+  research: v.string(),
+  services: v.array(v.string()),
+  avoid: v.string(),
+  sources: v.array(v.string()),
+  onlyTheseSources: v.boolean(),
+  cadence: cadenceValidator,
+  maxStories: v.number(),
+  postingMode: v.union(v.literal('draft'), v.literal('queue')),
+})
+
 export default defineSchema({
   ...authTables,
   /** Convex Auth's users table, plus the settings the app keeps for each person. */
@@ -15,6 +42,15 @@ export default defineSchema({
     isAnonymous: v.optional(v.boolean()),
     /** IANA time zone, such as Africa/Johannesburg. Runs are scheduled in it. */
     timezone: v.optional(v.string()),
+    /** Runs and dry runs used on the free allowance (lib/limits). */
+    freeRunsUsed: v.optional(v.number()),
+    freeDryRunsUsed: v.optional(v.number()),
+    /** The person's own Anthropic key, AES-GCM encrypted, which lifts the run allowance. */
+    anthropicKeyEnc: v.optional(v.string()),
+    anthropicKeyInvalidAt: v.optional(v.number()),
+    /** Set once, so the first-run milestones are only said once. */
+    firstPlaybookAt: v.optional(v.number()),
+    firstPostAt: v.optional(v.number()),
   })
     .index('email', ['email'])
     .index('phone', ['phone']),
@@ -37,6 +73,8 @@ export default defineSchema({
     lastRateLimitAt: v.optional(v.number()),
     /** Buffer's `pk` for this grant's budget: the same for two accounts if the budget is shared. */
     ratePartition: v.optional(v.string()),
+    /** The "Dispatchlet" tag id in each Buffer organization, created on first publish. */
+    tags: v.optional(v.array(v.object({ organizationId: v.string(), tagId: v.string() }))),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
   /** The text channels in the user's Buffer organizations, refreshed by channel sync. */
@@ -49,6 +87,8 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     avatar: v.optional(v.string()),
     usable: v.boolean(),
+    /** The channel's own post limit when Buffer reports one (Premium X, a Mastodon server). */
+    maxLength: v.optional(v.number()),
     syncedAt: v.number(),
   })
     .index('by_user', ['userId'])
@@ -66,36 +106,119 @@ export default defineSchema({
     'kind',
     'sentAt',
   ]),
+  /** An automation: the setup answers that are configuration, plus its schedule state. */
+  automations: defineTable({
+    userId: v.id('users'),
+    name: v.string(),
+    /** generating (playbook on its way), ready (never enabled), active, paused, failed (needs a look). */
+    status: v.string(),
+    setup: setupValidator,
+    channelIds: v.array(v.string()),
+    cadence: cadenceValidator,
+    timezone: v.string(),
+    postingMode: v.string(),
+    maxPostsPerRun: v.number(),
+    playbookVersionId: v.optional(v.id('playbookVersions')),
+    /** Why generation failed, shown on the setup screen. */
+    generationError: v.optional(v.string()),
+    nextRunAt: v.optional(v.number()),
+    scheduledFnId: v.optional(v.id('_scheduled_functions')),
+    lastRunAt: v.optional(v.number()),
+    consecutiveFailures: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  }).index('by_user', ['userId']),
+  /** Every saved playbook, newest version highest. A run keeps the version it started with. */
+  playbookVersions: defineTable({
+    automationId: v.id('automations'),
+    version: v.number(),
+    playbook: v.any(),
+    text: v.string(),
+    createdBy: v.string(),
+    createdAt: v.number(),
+  }).index('by_automation_version', ['automationId', 'version']),
   /**
-   * One row per scheduled or manual run of an automation, and per eval run. Totals are summed from
-   * aiCalls as each step finishes, so the live run log and the cost per run come from one place.
+   * One row per run of an automation (scheduled, run now, dry run) and per eval run. Totals are
+   * summed from aiCalls as each step finishes, so the live run log and the cost per run come from
+   * one place.
    */
   runs: defineTable({
     userId: v.optional(v.id('users')),
-    /** Why the run exists: 'eval' (a fixture run from the CLI) now; 'scheduled', 'now', 'dry' later. */
+    automationId: v.optional(v.id('automations')),
+    playbookVersionId: v.optional(v.id('playbookVersions')),
+    /** scheduled, now, dry, or eval (a fixture run from the CLI). */
     kind: v.string(),
-    /** Which eval fixture (lib/evals), when kind is 'eval'. */
     fixtureId: v.optional(v.number()),
+    /** researching, writing, publishing, done, failed, skipped. */
     status: v.string(),
     startedAt: v.number(),
     finishedAt: v.optional(v.number()),
     /** The step log, newest last. */
     steps: v.array(v.object({ step: v.string(), at: v.number(), note: v.string() })),
-    usage: v.object({
-      inputTokens: v.number(),
-      outputTokens: v.number(),
-      cacheWriteTokens: v.number(),
-      cacheReadTokens: v.number(),
-      webSearches: v.number(),
-      webFetches: v.number(),
-    }),
+    usage: usageValidator,
     costUsd: v.number(),
-    /** What research found, kept on the run until the stories table exists. */
+    /** Counts for the list views. */
+    found: v.optional(v.number()),
+    kept: v.optional(v.number()),
+    posted: v.optional(v.number()),
+    /** What research found, kept on eval runs. */
     result: v.optional(v.any()),
     error: v.optional(v.string()),
   })
     .index('by_user', ['userId'])
+    .index('by_automation_startedAt', ['automationId', 'startedAt'])
     .index('by_kind_startedAt', ['kind', 'startedAt']),
+  /** Every story a run considered, with the decision, so the next run never repeats one. */
+  stories: defineTable({
+    automationId: v.id('automations'),
+    runId: v.id('runs'),
+    title: v.string(),
+    canonicalUrl: v.string(),
+    source: v.string(),
+    publishedAt: v.string(),
+    summary: v.string(),
+    whyItMatters: v.string(),
+    keyFacts: v.array(v.string()),
+    confidence: v.number(),
+    /** kept, skipped_dup, skipped_quality, skipped_limit, dry (kept on a dry run, not covered). */
+    decision: v.string(),
+    reason: v.string(),
+    dupOf: v.optional(v.id('stories')),
+    createdAt: v.number(),
+  })
+    .index('by_run', ['runId'])
+    .index('by_automation_decision', ['automationId', 'decision'])
+    .index('by_automation_url', ['automationId', 'canonicalUrl']),
+  /** Every post written, and what Buffer did with it. */
+  posts: defineTable({
+    userId: v.id('users'),
+    automationId: v.id('automations'),
+    runId: v.id('runs'),
+    storyId: v.id('stories'),
+    channelId: v.string(),
+    service: v.string(),
+    text: v.string(),
+    thread: v.optional(v.array(v.string())),
+    linkAttachment: v.optional(
+      v.object({ url: v.string(), title: v.string(), description: v.string() }),
+    ),
+    /** dry (never sent), rejected (failed a check), draft, queued, scheduled, sent, failed. */
+    status: v.string(),
+    reason: v.optional(v.string()),
+    bufferPostId: v.optional(v.string()),
+    bufferStatus: v.optional(v.string()),
+    externalLink: v.optional(v.string()),
+    dueAt: v.optional(v.number()),
+    sentAt: v.optional(v.number()),
+    approveToken: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_run', ['runId'])
+    .index('by_user_createdAt', ['userId', 'createdAt'])
+    .index('by_createdAt', ['createdAt'])
+    .index('by_approveToken', ['approveToken'])
+    .index('by_bufferPostId', ['bufferPostId']),
   /** Every model call, with what it cost, so the cost per run is measured and not guessed. */
   aiCalls: defineTable({
     runId: v.optional(v.id('runs')),
@@ -103,14 +226,7 @@ export default defineSchema({
     purpose: v.string(),
     model: v.string(),
     stopReason: v.union(v.string(), v.null()),
-    usage: v.object({
-      inputTokens: v.number(),
-      outputTokens: v.number(),
-      cacheWriteTokens: v.number(),
-      cacheReadTokens: v.number(),
-      webSearches: v.number(),
-      webFetches: v.number(),
-    }),
+    usage: usageValidator,
     costUsd: v.number(),
     durationMs: v.number(),
     refusal: v.union(v.string(), v.null()),

@@ -3,6 +3,7 @@ import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { FIXTURES } from './evals/setupAnswers'
+import { usageValidator } from './schema'
 import { anthropicClient, callStructured, MODELS } from './lib/ai/client'
 import { addUsage, EMPTY_USAGE } from './lib/ai/pricing'
 import {
@@ -31,15 +32,6 @@ type EvalSummary = {
   durationMs: number
   notes: string
 }
-
-const usageValidator = v.object({
-  inputTokens: v.number(),
-  outputTokens: v.number(),
-  cacheWriteTokens: v.number(),
-  cacheReadTokens: v.number(),
-  webSearches: v.number(),
-  webFetches: v.number(),
-})
 
 /**
  * Runs the research step on one eval fixture (SPEC §36) and records what it cost. From the CLI:
@@ -157,6 +149,25 @@ export const recordCall = internalMutation({
       usage: addUsage(run.usage, args.usage),
       costUsd: Math.round((run.costUsd + args.costUsd) * 10_000) / 10_000,
     })
+    return null
+  },
+})
+
+/** A model call outside a run, such as writing a playbook. */
+export const recordStandalone = internalMutation({
+  args: {
+    userId: v.id('users'),
+    purpose: v.string(),
+    model: v.string(),
+    stopReason: v.union(v.string(), v.null()),
+    usage: usageValidator,
+    costUsd: v.number(),
+    durationMs: v.number(),
+    refusal: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert('aiCalls', { ...args, createdAt: Date.now() })
     return null
   },
 })

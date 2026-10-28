@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { internal } from './_generated/api'
 import { internalMutation } from './_generated/server'
 
 const MINUTE = 60_000
@@ -32,5 +33,42 @@ export const claimErrorAlert = internalMutation({
     if (recent.some((row) => row.sentAt > now - ERROR_ALERT_GAP)) return false
     await ctx.db.insert('alertsSent', { kind: 'error', sentAt: now })
     return true
+  },
+})
+
+/** Whether something keyed by `kind` has been sent before; records it the first time. */
+export const claimOnce = internalMutation({
+  args: { kind: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { kind }) => {
+    const sent = await ctx.db
+      .query('alertsSent')
+      .withIndex('by_kind_sentAt', (q) => q.eq('kind', kind))
+      .first()
+    if (sent) return false
+    await ctx.db.insert('alertsSent', { kind, sentAt: Date.now() })
+    return true
+  },
+})
+
+/** An owner email for a condition worth a look, at most once an hour per kind. */
+export const notifyOwner = internalMutation({
+  args: { kind: v.string(), detail: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { kind, detail }) => {
+    const now = Date.now()
+    const recent = await ctx.db
+      .query('alertsSent')
+      .withIndex('by_kind_sentAt', (q) =>
+        q.eq('kind', `owner:${kind}`).gt('sentAt', now - 60 * MINUTE),
+      )
+      .first()
+    if (recent) return null
+    await ctx.db.insert('alertsSent', { kind: `owner:${kind}`, sentAt: now })
+    await ctx.scheduler.runAfter(0, internal.email.sendOwnerNote, {
+      subject: `Dispatchlet: ${kind}`,
+      body: detail,
+    })
+    return null
   },
 })

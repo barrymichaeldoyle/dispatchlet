@@ -186,4 +186,17 @@ http.route({
   }),
 })
 
+/** The one-click approve link from the digest email: moves the draft into the queue. */
+http.route({
+  path: '/approve',
+  method: 'GET',
+  handler: httpAction(async (ctx, req) => {
+    const token = new URL(req.url).searchParams.get('token') ?? ''
+    if (!token) return page(404, 'This link is not valid.')
+    const result = await ctx.runAction(internal.approvals.approveByToken, { token })
+    if (!result.ok) return page(result.status, result.message)
+    return page(200, result.message)
+  }),
+})
+
 export default http

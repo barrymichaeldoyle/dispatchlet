@@ -4,6 +4,8 @@ import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { isAllowlisted, isSignupOpen } from './lib/allowlist'
+import { decryptSecret, encryptSecret } from './lib/crypto'
+import { allowanceFor } from './lib/limits'
 
 /** Who is signed in, and whether they may use the app yet (see lib/allowlist). */
 export const viewer = query({
@@ -16,6 +18,10 @@ export const viewer = query({
       bufferId: v.union(v.string(), v.null()),
       timezone: v.union(v.string(), v.null()),
       allowed: v.boolean(),
+      ownKey: v.boolean(),
+      runsLeft: v.union(v.number(), v.null()),
+      dryRunsLeft: v.union(v.number(), v.null()),
+      keyInvalid: v.boolean(),
     }),
   ),
   handler: async (ctx) => {
@@ -35,6 +41,8 @@ export const viewer = query({
       bufferId,
       timezone: user.timezone ?? null,
       allowed: isAllowlisted(bufferId, email),
+      ...allowanceFor(user),
+      keyInvalid: Boolean(user.anthropicKeyInvalidAt),
     }
   },
 })
@@ -68,6 +76,48 @@ export const setTimezone = mutation({
     if (!userId) throw new Error('Not signed in')
     if (!isTimeZone(timezone)) throw new Error('That is not a time zone.')
     await ctx.db.patch(userId, { timezone })
+    return null
+  },
+})
+
+/** The Anthropic key a user's runs use: their own when they added one, else Dispatchlet's. */
+export async function keyFor(user: Doc<'users'>): Promise<string | undefined> {
+  if (user.anthropicKeyEnc) return await decryptSecret(user.anthropicKeyEnc)
+  return process.env.ANTHROPIC_API_KEY
+}
+
+/** Stores the person's own Anthropic key, encrypted. An empty key removes it. */
+export const setAnthropicKey = action({
+  args: { key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { key }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    const trimmed = key.trim()
+    if (trimmed && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(trimmed))
+      throw new Error('That does not look like an Anthropic API key. They start with sk-ant-.')
+    await ctx.runMutation(internal.users.storeKey, {
+      userId,
+      anthropicKeyEnc: trimmed ? await encryptSecret(trimmed) : undefined,
+    })
+    return null
+  },
+})
+
+export const storeKey = internalMutation({
+  args: { userId: v.id('users'), anthropicKeyEnc: v.optional(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { userId, anthropicKeyEnc }) => {
+    await ctx.db.patch(userId, { anthropicKeyEnc, anthropicKeyInvalidAt: undefined })
+    return null
+  },
+})
+
+export const markKeyInvalid = internalMutation({
+  args: { userId: v.id('users') },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    await ctx.db.patch(userId, { anthropicKeyInvalidAt: Date.now() })
     return null
   },
 })

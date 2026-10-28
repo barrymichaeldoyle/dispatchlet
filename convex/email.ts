@@ -131,6 +131,96 @@ export function errorAlertMessage(to: string): Message {
   }
 }
 
+const APP = 'https://dispatchlet.com/app'
+const LINK = 'color:#0f6e56'
+
+type DigestPost = {
+  channelName: string
+  text: string
+  status: string
+  approveToken: string | null
+  externalLink: string | null
+}
+
+/** After a run with posts: what went where, with a one-click approve for each draft. */
+export function digestMessage(
+  to: string,
+  run: { automationName: string; automationId: string; note: string },
+  posts: DigestPost[],
+): Message {
+  const site = process.env.CONVEX_SITE_URL
+  const runUrl = `${APP}/a/${run.automationId}`
+  const drafts = posts.filter((p) => p.approveToken)
+  const subject = drafts.length
+    ? `${drafts.length} ${drafts.length === 1 ? 'draft' : 'drafts'} to approve from ${run.automationName}`
+    : `${posts.length} ${posts.length === 1 ? 'post' : 'posts'} from ${run.automationName}`
+  const textPosts = posts
+    .map((p) => {
+      const line = `${p.channelName}, ${p.status}:\n${p.text}`
+      return p.approveToken ? `${line}\nApprove: ${site}/approve?token=${p.approveToken}` : line
+    })
+    .join('\n\n')
+  const htmlPosts = posts.map((p) => {
+    const body = `<strong>${escapeHtml(p.channelName)}</strong>, ${escapeHtml(p.status)}.<br>${escapeHtml(p.text).replaceAll('\n', '<br>')}`
+    return p.approveToken
+      ? `${body}<br><a href="${site}/approve?token=${p.approveToken}" style="${LINK}">Approve and add to the queue</a>`
+      : body
+  })
+  return {
+    from: FROM,
+    to,
+    subject,
+    text: `${run.note}\n\n${textPosts}\n\nSee the run: ${runUrl}\n\nBarry\n\nPrivacy policy: https://dispatchlet.com/privacy\n`,
+    html: html(
+      [
+        escapeHtml(run.note),
+        ...htmlPosts,
+        `<a href="${runUrl}" style="${LINK}">See the run</a>`,
+        'Barry',
+      ],
+      `You get this after each run that creates posts. Read the ${PRIVACY}.`,
+    ),
+    headers: {},
+  }
+}
+
+export function pausedMessage(to: string, automationName: string, automationId: string): Message {
+  const url = `${APP}/a/${automationId}`
+  return {
+    from: FROM,
+    to,
+    subject: `${automationName} is paused after 3 failed runs`,
+    text: `${automationName} failed three runs in a row, so Dispatchlet paused it. The run log says what went wrong.\n\n${url}\n\nBarry\n`,
+    html: html(
+      [
+        `${escapeHtml(automationName)} failed three runs in a row, so Dispatchlet paused it. The run log says what went wrong.`,
+        `<a href="${url}" style="${LINK}">Open the automation</a>`,
+        'Barry',
+      ],
+      `Read the ${PRIVACY}.`,
+    ),
+    headers: {},
+  }
+}
+
+export function runsUsedUpMessage(to: string): Message {
+  return {
+    from: FROM,
+    to,
+    subject: 'Your free runs are used up',
+    text: `Your 10 free runs on Dispatchlet are used up, so scheduled runs are skipped from now on. Add your own Anthropic key in settings to keep going.\n\n${APP}/settings\n\nBarry\n`,
+    html: html(
+      [
+        'Your 10 free runs on Dispatchlet are used up, so scheduled runs are skipped from now on. Add your own Anthropic key in settings to keep going.',
+        `<a href="${APP}/settings" style="${LINK}">Open settings</a>`,
+        'Barry',
+      ],
+      `Sent once. Read the ${PRIVACY}.`,
+    ),
+    headers: {},
+  }
+}
+
 async function resend(path: string, body: unknown): Promise<void> {
   const key = process.env.RESEND_API_KEY
   if (!key) {
@@ -210,5 +300,60 @@ export const sendLaunch = internalAction({
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
     return sent
+  },
+})
+
+export const sendDigest = internalAction({
+  args: { runId: v.id('runs') },
+  returns: v.null(),
+  handler: async (ctx, { runId }) => {
+    const digest = await ctx.runQuery(internal.approvals.digestFor, { runId })
+    if (!digest?.email || !digest.posts.length) return null
+    await resend('/emails', digestMessage(digest.email, digest.run, digest.posts))
+    return null
+  },
+})
+
+export const sendPaused = internalAction({
+  args: { userId: v.id('users'), automationId: v.id('automations') },
+  returns: v.null(),
+  handler: async (ctx, { userId, automationId }) => {
+    const email = await ctx.runQuery(internal.users.emailFor, { userId })
+    const name = await ctx.runQuery(internal.approvals.automationName, { automationId })
+    if (!email) return null
+    await resend('/emails', pausedMessage(email, name, automationId))
+    return null
+  },
+})
+
+/** Once per account, when a scheduled run is first skipped for lack of free runs. */
+export const sendRunsUsedUp = internalAction({
+  args: { userId: v.id('users') },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    if (!(await ctx.runMutation(internal.alerts.claimOnce, { kind: `runs-used-up:${userId}` })))
+      return null
+    const email = await ctx.runQuery(internal.users.emailFor, { userId })
+    if (!email) return null
+    await resend('/emails', runsUsedUpMessage(email))
+    return null
+  },
+})
+
+/** To the owner, for things that need a person: the spend cap, mostly. */
+export const sendOwnerNote = internalAction({
+  args: { subject: v.string(), body: v.string() },
+  returns: v.null(),
+  handler: async (_ctx, { subject, body }) => {
+    const to = process.env.ALERT_EMAIL ?? 'barry@dispatchlet.com'
+    await resend('/emails', {
+      from: FROM,
+      to,
+      subject,
+      text: `${body}\n`,
+      html: html([escapeHtml(body)], 'From Dispatchlet.'),
+      headers: {},
+    })
+    return null
   },
 })
