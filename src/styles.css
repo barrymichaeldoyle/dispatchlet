@@ -4435,3 +4435,422 @@ header nav button {
   opacity: 0.7;
   cursor: progress;
 }
+
+/* App screens: automations, setup, the playbook editor and the run log (SPEC §23). */
+.app-crumbs {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.app-gate .app-crumbs a {
+  color: var(--color-muted);
+}
+.app-gate .app-status-line {
+  margin: 0 0 16px;
+  font-size: 15px;
+}
+.app-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.app-section-head h2 {
+  margin: 0;
+}
+.app-toolbar {
+  margin: 0 0 24px;
+}
+.app-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.app-table th,
+.app-table td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.app-table th {
+  font-weight: 500;
+  color: var(--color-muted);
+}
+.app-table td.tabular,
+.app-table th:has(+ th):last-child {
+  white-space: nowrap;
+}
+.app-tabs {
+  display: flex;
+  gap: 20px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-tabs button {
+  padding: 8px 0 10px;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.app-tabs button:hover {
+  color: var(--color-ink);
+}
+.app-tabs button[aria-current='page'] {
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--color-pine);
+}
+.app-tabs.is-small {
+  margin: 0;
+  border: 0;
+}
+.app-tabs.is-small button {
+  padding: 4px 0;
+  font-size: 14px;
+}
+.app-playbook-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.app-gate .app-playbook-head p {
+  margin: 0;
+}
+.app-editor {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  margin: 16px 0;
+  border: 1px solid var(--color-ink);
+  background: var(--color-card);
+}
+.app-editor-gutter {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  border-right: 1px solid var(--color-rule);
+  color: var(--color-rule);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+.app-editor-gutter span {
+  padding-right: 6px;
+}
+.app-editor-text {
+  width: 100%;
+  min-height: 320px;
+  padding: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  resize: vertical;
+  tab-size: 2;
+}
+.app-editor-text:focus {
+  outline: 2px solid var(--color-pine);
+  outline-offset: -2px;
+}
+.app-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0;
+}
+.app-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.app-form label > span {
+  color: var(--color-muted);
+}
+.app-form input,
+.app-form textarea,
+.app-form select {
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-card);
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 15px;
+}
+.app-form textarea {
+  resize: vertical;
+}
+.app-form fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+.app-form legend {
+  padding: 0 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.app-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.app-form-row > input {
+  flex: 1 1 200px;
+}
+.app-form-format {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.app-form .app-radio,
+.app-radio {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink);
+  font-size: 15px;
+}
+.app-form .app-number {
+  width: 90px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+.app-link {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-pine);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.app-choices {
+  margin: 0 0 24px;
+  padding: 0;
+  list-style: none;
+}
+.app-choices li {
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-choices li[data-checked='true'] {
+  background: var(--color-tint);
+}
+.app-choices label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 8px 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.app-choices input {
+  accent-color: var(--color-ink);
+}
+.app-schedule h2 {
+  margin-top: 20px;
+}
+.app-key {
+  flex: 1 1 260px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Setup questions, the real ones. */
+.setup-form {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr);
+  gap: 40px;
+  align-items: start;
+}
+.setup-choice {
+  cursor: pointer;
+}
+.setup-choice:has(input:focus-visible) {
+  outline-color: var(--color-pine);
+}
+.setup-choice[data-checked='true'] {
+  border-color: var(--color-pine);
+  background: var(--color-tint);
+}
+.setup-choice.is-channel .setup-block-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.setup-field {
+  width: 100%;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 20px;
+  resize: vertical;
+}
+.setup-field::placeholder {
+  color: var(--color-muted);
+  opacity: 0.6;
+}
+.setup-field:focus {
+  outline-color: var(--color-pine);
+}
+.setup-time {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+.setup-time input {
+  border: 0;
+  background: transparent;
+  color: var(--color-ink);
+  font: inherit;
+  font-size: 18px;
+}
+.setup-select {
+  min-height: 64px;
+}
+.setup-nav {
+  margin-top: 24px;
+}
+.setup-live dd {
+  min-height: 1.5em;
+}
+.setup-jump {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.setup-jump:disabled {
+  cursor: default;
+}
+
+/* The run log: a timestamp column, a 1px spine, the lines. The bar fills as steps finish. */
+.app-run {
+  position: relative;
+  margin: 0 0 32px;
+  padding-top: 12px;
+}
+.app-run-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--color-rule);
+  overflow: hidden;
+}
+.app-run-bar span {
+  display: block;
+  height: 100%;
+  background: var(--color-pine);
+  transform-origin: left;
+  transition: transform 600ms ease-out;
+}
+.app-run[data-live='false'] .app-run-bar span {
+  background: var(--color-rule);
+}
+.app-log {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-log li {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 16px;
+  min-height: 40px;
+  padding: 8px 0;
+  border-left: 0;
+}
+.app-log li time {
+  padding-right: 12px;
+  border-right: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.app-log li p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.app-log li.is-running time {
+  border-right-color: var(--color-pine);
+}
+.app-stories,
+.app-posts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-stories li,
+.app-posts li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-stories li[data-kept='true'] {
+  background: var(--color-tint);
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.app-gate .app-stories p,
+.app-gate .app-posts p {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.app-story-head,
+.app-post-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+.app-story-decision {
+  min-width: 110px;
+  color: var(--color-pine);
+}
+.app-stories li[data-kept='false'] .app-story-decision {
+  color: var(--color-muted);
+}
+.app-gate .app-post-text {
+  white-space: pre-wrap;
+  max-width: 64ch;
+}
+@media (max-width: 720px) {
+  .setup-form {
+    grid-template-columns: 1fr;
+  }
+  .app-table {
+    font-size: 14px;
+  }
+  .app-gate-actions .app-gate-primary,
+  .app-gate-actions .app-gate-secondary {
+    flex: 1 1 100%;
+  }
+}

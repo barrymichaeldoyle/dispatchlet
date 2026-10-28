@@ -1,12 +1,11 @@
 import { useAuthActions } from '@convex-dev/auth/react'
+import { Link } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useId, useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
+import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
-
-function message(reason: unknown, fallback: string): string {
-  return reason instanceof Error ? reason.message.replace(/^.*Uncaught Error: /s, '') : fallback
-}
+import { errorText as message, whenIn } from '../lib/format'
 
 export function SignOut() {
   const { signOut } = useAuthActions()
@@ -58,28 +57,69 @@ export function ConnectionBanner() {
   )
 }
 
+const STATUS_WORDS: Record<string, string> = {
+  generating: 'writing the playbook',
+  ready: 'not enabled yet',
+  active: 'enabled',
+  paused: 'paused',
+  failed: 'paused after failures',
+}
+
+/** The automations, one row each, with the empty state as a row too (SPEC §23.6). */
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
-  if (!viewer) return null
-  // The heading greets by first name, so a long full name never breaks across lines in it.
+  const automations = useQuery(api.automations.list)
+  if (!viewer || automations === undefined) return null
   const firstName = viewer.name?.trim().split(/\s+/)[0]
-  const account =
-    viewer.name && viewer.email ? `${viewer.name} (${viewer.email})` : (viewer.name ?? viewer.email)
   return (
     <>
       <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
-      {account ? (
-        <p className="app-gate-account">
-          Signed in with Buffer as <strong>{account}</strong>.
+      <section className="app-section">
+        <div className="app-section-head">
+          <h2>Automations</h2>
+          <Link to="/app/new" className="app-gate-primary">
+            New automation
+          </Link>
+        </div>
+        {automations.length ? (
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Runs</th>
+                <th>Status</th>
+                <th>Next run</th>
+                <th>Last run</th>
+              </tr>
+            </thead>
+            <tbody>
+              {automations.map((a) => (
+                <tr key={a._id}>
+                  <td>
+                    <Link to="/app/a/$id" params={{ id: a._id }}>
+                      {a.name}
+                    </Link>
+                  </td>
+                  <td>{describeCadence(a.cadence)}</td>
+                  <td>{STATUS_WORDS[a.status] ?? a.status}</td>
+                  <td className="tabular">{a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : ''}</td>
+                  <td className="tabular">{a.lastRunAt ? whenIn(a.lastRunAt, a.timezone) : ''}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="app-muted">
+            No automations yet. Answer seven questions and Dispatchlet writes the first playbook.
+          </p>
+        )}
+      </section>
+      {!viewer.ownKey ? (
+        <p className="app-muted">
+          {viewer.runsLeft} free {viewer.runsLeft === 1 ? 'run' : 'runs'} and {viewer.dryRunsLeft}{' '}
+          dry {viewer.dryRunsLeft === 1 ? 'run' : 'runs'} left on this account.
         </p>
       ) : null}
-      <p>
-        Your Buffer account is on the allowlist, so you see the app here while it is built. Everyone
-        else sees the launch list until it opens to the public.
-      </p>
-      <div className="app-gate-actions">
-        <SignOut />
-      </div>
     </>
   )
 }
@@ -105,6 +145,12 @@ export function AppSettings() {
         <SignOut />
       </section>
       <BufferConnection />
+      <AnthropicKey
+        ownKey={viewer.ownKey}
+        invalid={viewer.keyInvalid}
+        runsLeft={viewer.runsLeft}
+        dryRunsLeft={viewer.dryRunsLeft}
+      />
       <TimezoneSetting value={viewer.timezone} />
       <DeleteAccount />
     </>
@@ -210,6 +256,99 @@ function BufferConnection() {
           .
         </p>
       ) : null}
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  )
+}
+
+/** The person's own Anthropic key. With one, runs are not counted; without, the free allowance applies. */
+function AnthropicKey({
+  ownKey,
+  invalid,
+  runsLeft,
+  dryRunsLeft,
+}: {
+  ownKey: boolean
+  invalid: boolean
+  runsLeft: number | null
+  dryRunsLeft: number | null
+}) {
+  const id = useId()
+  const setKey = useAction(api.users.setAnthropicKey)
+  const [value, setValue] = useState('')
+  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
+  const [error, setError] = useState<string | null>(null)
+  const submit = (key: string) => {
+    setState('saving')
+    setError(null)
+    setKey({ key })
+      .then(() => {
+        setState('saved')
+        setValue('')
+      })
+      .catch((reason: unknown) => {
+        setState('failed')
+        setError(message(reason, 'Not saved.'))
+      })
+  }
+  return (
+    <section className="app-section" aria-labelledby={`${id}-title`}>
+      <h2 id={`${id}-title`}>Anthropic key</h2>
+      {ownKey ? (
+        <p>
+          Runs use your own Anthropic key, so they are not counted.
+          {invalid
+            ? ' Anthropic rejected it on the last run, so runs are paused until you replace it.'
+            : ''}
+        </p>
+      ) : (
+        <p>
+          Every account gets {runsLeft} more free {runsLeft === 1 ? 'run' : 'runs'} and{' '}
+          {dryRunsLeft} dry {dryRunsLeft === 1 ? 'run' : 'runs'} on Dispatchlet’s key. Add your own
+          key from{' '}
+          <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">
+            platform.claude.com
+          </a>{' '}
+          and runs are not counted; you pay Anthropic for what they use, about $0.15 a run.
+        </p>
+      )}
+      <div className="app-field">
+        <input
+          id={id}
+          className="app-select app-key"
+          type="password"
+          autoComplete="off"
+          placeholder={ownKey ? 'Replace the key' : 'sk-ant-…'}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          aria-label="Anthropic API key"
+        />
+        <button
+          type="button"
+          className="app-gate-secondary"
+          disabled={state === 'saving' || !value.trim()}
+          onClick={() => submit(value)}
+        >
+          {state === 'saving' ? 'Saving' : 'Save key'}
+        </button>
+        {ownKey ? (
+          <button
+            type="button"
+            className="app-gate-secondary"
+            disabled={state === 'saving'}
+            onClick={() => submit('')}
+          >
+            Remove key
+          </button>
+        ) : null}
+        <span className="app-muted" role="status">
+          {state === 'saved' ? 'Saved. It is stored encrypted.' : ''}
+        </span>
+      </div>
       {error ? (
         <p className="app-connection-error" role="alert">
           {error}
