@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { ChannelMark } from './brand-icons'
+import { measuredLength } from '../../convex/lib/ai/write'
+import type { Service } from '../../convex/lib/ai/setup'
 import { errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
 
 const DECISION_WORDS: Record<string, string> = {
@@ -150,7 +152,7 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
                   ) : null}
                   {p.reason ? <p className="app-muted">{p.reason}</p> : null}
                   <p className="app-muted tabular">
-                    {[...p.text].length} characters
+                    {measuredLength(p.text, p.service as Service)} characters
                     {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
                   </p>
                   {p.status === 'draft' ? (
