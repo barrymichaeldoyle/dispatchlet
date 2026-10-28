@@ -5532,3 +5532,15 @@ header nav button {
   content: '✓ ';
   color: var(--color-pine);
 }
+.setup-answers dt {
+  white-space: nowrap;
+}
+.setup-answers > div[data-done='true'] dt::before {
+  content: '✓';
+  display: inline-block;
+  width: 16px;
+  margin-left: -16px;
+}
+.setup-live > div {
+  padding-left: 16px;
+}
