@@ -720,7 +720,8 @@ function PlaybookEditor({
           </label>
           <label>
             <span>Notes on the voice</span>
-            <input
+            <textarea
+              rows={2}
               value={form.voice.notes}
               onChange={(e) =>
                 fromForm({ ...form, voice: { ...form.voice, notes: e.target.value } })
@@ -787,18 +788,21 @@ function PlaybookEditor({
             {form.formats.map((f, i) => (
               <div key={f.service} className="app-form-format">
                 <strong>{serviceName(f.service)}</strong>
-                <input
-                  value={f.style}
-                  aria-label={`${serviceName(f.service)} style`}
-                  onChange={(e) =>
-                    fromForm({
-                      ...form,
-                      formats: form.formats.map((x, j) =>
-                        j === i ? { ...x, style: e.target.value } : x,
-                      ),
-                    })
-                  }
-                />
+                <label>
+                  <span>How a post reads here</span>
+                  <input
+                    value={f.style}
+                    aria-label={`${serviceName(f.service)} style`}
+                    onChange={(e) =>
+                      fromForm({
+                        ...form,
+                        formats: form.formats.map((x, j) =>
+                          j === i ? { ...x, style: e.target.value } : x,
+                        ),
+                      })
+                    }
+                  />
+                </label>
                 <div className="app-form-row">
                   <label className="app-radio">
                     <input
@@ -837,19 +841,22 @@ function PlaybookEditor({
                     characters
                   </label>
                 </div>
-                <input
-                  value={f.linkBack ?? ''}
-                  placeholder="Where the link goes, or blank"
-                  aria-label={`${serviceName(f.service)} link`}
-                  onChange={(e) =>
-                    fromForm({
-                      ...form,
-                      formats: form.formats.map((x, j) =>
-                        j === i ? { ...x, linkBack: e.target.value || null } : x,
-                      ),
-                    })
-                  }
-                />
+                <label>
+                  <span>Where the link goes</span>
+                  <input
+                    value={f.linkBack ?? ''}
+                    placeholder="Blank means after the text"
+                    aria-label={`${serviceName(f.service)} link`}
+                    onChange={(e) =>
+                      fromForm({
+                        ...form,
+                        formats: form.formats.map((x, j) =>
+                          j === i ? { ...x, linkBack: e.target.value || null } : x,
+                        ),
+                      })
+                    }
+                  />
+                </label>
               </div>
             ))}
           </fieldset>

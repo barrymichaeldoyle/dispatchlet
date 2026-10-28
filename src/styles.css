@@ -5298,3 +5298,17 @@ header nav button {
 .app-share .app-link {
   font-size: 14px;
 }
+.app-form-format strong {
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.app-form-format + .app-form-format {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-rule);
+}
+.app-playbook > .app-gate-actions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-rule);
+}
