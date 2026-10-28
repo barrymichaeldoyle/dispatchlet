@@ -298,31 +298,19 @@ function RunView({
               return (
                 <li key={p._id} className="app-draft">
                   <p className="app-draft-head">
-                    <ChannelMark channel={serviceName(p.service)} size={14} />
+                    <span className="app-draft-avatar" aria-hidden="true">
+                      <ChannelMark channel={serviceName(p.service)} size={14} />
+                    </span>
                     <strong>{p.channelName}</strong>
                     <span className="app-muted">
                       {POST_WORDS[p.status] ?? p.status}
                       {p.dueAt ? ` for ${whenIn(p.dueAt, tz)}` : ''}
                       {p.sentAt ? ` at ${whenIn(p.sentAt, tz)}` : ''}
                     </span>
-                    {p.externalLink ? (
-                      <a href={p.externalLink} target="_blank" rel="noreferrer">
-                        See it live
-                      </a>
-                    ) : null}
-                    {p.bufferStatus && !shared ? (
-                      <a
-                        href={bufferChannelUrl(p.channelId, p.status)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open in Buffer
-                      </a>
-                    ) : null}
-                    {story ? <span className="app-muted">{story.title}</span> : null}
                   </p>
+                  {story ? <p className="app-muted">{story.title}</p> : null}
                   {parts.map((part, i) => (
-                    <p key={i} className="app-post-text">
+                    <p key={i} className="app-draft-text">
                       {part}
                     </p>
                   ))}
@@ -345,11 +333,11 @@ function RunView({
                     {measuredLength(p.text, p.service as Service)} characters
                     {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
                   </p>
-                  {p.status === 'draft' && !shared ? (
-                    <div className="app-gate-actions">
+                  <div className="app-gate-actions">
+                    {p.status === 'draft' && !shared ? (
                       <button
                         type="button"
-                        className="app-gate-secondary"
+                        className="app-gate-primary"
                         disabled={approving === p._id}
                         onClick={() => {
                           setApproving(p._id)
@@ -366,13 +354,33 @@ function RunView({
                       >
                         {approving === p._id ? 'Approving' : 'Approve'}
                       </button>
+                    ) : null}
+                    {p.externalLink ? (
+                      <a
+                        href={p.externalLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="app-link"
+                      >
+                        See it live
+                      </a>
+                    ) : null}
+                    {p.bufferStatus && !shared ? (
+                      <a
+                        href={bufferChannelUrl(p.channelId, p.status)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="app-link"
+                      >
+                        Open in Buffer
+                      </a>
+                    ) : null}
+                    {notes[p._id] ? (
                       <span className="app-muted" role="status">
-                        {notes[p._id] ?? ''}
+                        {notes[p._id]}
                       </span>
-                    </div>
-                  ) : notes[p._id] ? (
-                    <p className="app-muted">{notes[p._id]}</p>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </li>
               )
             })}
