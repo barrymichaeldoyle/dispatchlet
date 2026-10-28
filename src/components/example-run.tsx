@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -295,15 +296,20 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
 
   useEffect(() => {
     if (shouldExpand === expanded) return
-    const apply = () => {
-      flushSync(() => setExpanded(shouldExpand))
-      // The answers may have scrolled their column; the summary starts at the top.
-      workspace.current?.querySelector('.flow-context')?.scrollTo({ top: 0, behavior: 'instant' })
-    }
     if (shouldExpand && overview && focused && !reduced && document.startViewTransition) {
-      document.startViewTransition(apply)
-    } else apply()
+      // The transition snapshots the DOM, runs this callback, then snapshots again, so the state
+      // must be committed inside it. The callback runs outside React's own work, where flushSync
+      // is allowed; from this effect directly it is not (React warns and Restart would trigger it).
+      document.startViewTransition(() => flushSync(() => setExpanded(true)))
+      // oxlint-disable-next-line react/set-state-in-effect -- `expanded` is `shouldExpand` delayed by the view transition, so it cannot be derived during render.
+    } else setExpanded(shouldExpand)
   }, [shouldExpand, expanded, overview, focused, reduced])
+
+  useLayoutEffect(() => {
+    // The answers may have scrolled their column; the summary starts at the top.
+    workspace.current?.querySelector('.flow-context')?.scrollTo({ top: 0, behavior: 'instant' })
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Runs each time the layout opens out or closes up.
+  }, [expanded])
 
   useEffect(() => {
     if (!focusPreview.current) return
