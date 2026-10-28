@@ -34,7 +34,7 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
   const approve = useAction(api.runs.approve)
   const [approving, setApproving] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
-  if (run === undefined) return null
+  if (run === undefined) return <p className="app-muted">Loading.</p>
   if (run === null) return <p>This run does not exist, or it is not yours.</p>
   const live = !run.finishedAt
   const stepsDone = ['research', 'select', 'write', 'publish'].filter((s) =>

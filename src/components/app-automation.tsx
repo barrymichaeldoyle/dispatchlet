@@ -28,7 +28,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  if (a === undefined) return null
+  if (a === undefined) return <p className="app-muted">Loading.</p>
   if (a === null) return <p>This automation does not exist, or it is not yours.</p>
   const running = runs?.some((r) => !r.finishedAt) ?? false
   const act = (name: string, work: () => Promise<unknown>) => {
