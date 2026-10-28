@@ -370,7 +370,7 @@ export const execute = internalAction({
       const domains = allowedDomains(brief)
       const research = await callStructured(client, {
         model: MODELS.research,
-        effort: 'medium',
+        effort: 'high',
         maxTokens: 8_000,
         system: RESEARCH_SYSTEM,
         user: researchUserMessage(brief, {

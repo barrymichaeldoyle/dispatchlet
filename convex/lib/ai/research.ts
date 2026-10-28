@@ -87,7 +87,7 @@ export function briefFromPlaybook(
 export const RESEARCH_LIMITS = {
   maxSearches: 6,
   maxFetches: 8,
-  maxFetchTokens: 3_000,
+  maxFetchTokens: 6_000,
   coveredShown: 100,
 } as const
 
@@ -102,13 +102,19 @@ How to work:
 - Prefer primary sources and named journalists. Give the page's own URL, never a search or home page, and never a URL you did not see.
 - Keep facts to what the pages say. keyFacts is the writer's whole evidence; put dates, names, numbers and quotes there.
 - Never return a story in the covered list or a retelling of one from another outlet.
-- Fewer, better candidates beat many weak ones. Returning none is correct when nothing worthwhile happened; say so in notes.`
+- Fewer, better candidates beat many weak ones. Returning none is correct when nothing worthwhile happened, but only after you have opened the sources and run the brief's searches. Returning none without looking is wrong.
+- When a listing shows a story as recent but you cannot pin the exact time, open it. If it is still unclear, include it with a confidence of about 0.5 and say why in notes, rather than drop it. Dropping a real story costs more than one uncertain candidate.`
 
 export type ResearchContext = {
   now: Date
   timezone: string
   /** Titles and URLs already posted or scheduled, newest first. */
   covered: { title: string; url: string }[]
+}
+
+/** The first run of an automation has nothing covered yet, so it looks back twice as far. */
+export function lookbackHours(freshnessHours: number, coveredCount: number): number {
+  return coveredCount ? freshnessHours : Math.min(freshnessHours * 2, 14 * 24)
 }
 
 /** The user message, the part of the prompt that changes every run, so it goes after the cache point. */
@@ -118,11 +124,16 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
     dateStyle: 'full',
     timeStyle: 'short',
   })
+  const hours = lookbackHours(brief.freshnessHours, context.covered.length)
   const lines = [
     `Brief: ${brief.name}`,
     `Now: ${when} (${context.timezone}).`,
     `Research: ${brief.topic}`,
-    `Freshness: published or materially updated in the last ${brief.freshnessHours} hours.`,
+    `Freshness: published or materially updated in the last ${hours} hours.${
+      hours > brief.freshnessHours
+        ? ' This is the first run, so it looks back further than usual.'
+        : ''
+    }`,
   ]
   if (brief.include.length) lines.push(`Worth posting: ${brief.include.join('; ')}.`)
   if (brief.exclude.length) lines.push(`Skip: ${brief.exclude.join('; ')}.`)

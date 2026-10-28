@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { FIXTURES } from '../../evals/setupAnswers'
-import { allowedDomains, briefFromSetup, freshnessFor, researchUserMessage } from './research'
+import {
+  allowedDomains,
+  briefFromSetup,
+  freshnessFor,
+  lookbackHours,
+  researchUserMessage,
+} from './research'
 import { hostOf, SetupAnswers } from './setup'
 
 const f1 = FIXTURES[0]!.answers
@@ -64,6 +70,14 @@ describe('the research user message', () => {
     expect(researchUserMessage(briefFromSetup(rust), { ...context, covered: [] })).toContain(
       'Sources, and only these: github.com, blog.rust-lang.org.\nNothing has been covered yet.',
     )
+  })
+
+  it('looks back twice as far on the first run, up to two weeks', () => {
+    const text = researchUserMessage(briefFromSetup(f1), { ...context, covered: [] })
+    expect(text).toContain('in the last 96 hours. This is the first run')
+    expect(researchUserMessage(briefFromSetup(f1), context)).toContain('in the last 48 hours.')
+    expect(lookbackHours(192, 0)).toBe(336)
+    expect(lookbackHours(300, 0)).toBe(336)
   })
 
   it('shows at most a hundred covered stories', () => {

@@ -99,7 +99,7 @@ export const researchEval = internalAction({
       const domains = allowedDomains(brief)
       const { output, record } = await callStructured(client, {
         model: MODELS.research,
-        effort: 'medium',
+        effort: 'high',
         maxTokens: 8_000,
         system: RESEARCH_SYSTEM,
         user: researchUserMessage(brief, { now: new Date(), timezone, covered: [] }),
