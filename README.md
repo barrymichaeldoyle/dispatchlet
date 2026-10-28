@@ -44,8 +44,13 @@ the window, in the commits after it.
    when one misses), and creates them in Buffer as drafts, in the queue, or
    spread through the day, with a Dispatchlet tag. Every run is logged live:
    what it searched, what it found, what it skipped and why, and what it cost.
-5. Drafts can be approved from the run page or with one click from the digest
-   email. Buffer's status and metrics for each post come back into the log.
+5. Drafts can be approved from the home page, the run page or with one click
+   from the digest email. Buffer's status and metrics for each post come back
+   into the log, and any run can be shared by link.
+
+The app is a sidebar of your automations and channels with the work beside it,
+like Buffer's own. https://dispatchlet.com/docs says how each part works.
+Screenshots are in `docs/screenshots`.
 
 Every account gets 10 free runs and 3 dry runs on Dispatchlet's Anthropic key.
 Adding your own key in settings lifts the count. Three failed runs in a row
