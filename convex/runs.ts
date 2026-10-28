@@ -420,7 +420,8 @@ export const execute = internalAction({
       const decided: (Candidate & { decision: string; reason: string; dupOf?: Id<'stories'> })[] =
         []
       const keptSoFar: { title: string; canonicalUrl: string; _id?: Id<'stories'> }[] = [...covered]
-      const ranked = found.toSorted((a, b) => b.confidence - a.confidence)
+      // oxlint-disable-next-line unicorn/no-array-sort -- the copy is sorted in place on purpose
+      const ranked = [...found].sort((a, b) => b.confidence - a.confidence)
       for (const c of ranked) {
         const url = canonicalUrl(c.canonicalUrl)
         const dup = duplicateOf({ title: c.title, canonicalUrl: url }, keptSoFar)
