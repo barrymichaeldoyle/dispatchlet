@@ -46,6 +46,24 @@ export const unsubscribe = mutation({
   },
 })
 
+/** A test push to the signed-in person's own devices, from settings. */
+export const sendTest = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    await ctx.scheduler.runAfter(0, internal.pushSend.send, {
+      userId,
+      title: 'Dispatchlet push works',
+      body: 'This is the test you asked for. Real ones arrive when a run needs you.',
+      url: '/app/settings',
+      tag: 'test',
+    })
+    return null
+  },
+})
+
 /** How many devices this person gets push on, for settings. */
 export const mine = query({
   args: {},

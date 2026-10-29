@@ -5569,3 +5569,12 @@ header nav button {
   overflow-x: auto;
   white-space: pre;
 }
+.app-choices li {
+  position: relative;
+}
+.app-choice-action {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+}

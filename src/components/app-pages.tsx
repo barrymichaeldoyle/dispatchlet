@@ -646,6 +646,7 @@ function PushChoice() {
   const devices = useQuery(api.push.mine)
   const subscribe = useMutation(api.push.subscribe)
   const unsubscribe = useMutation(api.push.unsubscribe)
+  const sendTest = useMutation(api.push.sendTest)
   const [here, setHere] = useState<boolean | null>(null)
   const [support, setSupport] = useState<ReturnType<typeof pushState>>(() => pushState())
   const [note, setNote] = useState<string | null>(null)
@@ -702,6 +703,19 @@ function PushChoice() {
         <span>Push on this device</span>
         <span className="app-muted">{detail}</span>
       </label>
+      {here ? (
+        <button
+          type="button"
+          className="app-link app-choice-action"
+          onClick={() =>
+            sendTest()
+              .then(() => setNote('Sent. It should show in a moment.'))
+              .catch(() => setNote('Not sent.'))
+          }
+        >
+          Send a test
+        </button>
+      ) : null}
     </li>
   )
 }
