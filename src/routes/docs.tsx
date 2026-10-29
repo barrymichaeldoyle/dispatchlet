@@ -132,10 +132,23 @@ LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source articl
         approve or edit controls. Stop sharing revokes the link.
       </p>
 
+      <h2>Automating Dispatchlet</h2>
+      <p>
+        Everything above can be driven from outside. <a href="/docs/api">The API</a> does what the
+        app does, with personal tokens from settings. <a href="/docs/webhooks">Webhooks</a> tell
+        your own tools when a run finishes, a post reaches Buffer, a draft is approved or Buffer
+        publishes a post. <a href="/docs/hooks">Inbound hooks</a> start a run from a cron, a Zap or
+        a GitHub release, with a story to cover. The <a href="/docs/mcp">MCP server</a> lets Claude
+        Code, Claude Desktop or Cursor run research and approve drafts from a chat, beside Buffer’s
+        own MCP.
+      </p>
+
       <h2>Where things live</h2>
       <p>
         The source is public under the Elastic License 2.0. The{' '}
-        <a href="/privacy">privacy policy</a> lists everything stored and for how long.
+        <a href="/privacy">privacy policy</a> lists everything stored and for how long. API tokens
+        are stored as a hash and shown once; webhook signing secrets are stored encrypted; webhook
+        deliveries are kept for 30 days; inbound hook URLs are stored as a hash.
       </p>
     </LegalPage>
   )

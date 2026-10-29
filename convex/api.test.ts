@@ -491,6 +491,13 @@ describe('inbound hooks', () => {
       body: '{}',
     })
     expect(wrongEvent.status).toBe(400)
+    const ping = await t.fetch(`/v1/hooks/${hook.token}`, {
+      method: 'POST',
+      headers: { 'X-GitHub-Event': 'ping', 'Content-Type': 'application/json' },
+      body: '{"zen":"x"}',
+    })
+    expect(ping.status).toBe(200)
+    expect(await t.run((ctx) => ctx.db.query('runs').collect())).toHaveLength(0)
     const started = await t.fetch(`/v1/hooks/${hook.token}`, {
       method: 'POST',
       headers: { 'X-GitHub-Event': 'release', 'Content-Type': 'application/json' },

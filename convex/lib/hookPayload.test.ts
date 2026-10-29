@@ -25,7 +25,7 @@ describe('inbound hook bodies', () => {
     })
     expect(mapHookBody('release', { action: 'created', release: {} }).ok).toBe(false)
     expect(mapHookBody('push', {}).ok).toBe(false)
-    expect(mapHookBody('ping', { zen: 'x' })).toEqual({ ok: true, body: {} })
+    expect(mapHookBody('ping', { zen: 'x' })).toEqual({ ok: true, body: {}, ack: true })
   })
 
   it('takes a generic body or an empty one', () => {

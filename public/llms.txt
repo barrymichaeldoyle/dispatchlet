@@ -1,0 +1,23 @@
+# Dispatchlet
+
+> A research agent for Buffer. Describe what you post about once; on a schedule it finds new stories, skips what it has covered, writes a post per channel and puts them in Buffer as drafts or in the queue. Built for Buffer Commit 2026 by Barry Michael Doyle. Not a Buffer product.
+
+## Docs
+
+- [How it works](https://dispatchlet.com/docs): playbooks, runs, posting modes, limits, the text format
+- [The API](https://dispatchlet.com/docs/api): personal tokens, every route, errors, rate limits
+- [Webhooks](https://dispatchlet.com/docs/webhooks): signed events (Standard Webhooks) when runs finish and posts go out
+- [Inbound hooks](https://dispatchlet.com/docs/hooks): start a run from a cron, a Zap or a GitHub release
+- [MCP server](https://dispatchlet.com/docs/mcp): tools for Claude Code, Claude Desktop and Cursor
+
+## Machine endpoints
+
+- OpenAPI 3.1: https://dispatchlet.com/api/v1/openapi.json
+- REST base URL: https://dispatchlet.com/api/v1 (Authorization: Bearer dl_…)
+- MCP (Streamable HTTP): https://dispatchlet.com/mcp (Authorization: Bearer dl_…)
+
+## Policies
+
+- [Privacy](https://dispatchlet.com/privacy)
+- [Terms](https://dispatchlet.com/terms)
+- Source: https://github.com/barrymichaeldoyle/dispatchlet (Elastic License 2.0)

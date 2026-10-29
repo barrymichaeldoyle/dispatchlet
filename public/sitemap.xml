@@ -2,4 +2,8 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://dispatchlet.com/</loc><lastmod>2026-10-18</lastmod></url>
   <url><loc>https://dispatchlet.com/docs</loc></url>
+  <url><loc>https://dispatchlet.com/docs/api</loc></url>
+  <url><loc>https://dispatchlet.com/docs/webhooks</loc></url>
+  <url><loc>https://dispatchlet.com/docs/hooks</loc></url>
+  <url><loc>https://dispatchlet.com/docs/mcp</loc></url>
 </urlset>

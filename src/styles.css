@@ -5578,3 +5578,142 @@ header nav button {
   right: 8px;
   transform: translateY(-50%);
 }
+
+/* Settings → Automate Dispatchlet (SPEC §44): tokens, webhooks, hooks, the MCP card. */
+.app-reveal {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--color-ink);
+  background: var(--color-tint);
+}
+.app-gate .app-reveal p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.app-gate .app-reveal p:last-child {
+  margin-bottom: 0;
+}
+.app-reveal-title {
+  font-weight: 500;
+}
+.app-reveal-secret code,
+.app-tokens code,
+.app-hooks-url code {
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  overflow-wrap: anywhere;
+}
+.app-reveal-secret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.app-gate .app-snippet {
+  margin: 8px 0 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+  font:
+    13px/1.6 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  overflow-x: auto;
+  white-space: pre;
+}
+.app-tokens tr[data-revoked='true'] td {
+  color: var(--color-muted);
+}
+.app-webhook-form .app-field {
+  margin-bottom: 12px;
+}
+.app-choices-compact {
+  margin-bottom: 12px;
+}
+.app-choices-compact label {
+  min-height: 36px;
+  padding: 4px 8px;
+}
+.app-hooks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-hooks li {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-rule);
+}
+.app-hooks li[data-active='false'] .app-hooks-url {
+  color: var(--color-muted);
+}
+.app-gate .app-hooks p {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.app-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.app-chips span {
+  padding: 1px 8px;
+  border: 1px solid var(--color-rule);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.app-deliveries summary {
+  font-size: 14px;
+  color: var(--color-pine);
+  cursor: pointer;
+}
+.app-deliveries .app-table {
+  margin-top: 8px;
+  font-size: 14px;
+}
+.app-confirm {
+  white-space: nowrap;
+}
+
+/* Docs: the API reference. */
+.docs-route {
+  margin: 24px 0;
+}
+.docs-route h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.docs-route h3 code {
+  font-size: 14px;
+}
+.docs-scope {
+  font-size: 12px;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.legal-main table {
+  width: 100%;
+  margin: 0 0 16px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.legal-main th,
+.legal-main td {
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: top;
+}
+.legal-main th {
+  font-weight: 500;
+  color: var(--color-muted);
+}

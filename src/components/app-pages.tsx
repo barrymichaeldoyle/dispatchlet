@@ -13,6 +13,7 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '../lib/push'
+import { Automate } from './app-api'
 import { StepArt } from './step-art'
 import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
 
@@ -359,6 +360,7 @@ export function AppSettings() {
         dryRunsLeft={viewer.dryRunsLeft}
       />
       <TimezoneSetting value={viewer.timezone} />
+      <Automate timezone={viewer.timezone ?? 'UTC'} />
       <DeleteAccount />
     </>
   )

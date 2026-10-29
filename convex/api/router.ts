@@ -459,6 +459,7 @@ async function inboundHook(ctx: ActionCtx, token: string, req: Request): Promise
   }
   const mapped = mapHookBody(req.headers.get('x-github-event'), body)
   if (!mapped.ok) return errorResponse(400, 'invalid', mapped.message)
+  if (mapped.ack) return jsonResponse(200, { ok: true, started: false })
   const parsed = HookBody.safeParse(mapped.body)
   if (!parsed.success)
     return errorResponse(400, 'invalid', parsed.error.issues[0]?.message ?? 'Invalid body')

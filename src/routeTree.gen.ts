@@ -17,6 +17,10 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppNewRouteImport } from './routes/app.new'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as DocsApiRouteImport } from './routes/docs_.api'
+import { Route as DocsHooksRouteImport } from './routes/docs_.hooks'
+import { Route as DocsMcpRouteImport } from './routes/docs_.mcp'
+import { Route as DocsWebhooksRouteImport } from './routes/docs_.webhooks'
 import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiV1SplatRouteImport } from './routes/api/v1/$'
@@ -63,6 +67,26 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const DocsApiRoute = DocsApiRouteImport.update({
+  id: '/docs_/api',
+  path: '/docs/api',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsHooksRoute = DocsHooksRouteImport.update({
+  id: '/docs_/hooks',
+  path: '/docs/hooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsMcpRoute = DocsMcpRouteImport.update({
+  id: '/docs_/mcp',
+  path: '/docs/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsWebhooksRoute = DocsWebhooksRouteImport.update({
+  id: '/docs_/webhooks',
+  path: '/docs/webhooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RTokenRoute = RTokenRouteImport.update({
   id: '/r/$token',
   path: '/r/$token',
@@ -97,6 +121,10 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/docs/api': typeof DocsApiRoute
+  '/docs/hooks': typeof DocsHooksRoute
+  '/docs/mcp': typeof DocsMcpRoute
+  '/docs/webhooks': typeof DocsWebhooksRoute
   '/r/$token': typeof RTokenRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -111,6 +139,10 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/docs/api': typeof DocsApiRoute
+  '/docs/hooks': typeof DocsHooksRoute
+  '/docs/mcp': typeof DocsMcpRoute
+  '/docs/webhooks': typeof DocsWebhooksRoute
   '/r/$token': typeof RTokenRoute
   '/app': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -127,6 +159,10 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/docs_/api': typeof DocsApiRoute
+  '/docs_/hooks': typeof DocsHooksRoute
+  '/docs_/mcp': typeof DocsMcpRoute
+  '/docs_/webhooks': typeof DocsWebhooksRoute
   '/r/$token': typeof RTokenRoute
   '/app/': typeof AppIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -144,6 +180,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/docs/api'
+    | '/docs/hooks'
+    | '/docs/mcp'
+    | '/docs/webhooks'
     | '/r/$token'
     | '/app/'
     | '/api/auth/$'
@@ -158,6 +198,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/docs/api'
+    | '/docs/hooks'
+    | '/docs/mcp'
+    | '/docs/webhooks'
     | '/r/$token'
     | '/app'
     | '/api/auth/$'
@@ -173,6 +217,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/docs_/api'
+    | '/docs_/hooks'
+    | '/docs_/mcp'
+    | '/docs_/webhooks'
     | '/r/$token'
     | '/app/'
     | '/api/auth/$'
@@ -187,6 +235,10 @@ export interface RootRouteChildren {
   DocsRoute: typeof DocsRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  DocsApiRoute: typeof DocsApiRoute
+  DocsHooksRoute: typeof DocsHooksRoute
+  DocsMcpRoute: typeof DocsMcpRoute
+  DocsWebhooksRoute: typeof DocsWebhooksRoute
   RTokenRoute: typeof RTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiV1SplatRoute: typeof ApiV1SplatRoute
@@ -250,6 +302,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/docs_/api': {
+      id: '/docs_/api'
+      path: '/docs/api'
+      fullPath: '/docs/api'
+      preLoaderRoute: typeof DocsApiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs_/hooks': {
+      id: '/docs_/hooks'
+      path: '/docs/hooks'
+      fullPath: '/docs/hooks'
+      preLoaderRoute: typeof DocsHooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs_/mcp': {
+      id: '/docs_/mcp'
+      path: '/docs/mcp'
+      fullPath: '/docs/mcp'
+      preLoaderRoute: typeof DocsMcpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs_/webhooks': {
+      id: '/docs_/webhooks'
+      path: '/docs/webhooks'
+      fullPath: '/docs/webhooks'
+      preLoaderRoute: typeof DocsWebhooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/r/$token': {
       id: '/r/$token'
       path: '/r/$token'
@@ -312,6 +392,10 @@ const rootRouteChildren: RootRouteChildren = {
   DocsRoute: DocsRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  DocsApiRoute: DocsApiRoute,
+  DocsHooksRoute: DocsHooksRoute,
+  DocsMcpRoute: DocsMcpRoute,
+  DocsWebhooksRoute: DocsWebhooksRoute,
   RTokenRoute: RTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiV1SplatRoute: ApiV1SplatRoute,

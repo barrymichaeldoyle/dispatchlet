@@ -16,7 +16,7 @@ export const HookBody = z.object({
 })
 export type HookBody = z.infer<typeof HookBody>
 
-type Mapped = { ok: true; body: HookBody } | { ok: false; message: string }
+type Mapped = { ok: true; body: HookBody; ack?: boolean } | { ok: false; message: string }
 
 function str(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined
@@ -31,7 +31,8 @@ export function mapHookBody(githubEvent: string | null, body: unknown): Mapped {
   if (obj === null)
     return { ok: false, message: 'Send a JSON object, or an empty body to run now.' }
   if (githubEvent) {
-    if (githubEvent === 'ping') return { ok: true, body: {} }
+    // GitHub's ping when the webhook is saved: answer, start nothing.
+    if (githubEvent === 'ping') return { ok: true, body: {}, ack: true }
     if (githubEvent !== 'release')
       return {
         ok: false,
