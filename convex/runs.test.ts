@@ -187,3 +187,83 @@ describe('approving a draft', () => {
     )
   })
 })
+
+describe('telling the person after a run', () => {
+  async function finishWith(prefs: string, emailEnabled: boolean, posted: number, mode = 'draft') {
+    const t = convexTest(schema, modules)
+    const ids = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert('users', {
+        email: 'a@example.com',
+        emailPrefs: prefs,
+        emailEnabled,
+      })
+      const automationId = await ctx.db.insert('automations', {
+        userId,
+        name: 'F1',
+        status: 'active',
+        setup: {
+          research: 'F1',
+          services: ['twitter'],
+          avoid: '',
+          sources: [],
+          onlyTheseSources: false,
+          cadence: { preset: 'daily', time: '08:00', weekday: null },
+          maxStories: 3,
+          postingMode: 'draft',
+        },
+        channelIds: ['c1'],
+        cadence: { preset: 'daily', time: '08:00', weekday: null },
+        timezone: 'UTC',
+        postingMode: mode,
+        maxPostsPerRun: 3,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+      const runId = await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'scheduled',
+        status: 'publishing',
+        startedAt: Date.now(),
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+        posted,
+      })
+      return { userId, automationId, runId }
+    })
+    await t.mutation(internal.runs.finish, {
+      runId: ids.runId,
+      status: 'done',
+      note: `Done. ${posted} posts in Buffer.`,
+    })
+    const scheduled = await t.run(
+      async (ctx) => await ctx.db.system.query('_scheduled_functions').collect(),
+    )
+    return scheduled.map((s) => s.name)
+  }
+
+  it('sends the digest by email and by push after a run with drafts', async () => {
+    const names = await finishWith('every', true, 2)
+    expect(names).toContain('email:sendDigest')
+    expect(names).toContain('push:notify')
+  })
+
+  it('skips email when the person turned it off, and still pushes', async () => {
+    const names = await finishWith('every', false, 2)
+    expect(names).not.toContain('email:sendDigest')
+    expect(names).toContain('push:notify')
+  })
+
+  it('says nothing for a queue run when the person only wants to hear about drafts', async () => {
+    const names = await finishWith('drafts', true, 2, 'queue')
+    expect(names).not.toContain('email:sendDigest')
+    expect(names).not.toContain('push:notify')
+  })
+
+  it('says nothing when nothing was posted', async () => {
+    const names = await finishWith('every', true, 0)
+    expect(names).not.toContain('email:sendDigest')
+    expect(names).not.toContain('push:notify')
+  })
+})
