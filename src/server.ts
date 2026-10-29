@@ -17,7 +17,12 @@ import {
  * is the protected resource. Everything else goes to Start unchanged.
  */
 
-type Env = { OAUTH_KV: unknown; OAUTH_PROVIDER: OAuthHelpersLike }
+type KvLike = {
+  get(key: string): Promise<string | null>
+  put(key: string, value: string): Promise<void>
+  delete(key: string): Promise<void>
+}
+type Env = { OAUTH_KV: KvLike; OAUTH_PROVIDER: OAuthHelpersLike }
 type Ctx = { waitUntil(promise: Promise<unknown>): void; props?: unknown }
 
 /** The helpers this file uses; the library types them fully, this keeps the Worker types local. */
@@ -179,5 +184,21 @@ export default {
       return await handleMcp(request, token, API_BASE, url.origin)
     }
     return startFetch(request)
+  },
+  /**
+   * Daily: sweeps OAuth grants and tokens that expired without their KV TTL removing them, in
+   * batches, carrying a cursor between runs so a large store is covered over several days.
+   */
+  async scheduled(_event: unknown, env: Env): Promise<void> {
+    const provider = providerFor('https://dispatchlet.com') as unknown as {
+      purgeExpiredData(
+        env: Env,
+        options: { batchSize: number; cursor?: string },
+      ): Promise<{ cursor?: string }>
+    }
+    const cursor = (await env.OAUTH_KV.get('purge-cursor')) ?? undefined
+    const result = await provider.purgeExpiredData(env, { batchSize: 100, cursor })
+    if (result.cursor) await env.OAUTH_KV.put('purge-cursor', result.cursor)
+    else await env.OAUTH_KV.delete('purge-cursor')
   },
 }

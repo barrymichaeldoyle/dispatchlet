@@ -9,6 +9,8 @@
   // Serve prerendered /privacy/index.html at /privacy, matching canonical URLs and the sitemap.
   "assets": { "html_handling": "drop-trailing-slash" },
   // OAuth grants, clients and tokens for MCP clients such as claude.ai (SPEC §44.7).
+  // Daily sweep of expired OAuth grants and tokens (src/server.ts `scheduled`).
+  "triggers": { "crons": ["40 3 * * *"] },
   "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "c43ca4ecd151463b8f980bf3446eecdd" }],
   "routes": [
     { "pattern": "dispatchlet.com", "custom_domain": true },

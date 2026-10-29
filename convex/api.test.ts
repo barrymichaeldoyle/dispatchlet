@@ -517,8 +517,20 @@ describe('inbound hooks', () => {
     expect(stored?.startedBy).toBe('hook')
     expect(stored?.hint?.title).toBe('x/y v1.2.0')
     expect(stored?.kind).toBe('now')
+    await t.run((ctx) =>
+      ctx.db.patch(run.id as Id<'runs'>, { finishedAt: Date.now(), status: 'done' }),
+    )
+    const dry = await t.fetch(`/v1/hooks/${hook.token}?dry=1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{"title":"A test"}',
+    })
+    expect(dry.status).toBe(202)
+    const dryId = (await dry.json()).run.id as Id<'runs'>
+    const dryRun = await t.run((ctx) => ctx.db.get(dryId))
+    expect(dryRun?.kind).toBe('dry')
     const listed = await (await call('/hooks')).json()
-    expect(listed.hooks[0].uses).toBe(1)
+    expect(listed.hooks[0].uses).toBe(2)
     expect(JSON.stringify(listed)).not.toContain(hook.token)
   })
 })

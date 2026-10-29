@@ -464,10 +464,12 @@ async function inboundHook(ctx: ActionCtx, token: string, req: Request): Promise
   if (!parsed.success)
     return errorResponse(400, 'invalid', parsed.error.issues[0]?.message ?? 'Invalid body')
   try {
+    // `?dry=1` on the URL makes every run from it a dry run, for testing a GitHub hook safely.
+    const dryFromUrl = ['1', 'true'].includes(new URL(req.url).searchParams.get('dry') ?? '')
     const runId = await ctx.runMutation(internal.api.fns.startRun, {
       userId: hook.userId,
       automationId: hook.automationId,
-      dry: parsed.data.dry ?? false,
+      dry: dryFromUrl || (parsed.data.dry ?? false),
       hint: parsed.data.hint,
       startedBy: 'hook',
     })
