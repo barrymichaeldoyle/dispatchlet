@@ -8,6 +8,7 @@ import {
   type ActionCtx,
 } from './_generated/server'
 import { approveBufferPost, BufferPostError } from './buffer'
+import { emitPostEvent } from './runs'
 
 /** What the digest email needs: the person, the run's closing line, and each post. */
 export const digestFor = internalQuery({
@@ -98,18 +99,28 @@ export const markApproved = internalMutation({
           {
             step: 'approve',
             at: Date.now(),
-            note: `${channel?.name ?? post.service}: approved from ${from === 'email' ? 'the email' : 'the run page'} and added to the queue.`,
+            note: `${channel?.name ?? post.service}: approved from ${APPROVED_FROM[from] ?? from} and added to the queue.`,
           },
         ],
       })
+    await emitPostEvent(ctx, postId, 'post.approved', { from })
     return null
   },
 })
 
+const APPROVED_FROM: Record<string, string> = {
+  email: 'the email',
+  app: 'the run page',
+  api: 'the API',
+  mcp: 'an assistant',
+}
+
+export type ApprovedFrom = 'email' | 'app' | 'api' | 'mcp'
+
 async function approve(
   ctx: ActionCtx,
   post: { _id: Id<'posts'>; userId: Id<'users'>; bufferPostId?: string; status: string },
-  from: 'email' | 'app',
+  from: ApprovedFrom,
 ): Promise<string> {
   if (!post.bufferPostId) throw new Error('This post never reached Buffer.')
   if (post.status !== 'draft') return 'This post is already in the queue.'
@@ -154,11 +165,15 @@ export const approveByToken = internalAction({
 
 /** From the run page, for the signed-in owner of the post. */
 export const approveForUser = internalAction({
-  args: { userId: v.id('users'), postId: v.id('posts') },
+  args: {
+    userId: v.id('users'),
+    postId: v.id('posts'),
+    from: v.optional(v.union(v.literal('app'), v.literal('api'), v.literal('mcp'))),
+  },
   returns: v.string(),
-  handler: async (ctx, { userId, postId }): Promise<string> => {
+  handler: async (ctx, { userId, postId, from }): Promise<string> => {
     const post: Doc<'posts'> | null = await ctx.runQuery(internal.approvals.postById, { postId })
     if (!post || post.userId !== userId) throw new Error('Post not found')
-    return await approve(ctx, post, 'app')
+    return await approve(ctx, post, from ?? 'app')
   },
 })

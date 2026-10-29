@@ -3,6 +3,7 @@ import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { postMetrics, postStatuses } from './buffer'
+import { emitPostEvent } from './runs'
 
 const TWO_DAYS = 2 * 86_400_000
 
@@ -75,6 +76,8 @@ export const apply = internalMutation({
         externalLink: u.externalLink ?? post.externalLink,
         reason: u.error ?? post.reason,
       })
+      if (status === 'sent' && post.status !== 'sent')
+        await emitPostEvent(ctx, post._id, 'post.sent')
     }
     return null
   },

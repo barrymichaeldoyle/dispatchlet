@@ -112,6 +112,8 @@ export type ResearchContext = {
   timezone: string
   /** Titles and URLs already posted or scheduled, newest first. */
   covered: { title: string; url: string }[]
+  /** A story the caller asked this run to cover (API, inbound hook, MCP). */
+  requested?: { title: string; url?: string; notes?: string } | null
 }
 
 /** The first run of an automation has nothing covered yet, so it looks back twice as far. */
@@ -137,6 +139,12 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
         : ''
     }`,
   ]
+  if (context.requested) {
+    const r = context.requested
+    lines.push(
+      `Asked for: the person wants this story covered in this run: "${r.title}"${r.url ? ` (${r.url})` : ''}.${r.notes ? ` Their notes: ${r.notes}` : ''} ${r.url ? 'Open that URL and' : 'Search for it and'} return it as a candidate with full confidence, in the person's own framing; the freshness window does not apply to it. Still skip it if it is in the covered list.`,
+    )
+  }
   if (brief.include.length) lines.push(`Worth posting: ${brief.include.join('; ')}.`)
   if (brief.exclude.length) lines.push(`Skip: ${brief.exclude.join('; ')}.`)
   if (brief.sources.length) {

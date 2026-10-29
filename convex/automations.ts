@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { v, type Infer } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -26,7 +26,15 @@ export async function ownAutomation(
   ctx: QueryCtx | MutationCtx,
   id: Id<'automations'>,
 ): Promise<Doc<'automations'>> {
-  const userId = await viewerId(ctx)
+  return await automationOf(ctx, await viewerId(ctx), id)
+}
+
+/** The automation, if it belongs to the given person and is not deleted. The API's version. */
+export async function automationOf(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+): Promise<Doc<'automations'>> {
   const automation = await ctx.db.get(id)
   if (!automation || automation.userId !== userId || automation.deletedAt)
     throw new Error('Automation not found')
@@ -58,8 +66,15 @@ export async function scheduleNext(
 export const create = mutation({
   args: { setup: setupValidator, channelIds: v.array(v.string()) },
   returns: v.id('automations'),
-  handler: async (ctx, args) => {
-    const userId = await viewerId(ctx)
+  handler: async (ctx, args) => await createFor(ctx, await viewerId(ctx), args),
+})
+
+export async function createFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  args: { setup: Infer<typeof setupValidator>; channelIds: string[] },
+): Promise<Id<'automations'>> {
+  {
     const user = await ctx.db.get(userId)
     if (!user) throw new Error('Not signed in')
     const channels = await ctx.db
@@ -88,8 +103,8 @@ export const create = mutation({
     })
     await ctx.scheduler.runAfter(0, internal.playbooks.generate, { automationId: id })
     return id
-  },
-})
+  }
+}
 
 /** Asks for the playbook again, from the same answers. Keeps earlier versions. */
 export const regenerate = mutation({
@@ -154,6 +169,12 @@ export const list = query({
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return []
+    return await listFor(ctx, userId)
+  },
+})
+
+export async function listFor(ctx: QueryCtx, userId: Id<'users'>) {
+  {
     const rows = await ctx.db
       .query('automations')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -166,8 +187,8 @@ export const list = query({
       out.push(summary(a, version?.version ?? 0))
     }
     return out
-  },
-})
+  }
+}
 
 /** One automation with its latest playbook and the channels it posts to. */
 export const get = query({
@@ -175,6 +196,12 @@ export const get = query({
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return null
+    return await getFor(ctx, userId, id)
+  },
+})
+
+export async function getFor(ctx: QueryCtx, userId: Id<'users'>, id: Id<'automations'>) {
+  {
     const a = await ctx.db.get(id)
     if (!a || a.userId !== userId || a.deletedAt) return null
     const version = await latestVersion(ctx, id)
@@ -199,8 +226,8 @@ export const get = query({
         })),
       allowance: user ? allowanceFor(user) : null,
     }
-  },
-})
+  }
+}
 
 /** Saves an edited playbook as a new version. The text is the source; it must parse. */
 export const savePlaybook = mutation({
@@ -209,8 +236,17 @@ export const savePlaybook = mutation({
     v.object({ ok: v.literal(true), version: v.number() }),
     v.object({ ok: v.literal(false), line: v.number(), message: v.string() }),
   ),
-  handler: async (ctx, { id, text }) => {
-    const automation = await ownAutomation(ctx, id)
+  handler: async (ctx, { id, text }) => await savePlaybookFor(ctx, await viewerId(ctx), id, text),
+})
+
+export async function savePlaybookFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+  text: string,
+): Promise<{ ok: true; version: number } | { ok: false; line: number; message: string }> {
+  {
+    await automationOf(ctx, userId, id)
     const parsed = parsePlaybook(text)
     if (!parsed.ok) return parsed
     const latest = await latestVersion(ctx, id)
@@ -228,10 +264,9 @@ export const savePlaybook = mutation({
       name: parsed.playbook.name,
       updatedAt: Date.now(),
     })
-    void automation
     return { ok: true as const, version }
-  },
-})
+  }
+}
 
 /** Stores a generated playbook as the next version and marks the automation ready. */
 export const storeGenerated = internalMutation({
@@ -282,15 +317,39 @@ export const updateConfig = mutation({
     maxPostsPerRun: v.optional(v.number()),
   },
   returns: v.null(),
-  handler: async (ctx, { id, ...changes }) => {
-    const automation = await ownAutomation(ctx, id)
+  handler: async (ctx, { id, ...changes }) =>
+    await updateConfigFor(ctx, await viewerId(ctx), id, changes),
+})
+
+export type ConfigChanges = {
+  cadence?: Cadence
+  channelIds?: string[]
+  postingMode?: 'draft' | 'queue' | 'spread'
+  maxPostsPerRun?: number
+}
+
+export async function updateConfigFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+  changes: ConfigChanges,
+): Promise<null> {
+  {
+    const automation = await automationOf(ctx, userId, id)
     if (
       changes.maxPostsPerRun !== undefined &&
       (changes.maxPostsPerRun < 1 || changes.maxPostsPerRun > 3)
     )
       throw new Error('Between 1 and 3 stories a run')
-    if (changes.channelIds && !changes.channelIds.length)
-      throw new Error('Pick at least one channel')
+    if (changes.channelIds) {
+      const channels = await ctx.db
+        .query('bufferChannels')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect()
+      const known = new Set(channels.map((c) => c.channelId))
+      if (!changes.channelIds.length || changes.channelIds.some((c) => !known.has(c)))
+        throw new Error('Pick at least one channel, from your Buffer channels')
+    }
     const patch: Partial<Doc<'automations'>> = { updatedAt: Date.now() }
     if (changes.cadence) patch.cadence = changes.cadence
     if (changes.channelIds) patch.channelIds = changes.channelIds
@@ -299,14 +358,23 @@ export const updateConfig = mutation({
     await ctx.db.patch(id, patch)
     if (changes.cadence) await scheduleNext(ctx, { ...automation, ...patch })
     return null
-  },
-})
+  }
+}
 
 export const setStatus = mutation({
   args: { id: v.id('automations'), status: v.union(v.literal('active'), v.literal('paused')) },
   returns: v.null(),
-  handler: async (ctx, { id, status }) => {
-    const automation = await ownAutomation(ctx, id)
+  handler: async (ctx, { id, status }) => await setStatusFor(ctx, await viewerId(ctx), id, status),
+})
+
+export async function setStatusFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+  status: 'active' | 'paused',
+): Promise<null> {
+  {
+    const automation = await automationOf(ctx, userId, id)
     if (!automation.playbookVersionId) throw new Error('The playbook is not ready yet')
     const user = await ctx.db.get(automation.userId)
     if (status === 'active' && user && allowanceFor(user).runsLeft === 0)
@@ -314,14 +382,22 @@ export const setStatus = mutation({
     await ctx.db.patch(id, { status, consecutiveFailures: 0, updatedAt: Date.now() })
     await scheduleNext(ctx, { ...automation, status })
     return null
-  },
-})
+  }
+}
 
 export const remove = mutation({
   args: { id: v.id('automations') },
   returns: v.null(),
-  handler: async (ctx, { id }) => {
-    const automation = await ownAutomation(ctx, id)
+  handler: async (ctx, { id }) => await removeFor(ctx, await viewerId(ctx), id),
+})
+
+export async function removeFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+): Promise<null> {
+  {
+    const automation = await automationOf(ctx, userId, id)
     if (automation.scheduledFnId) await ctx.scheduler.cancel(automation.scheduledFnId)
     await ctx.db.patch(id, {
       status: 'paused',
@@ -330,8 +406,8 @@ export const remove = mutation({
       nextRunAt: undefined,
     })
     return null
-  },
-})
+  }
+}
 
 /**
  * The home page in one query: each automation with its last run in words, posts this week, and
@@ -468,8 +544,17 @@ export const performance = query({
 export const addExcludeRule = mutation({
   args: { id: v.id('automations'), rule: v.string() },
   returns: v.number(),
-  handler: async (ctx, { id, rule }) => {
-    await ownAutomation(ctx, id)
+  handler: async (ctx, { id, rule }) => await addExcludeRuleFor(ctx, await viewerId(ctx), id, rule),
+})
+
+export async function addExcludeRuleFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  id: Id<'automations'>,
+  rule: string,
+): Promise<number> {
+  {
+    await automationOf(ctx, userId, id)
     const text = rule.trim().replace(/\s+/g, ' ')
     if (text.length < 3 || text.length > 200) throw new Error('A rule is one short sentence.')
     const latest = await latestVersion(ctx, id)
@@ -490,5 +575,5 @@ export const addExcludeRule = mutation({
     })
     await ctx.db.patch(id, { playbookVersionId: versionId, updatedAt: Date.now() })
     return version
-  },
-})
+  }
+}

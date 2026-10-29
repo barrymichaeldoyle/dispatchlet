@@ -10,6 +10,7 @@ import {
   mutation,
   query,
   type ActionCtx,
+  type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
 import { scheduleNext } from './automations'
@@ -50,6 +51,8 @@ import { canonicalUrl, duplicateOf } from './lib/dedupe'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
 import type { Playbook } from './lib/playbook'
 import { keyFor } from './users'
+import { postView } from './views'
+import { emit } from './webhooks'
 
 /** Stories below this confidence are never posted (SPEC §25). */
 const MIN_CONFIDENCE = 0.5
@@ -79,6 +82,30 @@ export const trigger = mutation({
   handler: async (ctx, { automationId, dry }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
+    return await triggerFor(ctx, userId, { automationId, dry, startedBy: 'app' })
+  },
+})
+
+export type Hint = { title: string; url?: string; notes?: string }
+export type StartedBy = 'schedule' | 'app' | 'api' | 'hook' | 'mcp'
+
+/** Starts a run for a person from the app, the API, an inbound hook or MCP. Same rules for all. */
+export async function triggerFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  {
+    automationId,
+    dry,
+    hint,
+    startedBy,
+  }: {
+    automationId: Id<'automations'>
+    dry: boolean
+    hint?: Hint
+    startedBy: StartedBy
+  },
+): Promise<Id<'runs'>> {
+  {
     const automation = await ctx.db.get(automationId)
     if (!automation || automation.userId !== userId || automation.deletedAt)
       throw new Error('Automation not found')
@@ -90,7 +117,7 @@ export const trigger = mutation({
       .first()
     if (running && !running.finishedAt && Date.now() - running.startedAt < 15 * 60_000)
       throw new Error('A run is already going. Wait for it to finish.')
-    const runId = await beginRun(ctx, automation, dry ? 'dry' : 'now')
+    const runId = await beginRun(ctx, automation, dry ? 'dry' : 'now', { hint, startedBy })
     if (!runId)
       throw new Error(
         dry
@@ -98,8 +125,25 @@ export const trigger = mutation({
           : 'No free runs left. Add your own Anthropic key in settings to keep going.',
       )
     return runId
-  },
-})
+  }
+}
+
+const STARTED_FROM: Record<StartedBy, string> = {
+  schedule: '',
+  app: '',
+  api: ' from the API',
+  hook: ' from a hook',
+  mcp: ' from an assistant',
+}
+
+function startNote(kind: Kind, from: { hint?: Hint; startedBy: StartedBy }): string {
+  const where = STARTED_FROM[from.startedBy]
+  const head =
+    kind === 'dry'
+      ? `Dry run started${where}. Nothing will be sent to Buffer.`
+      : `Run started${where}.`
+  return from.hint ? `${head} Asked to cover: ${from.hint.title}` : head
+}
 
 /**
  * Books a run row and the action that does the work, after checking the allowance. A scheduled
@@ -109,6 +153,7 @@ async function beginRun(
   ctx: Parameters<typeof scheduleNext>[0],
   automation: Doc<'automations'>,
   kind: Kind,
+  from: { hint?: Hint; startedBy: StartedBy } = { startedBy: 'schedule' },
 ): Promise<Id<'runs'> | null> {
   const user = await ctx.db.get(automation.userId)
   if (!user) return null
@@ -158,11 +203,13 @@ async function beginRun(
       {
         step: 'research',
         at: now,
-        note: kind === 'dry' ? 'Dry run started. Nothing will be sent to Buffer.' : 'Run started.',
+        note: startNote(kind, from),
       },
     ],
     usage: EMPTY_USAGE,
     costUsd: 0,
+    startedBy: from.startedBy,
+    hint: from.hint,
   })
   await ctx.db.patch(automation._id, { lastRunAt: now, updatedAt: now })
   await ctx.scheduler.runAfter(0, internal.runs.execute, { runId })
@@ -282,6 +329,7 @@ export const savePost = internalMutation({
       if (run) await ctx.db.patch(args.runId, { posted: (run.posted ?? 0) + 1 })
       const user = await ctx.db.get(args.userId)
       if (user && !user.firstPostAt) await ctx.db.patch(user._id, { firstPostAt: Date.now() })
+      await emitPostEvent(ctx, id, 'post.created')
     }
     return id
   },
@@ -316,12 +364,27 @@ export const finish = internalMutation({
     await ctx.db.patch(automation._id, { consecutiveFailures: failures, updatedAt: Date.now() })
     // Lost Buffer access pauses the automation now; the reconnect email has already gone out.
     const lostAccess = countsAsFailure && /Sign in with Buffer again/.test(error ?? '')
+    const brief = { id: automation._id, name: automation.name }
     if (lostAccess && automation.status === 'active') {
       await ctx.db.patch(automation._id, { status: 'paused' })
       await scheduleNext(ctx, { ...automation, status: 'paused' })
+      await emit(
+        ctx,
+        automation.userId,
+        'automation.paused',
+        { automation: brief, reason: 'lost_access' },
+        automation._id,
+      )
     } else if (failures >= 3 && automation.status === 'active') {
       await ctx.db.patch(automation._id, { status: 'failed' })
       await scheduleNext(ctx, { ...automation, status: 'failed' })
+      await emit(
+        ctx,
+        automation.userId,
+        'automation.paused',
+        { automation: brief, reason: 'failures' },
+        automation._id,
+      )
       await ctx.scheduler.runAfter(0, internal.email.sendPaused, {
         userId: automation.userId,
         automationId: automation._id,
@@ -357,6 +420,15 @@ export const finish = internalMutation({
         tag: `run-${runId}`,
       })
     }
+    const finished = await ctx.db.get(runId)
+    if (finished)
+      await emit(
+        ctx,
+        automation.userId,
+        'run.finished',
+        { run: await runView(ctx, finished, automation.userId), automation: brief },
+        automation._id,
+      )
     if (countsAsFailure && prefs !== 'never' && failures === 1) {
       if (emailOn) await ctx.scheduler.runAfter(0, internal.email.sendRunFailed, { runId })
       await ctx.scheduler.runAfter(0, internal.push.notify, {
@@ -430,6 +502,7 @@ export const execute = internalAction({
           now: new Date(),
           timezone: automation.timezone,
           covered: covered.map((c) => ({ title: c.title, url: c.canonicalUrl })),
+          requested: run.hint ?? null,
         }),
         schema: ResearchResult,
         tools: researchTools(domains),
@@ -801,6 +874,7 @@ export const markSent = internalMutation({
             { step: 'publish', at: Date.now(), note: 'A held post was sent to Buffer.' },
           ],
         })
+      await emitPostEvent(ctx, postId, 'post.created')
     }
     return null
   },
@@ -867,13 +941,30 @@ export const listByAutomation = query({
   handler: async (ctx, { automationId }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return []
+    return await listRunsFor(ctx, userId, automationId)
+  },
+})
+
+/** The runs of one of the person's automations, newest first; `before` pages by startedAt. */
+export async function listRunsFor(
+  ctx: QueryCtx,
+  userId: Id<'users'>,
+  automationId: Id<'automations'>,
+  limit = 50,
+  before?: number,
+) {
+  {
     const automation = await ctx.db.get(automationId)
     if (!automation || automation.userId !== userId) return []
     const runs = await ctx.db
       .query('runs')
-      .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
+      .withIndex('by_automation_startedAt', (q) =>
+        before === undefined
+          ? q.eq('automationId', automationId)
+          : q.eq('automationId', automationId).lt('startedAt', before),
+      )
       .order('desc')
-      .take(50)
+      .take(Math.min(Math.max(limit, 1), 50))
     return runs.map((r) => ({
       _id: r._id,
       kind: r.kind,
@@ -886,8 +977,8 @@ export const listByAutomation = query({
       costUsd: r.costUsd,
       last: r.steps.at(-1)?.note ?? '',
     }))
-  },
-})
+  }
+}
 
 /** One run with its stories and posts, live while it runs. */
 export const get = query({
@@ -895,11 +986,15 @@ export const get = query({
   handler: async (ctx, { runId }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) return null
-    const run = await ctx.db.get(runId)
-    if (!run || run.userId !== userId || !run.automationId) return null
-    return await runView(ctx, run, userId)
+    return await getRunFor(ctx, userId, runId)
   },
 })
+
+export async function getRunFor(ctx: QueryCtx, userId: Id<'users'>, runId: Id<'runs'>) {
+  const run = await ctx.db.get(runId)
+  if (!run || run.userId !== userId || !run.automationId) return null
+  return await runView(ctx, run, userId)
+}
 
 /** A shared run, by its link, for anyone. Same view, no approve tokens or ids that matter. */
 export const shared = query({
@@ -922,14 +1017,22 @@ export const share = mutation({
   handler: async (ctx, { runId }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
-    const run = await ctx.db.get(runId)
-    if (!run || run.userId !== userId) throw new Error('Run not found')
-    if (run.shareToken) return run.shareToken
-    const token = crypto.randomUUID().replaceAll('-', '')
-    await ctx.db.patch(runId, { shareToken: token })
-    return token
+    return await shareFor(ctx, userId, runId)
   },
 })
+
+export async function shareFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  runId: Id<'runs'>,
+): Promise<string> {
+  const run = await ctx.db.get(runId)
+  if (!run || run.userId !== userId) throw new Error('Run not found')
+  if (run.shareToken) return run.shareToken
+  const token = crypto.randomUUID().replaceAll('-', '')
+  await ctx.db.patch(runId, { shareToken: token })
+  return token
+}
 
 export const unshare = mutation({
   args: { runId: v.id('runs') },
@@ -944,7 +1047,36 @@ export const unshare = mutation({
   },
 })
 
-async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users'>) {
+/** Fires a post event to the person's webhooks with the post as the API shows it. */
+export async function emitPostEvent(
+  ctx: MutationCtx,
+  postId: Id<'posts'>,
+  type: 'post.created' | 'post.approved' | 'post.sent',
+  extra: Record<string, unknown> = {},
+) {
+  const post = await ctx.db.get(postId)
+  if (!post) return
+  const channel = await ctx.db
+    .query('bufferChannels')
+    .withIndex('by_user_channel', (q) =>
+      q.eq('userId', post.userId).eq('channelId', post.channelId),
+    )
+    .first()
+  const automation = await ctx.db.get(post.automationId)
+  await emit(
+    ctx,
+    post.userId,
+    type,
+    {
+      post: postView(post, channel?.displayName ?? channel?.name ?? post.service),
+      automation: automation ? { id: automation._id, name: automation.name } : null,
+      ...extra,
+    },
+    post.automationId,
+  )
+}
+
+export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users'>) {
   const runId = run._id
   {
     const automation = run.automationId ? await ctx.db.get(run.automationId) : null
@@ -975,6 +1107,8 @@ async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users'>) {
       costUsd: run.costUsd,
       error: run.error ?? null,
       shareToken: run.shareToken ?? null,
+      startedBy: run.startedBy ?? 'schedule',
+      hint: run.hint ?? null,
       stories: stories.map((s) => ({
         _id: s._id,
         title: s.title,

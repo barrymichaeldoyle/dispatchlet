@@ -15,6 +15,7 @@ import { isAllowlisted } from './lib/allowlist'
 import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
 import { parseRateLimit, reserve, type Priority } from './lib/budget'
 import { decryptSecret, encryptSecret } from './lib/crypto'
+import { emit } from './webhooks'
 
 /** The tokens from a sign-in, already encrypted by the provider's profile step. */
 export type SignInGrant = {
@@ -254,6 +255,7 @@ export const releaseRefresh = internalMutation({
         url: '/app/settings',
         tag: 'reauth',
       })
+      await emit(ctx, connection.userId, 'buffer.reauth_needed', {})
     }
     await ctx.db.patch(connectionId, {
       refreshingAt: undefined,
@@ -402,8 +404,15 @@ function channelLimit(
 export const syncChannels = action({
   args: {},
   returns: v.object({ channels: v.number() }),
-  handler: async (ctx) => {
-    const userId = await allowlistedUser(ctx)
+  handler: async (ctx) => await syncChannelsFor(ctx, await allowlistedUser(ctx)),
+})
+
+/** Reads the person's organizations and text channels from Buffer and stores them. */
+export async function syncChannelsFor(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+): Promise<{ channels: number }> {
+  {
     const { token } = await accessTokenFor(ctx, userId)
     const { account } = await callBuffer<{ account: { organizations: { id: string }[] } }>(
       ctx,
@@ -455,8 +464,8 @@ export const syncChannels = action({
     }
     await ctx.runMutation(internal.buffer.saveChannels, { userId, channels })
     return { channels: channels.length }
-  },
-})
+  }
+}
 
 /**
  * Disconnect: revokes Dispatchlet's access at Buffer and deletes the stored tokens and channels.

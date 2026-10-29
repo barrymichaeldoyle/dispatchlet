@@ -29,6 +29,13 @@ export const setupValidator = v.object({
   postingMode: v.union(v.literal('draft'), v.literal('queue')),
 })
 
+/** A story a caller asks a run to cover, from the API, an inbound hook or MCP. */
+export const hintValidator = v.object({
+  title: v.string(),
+  url: v.optional(v.string()),
+  notes: v.optional(v.string()),
+})
+
 export default defineSchema({
   ...authTables,
   /** Convex Auth's users table, plus the settings the app keeps for each person. */
@@ -171,6 +178,10 @@ export default defineSchema({
     error: v.optional(v.string()),
     /** Set when the person shares the run; anyone with the link can read it. */
     shareToken: v.optional(v.string()),
+    /** Where the run was started from: schedule, app, api, hook or mcp. */
+    startedBy: v.optional(v.string()),
+    /** A story the caller asked this run to cover (API, inbound hook, MCP). */
+    hint: v.optional(hintValidator),
   })
     .index('by_user', ['userId'])
     .index('by_automation_startedAt', ['automationId', 'startedAt'])
@@ -257,6 +268,75 @@ export default defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_endpoint', ['endpoint']),
+  /**
+   * Personal API tokens (SPEC §44.2). Only the SHA-256 hash is stored; the prefix is shown in
+   * settings. `source` says whether the person made it or an OAuth consent did.
+   */
+  apiTokens: defineTable({
+    userId: v.id('users'),
+    name: v.string(),
+    scope: v.union(v.literal('read'), v.literal('write')),
+    hash: v.string(),
+    prefix: v.string(),
+    source: v.string(),
+    oauthClientName: v.optional(v.string()),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+  })
+    .index('by_hash', ['hash'])
+    .index('by_user', ['userId']),
+  /** Fixed-window request counts for the API: one row per token-minute and per user-hour. */
+  apiRateWindows: defineTable({
+    key: v.string(),
+    windowStart: v.number(),
+    count: v.number(),
+  }).index('by_key', ['key']),
+  /** An outbound webhook (SPEC §44.4). The signing secret is AES-GCM encrypted. */
+  webhooks: defineTable({
+    userId: v.id('users'),
+    url: v.string(),
+    secretEnc: v.string(),
+    events: v.array(v.string()),
+    automationId: v.optional(v.id('automations')),
+    active: v.boolean(),
+    createdAt: v.number(),
+    lastDeliveryAt: v.optional(v.number()),
+    lastStatus: v.optional(v.string()),
+    failedInARow: v.number(),
+  }).index('by_user', ['userId']),
+  /** One row per attempt series: the payload, the latest attempt and what the receiver said. */
+  webhookDeliveries: defineTable({
+    webhookId: v.id('webhooks'),
+    userId: v.id('users'),
+    event: v.string(),
+    payload: v.string(),
+    attempt: v.number(),
+    /** pending, ok, failed. */
+    status: v.string(),
+    responseStatus: v.optional(v.number()),
+    error: v.optional(v.string()),
+    nextAttemptAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_webhook_createdAt', ['webhookId', 'createdAt'])
+    .index('by_user', ['userId'])
+    .index('by_createdAt', ['createdAt']),
+  /** Inbound hook URLs (SPEC §44.5): a token in the URL starts a run on one automation. */
+  inboundHooks: defineTable({
+    userId: v.id('users'),
+    automationId: v.id('automations'),
+    name: v.string(),
+    hash: v.string(),
+    prefix: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    uses: v.number(),
+  })
+    .index('by_hash', ['hash'])
+    .index('by_user', ['userId'])
+    .index('by_automation', ['automationId']),
   waitlist: defineTable({
     email: v.string(),
     createdAt: v.number(),

@@ -177,6 +177,13 @@ export const deleteUserData = internalMutation({
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect(),
     )
+    for (const table of ['apiTokens', 'webhooks', 'webhookDeliveries', 'inboundHooks'] as const)
+      await deleteAll(
+        await ctx.db
+          .query(table)
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .collect(),
+      )
     if (await ctx.db.get(userId)) await ctx.db.delete(userId)
     return null
   },

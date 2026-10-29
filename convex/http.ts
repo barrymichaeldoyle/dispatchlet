@@ -1,6 +1,7 @@
 import { httpRouter } from 'convex/server'
 import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
+import { registerApi } from './api/router'
 import { auth } from './auth'
 import { isValidEmail, normalizeEmail } from './lib/email'
 
@@ -9,6 +10,7 @@ const DEFAULT_RATE_LIMIT = 5
 
 const http = httpRouter()
 auth.addHttpRoutes(http)
+registerApi(http)
 
 function siteUrl(): string {
   return process.env.SITE_URL ?? 'https://dispatchlet.com'

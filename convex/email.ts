@@ -358,6 +358,36 @@ export const sendRunFailed = internalAction({
   },
 })
 
+export function webhookDisabledMessage(to: string, url: string): Message {
+  const settings = `${APP}/settings`
+  return {
+    from: FROM,
+    to,
+    subject: 'A Dispatchlet webhook was switched off',
+    text: `Deliveries to ${url} failed ten times in a row, so Dispatchlet switched that webhook off. Turn it back on in settings once the receiver is fixed.\n\n${settings}\n\nBarry\n`,
+    html: html(
+      [
+        `Deliveries to ${escapeHtml(url)} failed ten times in a row, so Dispatchlet switched that webhook off. Turn it back on in settings once the receiver is fixed.`,
+        `<a href="${settings}" style="${LINK}">Open settings</a>`,
+        'Barry',
+      ],
+      `Read the ${PRIVACY}.`,
+    ),
+    headers: {},
+  }
+}
+
+export const sendWebhookDisabled = internalAction({
+  args: { userId: v.id('users'), url: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { userId, url }) => {
+    const email = await ctx.runQuery(internal.users.emailFor, { userId })
+    if (!email) return null
+    await resend('/emails', webhookDisabledMessage(email, url))
+    return null
+  },
+})
+
 export const sendPaused = internalAction({
   args: { userId: v.id('users'), automationId: v.id('automations') },
   returns: v.null(),
