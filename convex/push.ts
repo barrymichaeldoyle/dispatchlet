@@ -79,6 +79,30 @@ export const mine = query({
   },
 })
 
+/** Stores a subscription for a given user from the CLI, for a browser test that has no sign-in. */
+export const subscribeForUser = internalMutation({
+  args: {
+    userId: v.id('users'),
+    endpoint: v.string(),
+    keys: v.object({ p256dh: v.string(), auth: v.string() }),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query('pushSubscriptions')
+      .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
+      .first()
+    if (existing) await ctx.db.patch(existing._id, { userId: args.userId, keys: args.keys })
+    else
+      await ctx.db.insert('pushSubscriptions', {
+        ...args,
+        userAgent: 'test',
+        createdAt: Date.now(),
+      })
+    return null
+  },
+})
+
 export const forUser = internalQuery({
   args: { userId: v.id('users') },
   handler: async (ctx, { userId }) =>

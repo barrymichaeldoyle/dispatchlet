@@ -16,6 +16,11 @@ self.addEventListener('push', (event) => {
   } catch {
     if (event.data) data.body = event.data.text()
   }
+  // Tell open pages too, so the app can react to a push it is already looking at.
+  const tell = self.clients
+    .matchAll({ type: 'window', includeUncontrolled: true })
+    .then((windows) => windows.forEach((w) => w.postMessage({ type: 'push', ...data })))
+  event.waitUntil(tell)
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
