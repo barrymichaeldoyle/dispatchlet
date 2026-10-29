@@ -6,4 +6,5 @@ allowBuilds:
   workerd: true
 
 overrides:
+  'seroval@<1.6.11': '1.6.11'
   'undici@<7.30.1': '7.30.1'

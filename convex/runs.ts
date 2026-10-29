@@ -326,18 +326,47 @@ export const finish = internalMutation({
         userId: automation.userId,
         automationId: automation._id,
       })
+      await ctx.scheduler.runAfter(0, internal.push.notify, {
+        userId: automation.userId,
+        title: `${automation.name} is paused`,
+        body: 'Three runs failed in a row. The run log says what went wrong.',
+        url: `/app/a/${automation._id}`,
+        tag: `paused-${automation._id}`,
+      })
     }
     const user = await ctx.db.get(automation.userId)
     const prefs = user?.emailPrefs ?? 'every'
+    const emailOn = user?.emailEnabled ?? true
     const drafts = automation.postingMode === 'draft' && (run.posted ?? 0) > 0
-    const wantsDigest =
+    const posted = run.posted ?? 0
+    const wantsNote =
       status === 'done' &&
       run.kind !== 'dry' &&
-      (run.posted ?? 0) > 0 &&
+      posted > 0 &&
       (prefs === 'every' || (prefs === 'drafts' && drafts))
-    if (wantsDigest) await ctx.scheduler.runAfter(0, internal.email.sendDigest, { runId })
-    if (status === 'failed' && prefs !== 'never' && failures === 1)
-      await ctx.scheduler.runAfter(0, internal.email.sendRunFailed, { runId })
+    const runUrl = `/app/a/${automation._id}/runs/${runId}`
+    if (wantsNote) {
+      if (emailOn) await ctx.scheduler.runAfter(0, internal.email.sendDigest, { runId })
+      await ctx.scheduler.runAfter(0, internal.push.notify, {
+        userId: automation.userId,
+        title: drafts
+          ? `${posted} ${posted === 1 ? 'draft' : 'drafts'} waiting for a yes`
+          : `${posted} ${posted === 1 ? 'post' : 'posts'} in Buffer`,
+        body: `${automation.name}: ${note}`,
+        url: runUrl,
+        tag: `run-${runId}`,
+      })
+    }
+    if (countsAsFailure && prefs !== 'never' && failures === 1) {
+      if (emailOn) await ctx.scheduler.runAfter(0, internal.email.sendRunFailed, { runId })
+      await ctx.scheduler.runAfter(0, internal.push.notify, {
+        userId: automation.userId,
+        title: `A run of ${automation.name} failed`,
+        body: error ?? note,
+        url: runUrl,
+        tag: `run-${runId}`,
+      })
+    }
     return null
   },
 })

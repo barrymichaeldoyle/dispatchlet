@@ -1,11 +1,18 @@
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Link } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostText } from './post-text'
+import {
+  currentSubscription,
+  needsInstallForPush,
+  pushState,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '../lib/push'
 import { StepArt } from './step-art'
 import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
 
@@ -579,9 +586,16 @@ function EmailPrefs() {
   const save = useMutation(api.users.setEmailPrefs)
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   if (!usage) return null
+  const run = (change: Parameters<typeof save>[0]) => {
+    setState('saving')
+    save(change)
+      .then(() => setState('saved'))
+      .catch(() => setState('failed'))
+  }
   return (
-    <section className="app-section" aria-labelledby="email-title">
-      <h2 id="email-title">Email</h2>
+    <section className="app-section" aria-labelledby="notify-title">
+      <h2 id="notify-title">Notifications</h2>
+      <p className="app-muted">When to be told.</p>
       <ul className="app-choices">
         {PREFS.map(([value, title, detail]) => (
           <li key={value} data-checked={usage.emailPrefs === value}>
@@ -590,18 +604,28 @@ function EmailPrefs() {
                 type="radio"
                 name="emailPrefs"
                 checked={usage.emailPrefs === value}
-                onChange={() => {
-                  setState('saving')
-                  save({ prefs: value })
-                    .then(() => setState('saved'))
-                    .catch(() => setState('failed'))
-                }}
+                onChange={() => run({ prefs: value })}
               />
               <span>{title}</span>
               <span className="app-muted">{detail}</span>
             </label>
           </li>
         ))}
+      </ul>
+      <p className="app-muted">How.</p>
+      <ul className="app-choices">
+        <li data-checked={usage.emailEnabled}>
+          <label>
+            <input
+              type="checkbox"
+              checked={usage.emailEnabled}
+              onChange={(e) => run({ emailEnabled: e.target.checked })}
+            />
+            <span>Email</span>
+            <span className="app-muted">With approve links for drafts.</span>
+          </label>
+        </li>
+        <PushChoice />
       </ul>
       <p className="app-muted" role="status">
         {state === 'saving'
@@ -613,6 +637,72 @@ function EmailPrefs() {
               : ''}
       </p>
     </section>
+  )
+}
+
+/** Push on this device: a checkbox that asks the browser, then hands the subscription to Convex. */
+function PushChoice() {
+  const config = useQuery(api.push.config)
+  const devices = useQuery(api.push.mine)
+  const subscribe = useMutation(api.push.subscribe)
+  const unsubscribe = useMutation(api.push.unsubscribe)
+  const [here, setHere] = useState<boolean | null>(null)
+  const [support, setSupport] = useState<ReturnType<typeof pushState>>(() => pushState())
+  const [note, setNote] = useState<string | null>(null)
+  useEffect(() => {
+    void currentSubscription().then((s) => setHere(Boolean(s)))
+  }, [])
+  const others = (devices ?? []).length - (here ? 1 : 0)
+  const disabled =
+    support === 'unsupported' || support === 'blocked' || !config?.publicKey || here === null
+  const detail =
+    support === 'unsupported'
+      ? 'This browser cannot receive push.'
+      : support === 'blocked'
+        ? 'Notifications are blocked for this site in the browser settings.'
+        : needsInstallForPush()
+          ? 'On iPhone and iPad, add Dispatchlet to the home screen first, then turn this on from there.'
+          : (note ??
+            (others > 0
+              ? `${others} other ${others === 1 ? 'device gets' : 'devices get'} push.`
+              : 'Also arrives when the app is closed.'))
+  return (
+    <li data-checked={Boolean(here)}>
+      <label>
+        <input
+          type="checkbox"
+          checked={Boolean(here)}
+          disabled={disabled}
+          onChange={async (e) => {
+            setNote(null)
+            try {
+              if (e.target.checked) {
+                const json = await subscribeToPush(config!.publicKey!)
+                if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth)
+                  throw new Error('The browser gave no subscription.')
+                await subscribe({
+                  endpoint: json.endpoint,
+                  keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
+                  userAgent: navigator.userAgent.slice(0, 200),
+                })
+                setHere(true)
+                setNote('On. A test is not sent; the next run that needs you will.')
+              } else {
+                const endpoint = await unsubscribeFromPush()
+                if (endpoint) await unsubscribe({ endpoint })
+                setHere(false)
+                setNote('Off on this device.')
+              }
+            } catch (error) {
+              setNote(message(error, 'That did not work.'))
+              setSupport(pushState())
+            }
+          }}
+        />
+        <span>Push on this device</span>
+        <span className="app-muted">{detail}</span>
+      </label>
+    </li>
   )
 }
 

@@ -247,6 +247,13 @@ export const releaseRefresh = internalMutation({
     // Tell the person once, when access is first lost; a new sign-in clears the flag.
     if (needsReauth && !connection.needsReauth) {
       await ctx.scheduler.runAfter(0, internal.email.sendReauth, { userId: connection.userId })
+      await ctx.scheduler.runAfter(0, internal.push.notify, {
+        userId: connection.userId,
+        title: 'Dispatchlet lost access to Buffer',
+        body: 'Reconnect Buffer so your automations can post again.',
+        url: '/app/settings',
+        tag: 'reauth',
+      })
     }
     await ctx.db.patch(connectionId, {
       refreshingAt: undefined,

@@ -6,11 +6,13 @@ import { api } from '../../convex/_generated/api'
 import { ConnectionBanner, SignOut } from './app-pages'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
+import { registerServiceWorker } from '../lib/service-worker'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
 
 export function AppGate() {
+  useEffect(() => registerServiceWorker(), [])
   if (!convex) return <Screen title="Sign-in is not set up here." />
   return (
     <ConvexAuthProvider client={convex}>

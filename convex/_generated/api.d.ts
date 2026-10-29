@@ -35,6 +35,8 @@ import type * as lib_playbook from "../lib/playbook.js";
 import type * as lib_schedule from "../lib/schedule.js";
 import type * as lib_templates from "../lib/templates.js";
 import type * as playbooks from "../playbooks.js";
+import type * as push from "../push.js";
+import type * as pushSend from "../pushSend.js";
 import type * as runs from "../runs.js";
 import type * as status from "../status.js";
 import type * as users from "../users.js";
@@ -74,6 +76,8 @@ declare const fullApi: ApiFromModules<{
   "lib/schedule": typeof lib_schedule;
   "lib/templates": typeof lib_templates;
   playbooks: typeof playbooks;
+  push: typeof push;
+  pushSend: typeof pushSend;
   runs: typeof runs;
   status: typeof status;
   users: typeof users;

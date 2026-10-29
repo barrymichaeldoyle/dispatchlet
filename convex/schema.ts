@@ -48,8 +48,10 @@ export default defineSchema({
     /** The person's own Anthropic key, AES-GCM encrypted, which lifts the run allowance. */
     anthropicKeyEnc: v.optional(v.string()),
     anthropicKeyInvalidAt: v.optional(v.number()),
-    /** When to email after a run: every, drafts (only when drafts wait), problems, never. */
+    /** When to be told after a run: every, drafts (only when drafts wait), problems, never. */
     emailPrefs: v.optional(v.string()),
+    /** Whether that goes by email. Push goes to every device with a subscription. */
+    emailEnabled: v.optional(v.boolean()),
     /** Set once, so the first-run milestones are only said once. */
     firstPlaybookAt: v.optional(v.number()),
     firstPostAt: v.optional(v.number()),
@@ -244,6 +246,17 @@ export default defineSchema({
   })
     .index('by_run', ['runId'])
     .index('by_createdAt', ['createdAt']),
+  /** One row per device that asked for push, as the browser's PushSubscription. */
+  pushSubscriptions: defineTable({
+    userId: v.id('users'),
+    endpoint: v.string(),
+    keys: v.object({ p256dh: v.string(), auth: v.string() }),
+    userAgent: v.optional(v.string()),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+  })
+    .index('by_user', ['userId'])
+    .index('by_endpoint', ['endpoint']),
   waitlist: defineTable({
     email: v.string(),
     createdAt: v.number(),

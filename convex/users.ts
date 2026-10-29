@@ -213,14 +213,17 @@ export const deleteAccount = action({
 const EMAIL_PREFS = ['every', 'drafts', 'problems', 'never'] as const
 
 export const setEmailPrefs = mutation({
-  args: { prefs: v.string() },
+  args: { prefs: v.optional(v.string()), emailEnabled: v.optional(v.boolean()) },
   returns: v.null(),
-  handler: async (ctx, { prefs }) => {
+  handler: async (ctx, { prefs, emailEnabled }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
-    if (!(EMAIL_PREFS as readonly string[]).includes(prefs))
+    if (prefs !== undefined && !(EMAIL_PREFS as readonly string[]).includes(prefs))
       throw new Error('That is not one of the choices.')
-    await ctx.db.patch(userId, { emailPrefs: prefs })
+    await ctx.db.patch(userId, {
+      ...(prefs !== undefined ? { emailPrefs: prefs } : {}),
+      ...(emailEnabled !== undefined ? { emailEnabled } : {}),
+    })
     return null
   },
 })
@@ -265,6 +268,7 @@ export const usage = query({
       costUsd: Math.round(runs.reduce((sum, r) => sum + r.costUsd, 0) * 100) / 100,
       posts: [...byChannel].map(([channel, count]) => ({ channel, count })),
       emailPrefs: user.emailPrefs ?? 'every',
+      emailEnabled: user.emailEnabled ?? true,
       ...allowanceFor(user),
     }
   },

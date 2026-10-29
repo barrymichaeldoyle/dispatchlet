@@ -23,6 +23,7 @@ export const Route = createRootRoute({
       { rel: 'preload', href: fontUrl, as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
       { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
       { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
+      { rel: 'manifest', href: '/manifest.webmanifest' },
     ],
   }),
   shellComponent: RootDocument,
@@ -56,6 +57,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         {/* Written here, not in head(): the router keeps one meta per name, which dropped one. */}
         <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Dispatchlet" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
