@@ -14,7 +14,7 @@
 
 - OpenAPI 3.1: https://dispatchlet.com/api/v1/openapi.json
 - REST base URL: https://dispatchlet.com/api/v1 (Authorization: Bearer dl_…)
-- MCP (Streamable HTTP): https://dispatchlet.com/mcp (Authorization: Bearer dl_…)
+- MCP (Streamable HTTP): https://dispatchlet.com/mcp (Authorization: Bearer dl_…, or OAuth 2.1 via /.well-known/oauth-protected-resource/mcp)
 
 ## Policies
 

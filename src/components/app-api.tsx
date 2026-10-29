@@ -256,11 +256,12 @@ function ConfirmLink({
 
 function AssistantConnect({ token }: { token: string | null }) {
   const id = useId()
-  const [host, setHost] = useState<'claude-code' | 'claude-desktop' | 'cursor' | 'stdio'>(
-    'claude-code',
-  )
+  const [host, setHost] = useState<
+    'claude-ai' | 'claude-code' | 'claude-desktop' | 'cursor' | 'stdio'
+  >('claude-ai')
   const bearer = token ?? '<your token>'
   const snippets: Record<typeof host, string> = {
+    'claude-ai': MCP_URL,
     'claude-code': `claude mcp add --transport http dispatchlet ${MCP_URL} --header "Authorization: Bearer ${bearer}"`,
     'claude-desktop': JSON.stringify(
       {
@@ -283,6 +284,8 @@ function AssistantConnect({ token }: { token: string | null }) {
     stdio: `npx -y mcp-remote ${MCP_URL} --header "Authorization: Bearer ${bearer}"`,
   }
   const where: Record<typeof host, string> = {
+    'claude-ai':
+      'In claude.ai: Settings → Connectors → Add custom connector, paste this URL, then Allow on the page that opens. No token needed.',
     'claude-code':
       'Run this in a terminal, then ask Claude Code what Dispatchlet posted this week.',
     'claude-desktop': 'Add this to claude_desktop_config.json under Settings → Developer.',
@@ -293,15 +296,16 @@ function AssistantConnect({ token }: { token: string | null }) {
     <section className="app-section" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`}>Connect an AI assistant</h2>
       <p>
-        Dispatchlet is an MCP server at <code>{MCP_URL}</code>. Connect it to Claude Code, Claude
-        Desktop or Cursor and an assistant can list your automations, run research, read what a run
-        found and approve drafts, beside Buffer’s own MCP for the queue.{' '}
+        Dispatchlet is an MCP server at <code>{MCP_URL}</code>. Connect it to claude.ai, Claude
+        Code, Claude Desktop or Cursor and an assistant can list your automations, run research,
+        read what a run found and approve drafts, beside Buffer’s own MCP for the queue.{' '}
         <a href="/docs/mcp">What each tool does.</a>
-        {token ? '' : ' Create a token above and these snippets fill in.'}
+        {token ? '' : ' For the others, create a token above and the snippets fill in.'}
       </p>
       <nav className="app-tabs is-small" aria-label="Host">
         {(
           [
+            ['claude-ai', 'claude.ai'],
             ['claude-code', 'Claude Code'],
             ['claude-desktop', 'Claude Desktop'],
             ['cursor', 'Cursor'],

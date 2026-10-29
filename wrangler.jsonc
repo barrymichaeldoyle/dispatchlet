@@ -2,12 +2,14 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "dispatchlet",
   "compatibility_date": "2026-10-01",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   // Workers Logs: server-side errors and request logs in the Cloudflare dashboard.
   "observability": { "enabled": true },
-  "main": "@tanstack/react-start/server-entry",
+  "main": "src/server.ts",
   // Serve prerendered /privacy/index.html at /privacy, matching canonical URLs and the sitemap.
   "assets": { "html_handling": "drop-trailing-slash" },
+  // OAuth grants, clients and tokens for MCP clients such as claude.ai (SPEC §44.7).
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "c43ca4ecd151463b8f980bf3446eecdd" }],
   "routes": [
     { "pattern": "dispatchlet.com", "custom_domain": true },
     { "pattern": "www.dispatchlet.com", "custom_domain": true },

@@ -86,8 +86,10 @@ Everything the app does is open to other tools (SPEC §44 in the planning notes)
   story to cover; a GitHub release webhook works as is.
   [docs/hooks](https://dispatchlet.com/docs/hooks)
 - **MCP server** at `https://dispatchlet.com/mcp` (Streamable HTTP, stateless,
-  bearer token) for Claude Code, Claude Desktop and Cursor: run research, read
-  the log, approve drafts, beside Buffer's own MCP.
+  bearer token or OAuth 2.1) for claude.ai, Claude Code, Claude Desktop and
+  Cursor: run research, read the log, approve drafts, beside Buffer's own MCP.
+  OAuth runs on `@cloudflare/workers-oauth-provider` in `src/server.ts`; a grant
+  holds an ordinary API token that shows in settings and can be revoked there.
   [docs/mcp](https://dispatchlet.com/docs/mcp)
 - `https://dispatchlet.com/llms.txt` points at all of it.
 

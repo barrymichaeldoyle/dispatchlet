@@ -103,6 +103,27 @@ export const create = mutation({
   },
 })
 
+/**
+ * The token behind an OAuth grant, made when the person clicks Allow on the consent page (SPEC
+ * §44.7). It shows in settings under the client's name and revoking it ends the grant's access.
+ */
+export const createForOAuth = mutation({
+  args: { clientName: v.string(), write: v.boolean() },
+  returns: v.object({ _id: v.id('apiTokens'), token: v.string() }),
+  handler: async (ctx, { clientName, write }) => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    const label = clientName.trim().replace(/\s+/g, ' ').slice(0, 40) || 'An assistant'
+    const made = await createForUser(ctx, userId, {
+      name: label,
+      scope: write ? 'write' : 'read',
+      source: 'oauth',
+      oauthClientName: label,
+    })
+    return { _id: made.id, token: made.token }
+  },
+})
+
 export const revoke = mutation({
   args: { id: v.id('apiTokens') },
   returns: v.null(),

@@ -18,6 +18,9 @@ importers:
       '@auth/core':
         specifier: ^0.41.3
         version: 0.41.3
+      '@cloudflare/workers-oauth-provider':
+        specifier: ^1.2.4
+        version: 1.2.4
       '@convex-dev/auth':
         specifier: 0.0.96
         version: 0.0.96(@auth/core@0.41.3)(convex@1.46.0(react@19.3.1))(react@19.3.1)
@@ -276,6 +279,9 @@ packages:
     engines: {node: '>=16'}
     cpu: [x64]
     os: [win32]
+
+  '@cloudflare/workers-oauth-provider@1.2.4':
+    resolution: {integrity: sha512-ayo6Z8DBHdAxwDpplFU8BrEoxoSn6wNo+E7ypTENRHUOc8R89A8/+nZ+a8pMZjjXzF0JXfpYXhw/7qqG+DC18Q==}
 
   '@convex-dev/auth@0.0.96':
     resolution: {integrity: sha512-4vcoQmmlbInLpR6BK43iIH21JwVPG5U7kRIjLaUWkeEr+hVaS/DuYsQRrDsDLu9rbHpq9PT2ZkUrtPDLkxYx0A==}
@@ -3467,6 +3473,8 @@ snapshots:
 
   '@cloudflare/workerd-windows-64@1.20261012.1':
     optional: true
+
+  '@cloudflare/workers-oauth-provider@1.2.4': {}
 
   '@convex-dev/auth@0.0.96(@auth/core@0.41.3)(convex@1.46.0(react@19.3.1))(react@19.3.1)':
     dependencies:

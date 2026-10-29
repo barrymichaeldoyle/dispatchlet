@@ -74,6 +74,17 @@ claude mcp add --transport http dispatchlet https://dispatchlet.com/mcp \\
 
 # A host that only runs local servers
 npx -y mcp-remote https://dispatchlet.com/mcp --header "Authorization: Bearer dl_…"`}</pre>
+      <h2>claude.ai and other OAuth hosts</h2>
+      <p>
+        Hosts that cannot take a pasted header sign in instead. In claude.ai, open Settings →
+        Connectors → Add custom connector, and give it <code>https://dispatchlet.com/mcp</code>.
+        Claude sends you to Dispatchlet, you sign in with Buffer if you are not already, and a page
+        asks whether Claude may read your automations and, if you tick it, start runs and approve
+        drafts. Allow makes a token for Claude that you will find under Settings → API tokens;
+        revoking it there disconnects Claude. Any host that follows the MCP authorization spec works
+        the same way: discovery is at <code>/.well-known/oauth-protected-resource/mcp</code>, with
+        dynamic registration and client metadata documents both supported.
+      </p>
       <p>
         The server is stateless and uses Streamable HTTP. It holds nothing of yours: each request
         carries your token to the API, and revoking the token in settings disconnects the assistant.
