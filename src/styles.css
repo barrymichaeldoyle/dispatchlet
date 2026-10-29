@@ -4131,7 +4131,8 @@ header nav button {
   padding: 32px 16px;
 }
 .app-gate-inner {
-  width: min(100%, 440px);
+  width: min(100%, 480px);
+  min-width: 0;
 }
 .app-gate-home {
   display: inline-block;
@@ -4190,7 +4191,26 @@ header nav button {
 }
 .app-gate-primary:disabled,
 .app-gate-secondary:disabled {
-  opacity: 0.7;
+  /* Disabled is a rule outline with muted text (SPEC §23.5); an inset shadow, so no size change. */
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-rule);
+  border-color: transparent;
+  color: var(--color-muted);
+  cursor: not-allowed;
+  filter: none;
+}
+/* A button that is disabled because it is working keeps its look; only the label changes. */
+.app-gate-primary:disabled:has(.busy-label[data-busy='true']) {
+  background: var(--color-pine);
+  box-shadow: none;
+  color: var(--color-on-pine);
+  cursor: progress;
+}
+.app-gate-secondary:disabled:has(.busy-label[data-busy='true']) {
+  background: var(--color-card);
+  box-shadow: none;
+  border-color: var(--color-ink);
+  color: var(--color-ink);
   cursor: progress;
 }
 .app-gate-secondary {
@@ -4314,9 +4334,6 @@ header nav button {
 .app-gate .app-connection p {
   margin-bottom: 12px;
   font-size: 15px;
-}
-.app-connection .app-gate-secondary + .app-gate-secondary {
-  margin-left: 8px;
 }
 .app-gate .app-connection > .app-connection-note {
   display: block;
@@ -4810,7 +4827,7 @@ header nav button {
 }
 .app-log li {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 56px minmax(0, 1fr);
   gap: 16px;
   min-height: 40px;
   padding: 8px 0;
@@ -5097,7 +5114,7 @@ header nav button {
 }
 .app-drafts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
   gap: 16px;
   margin: 0;
   padding: 0;
@@ -5415,7 +5432,7 @@ header nav button {
 }
 @media (max-width: 900px) {
   .app-frame {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .app-side {
     display: none;
@@ -5463,7 +5480,7 @@ header nav button {
   font-size: 14px;
 }
 .app-drafts {
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr));
 }
 
 /* The Runs tab: one row per run, outcome in words, the counts as a small funnel. */
@@ -5583,7 +5600,6 @@ header nav button {
 .app-reveal {
   margin: 16px 0;
   padding: 16px;
-  border: 1px solid var(--color-ink);
   background: var(--color-tint);
 }
 .app-gate .app-reveal p {
@@ -5654,16 +5670,11 @@ header nav button {
   margin: 0 0 6px;
   font-size: 14px;
 }
-.app-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.app-chips span {
-  padding: 1px 8px;
-  border: 1px solid var(--color-rule);
-  border-radius: 999px;
-  font-size: 12px;
+.app-gate .app-hooks .app-events {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
 }
 .app-deliveries summary {
   font-size: 14px;
@@ -5695,10 +5706,9 @@ header nav button {
   font-size: 14px;
 }
 .docs-scope {
-  font-size: 12px;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--color-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 .legal-main table {
   width: 100%;
@@ -5716,4 +5726,138 @@ header nav button {
 .legal-main th {
   font-weight: 500;
   color: var(--color-muted);
+}
+
+/* Polish pass, 2026-10-29. */
+
+/* Busy labels: both labels share one cell, so a button never changes width mid-click. */
+.busy-label {
+  display: inline-grid;
+}
+.busy-label > span {
+  grid-area: 1 / 1;
+  text-align: center;
+}
+.busy-label[data-busy='true'] > span:first-child,
+.busy-label[data-busy='false'] > span:last-child {
+  visibility: hidden;
+}
+
+/* Inline code inside prose: a size step down so it sits in the line, and long values wrap. */
+.legal-main :not(pre) > code,
+.app-gate p code,
+.app-gate li code,
+.app-gate td code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.86em;
+  overflow-wrap: anywhere;
+}
+
+/* Long URLs and ids never push a column wider than the screen. */
+.app-gate p,
+.app-gate li,
+.app-gate td {
+  overflow-wrap: break-word;
+}
+
+/* Forms in settings: room before the list under them, and text inputs share the row. */
+.app-section > form.app-field {
+  margin-bottom: 16px;
+}
+.app-field input.app-select {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+/* Settings: an index of its sections beside the column on wide screens. */
+.settings-layout {
+  display: block;
+}
+.settings-index {
+  display: none;
+}
+@media (min-width: 1240px) {
+  .settings-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 760px) 176px;
+    gap: 56px;
+    align-items: start;
+  }
+  .settings-index {
+    display: block;
+    position: sticky;
+    top: 36px;
+    margin-top: 6px;
+  }
+  .settings-index ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-left: 1px solid var(--color-rule);
+  }
+  .settings-index a {
+    display: block;
+    margin-left: -1px;
+    padding: 4px 0 4px 12px;
+    border-left: 1px solid transparent;
+    color: var(--color-muted);
+    font-size: 14px;
+    text-decoration: none;
+    transition:
+      color 150ms ease-out,
+      border-color 150ms ease-out;
+  }
+  .settings-index a:hover {
+    color: var(--color-ink);
+  }
+  .settings-index a[aria-current='true'] {
+    border-left-color: var(--color-pine);
+    color: var(--color-ink);
+  }
+}
+.settings-anchor {
+  scroll-margin-top: 24px;
+}
+
+/* A long note in the run log shows three lines until asked for the rest. */
+.app-log-note[data-open='false'] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.app-log li .app-log-more {
+  margin-top: 4px;
+}
+@media print {
+  .app-log-note[data-open='false'] {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+  .app-log-more {
+    display: none;
+  }
+}
+
+/* Log timestamps never wrap: "13:24" stays on one line at any width. */
+.app-log li time {
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .app-log li {
+    grid-template-columns: 60px minmax(0, 1fr);
+    gap: 12px;
+  }
+  /* On a phone a choice's description sits under its name, beside the box, not under the box. */
+  .app-choices label {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: baseline;
+  }
+  .app-choices label > .app-muted {
+    grid-column: 2;
+  }
 }

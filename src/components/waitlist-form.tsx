@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 import { isValidEmail } from '../../convex/lib/email'
 import { track } from '../integrations/posthog/track'
 import { WAITLIST_ACTION } from '../lib/waitlist'
+import { BusyLabel } from './busy-label'
 
 type State =
   | { kind: 'open'; error?: string }
@@ -128,7 +129,11 @@ export function WaitlistForm() {
               aria-describedby={state.kind === 'open' && state.error ? 'waitlist-error' : undefined}
             />
             <button type="submit" disabled={state.kind === 'submitting'}>
-              {state.kind === 'submitting' ? 'Saving…' : 'Notify me at launch'}
+              <BusyLabel
+                busy={state.kind === 'submitting'}
+                idle="Notify me at launch"
+                working="Saving"
+              />
             </button>
           </div>
           <p id="waitlist-error" className="waitlist-error" aria-live="polite" aria-atomic="true">

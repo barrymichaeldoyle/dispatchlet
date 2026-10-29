@@ -7,6 +7,7 @@ import { parsePlaybook, renderPlaybook, type Playbook } from '../../convex/lib/p
 import { describeCadence } from '../../convex/lib/schedule'
 import { ChannelMark } from './brand-icons'
 import { errorText, serviceName, usd, whenIn } from '../lib/format'
+import { BusyLabel } from './busy-label'
 
 const STATUS_WORDS: Record<string, string> = {
   generating: 'writing the playbook',
@@ -72,7 +73,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             disabled={busy !== null || running || !a.playbook}
             onClick={() => run(false)}
           >
-            {busy === 'now' ? 'Starting' : 'Run now'}
+            <BusyLabel busy={busy === 'now'} idle="Run now" working="Starting" />
           </button>
           <button
             type="button"
@@ -80,7 +81,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             disabled={busy !== null || running || !a.playbook}
             onClick={() => run(true)}
           >
-            {busy === 'dry' ? 'Starting' : 'Dry run'}
+            <BusyLabel busy={busy === 'dry'} idle="Dry run" working="Starting" />
           </button>
           {a.status === 'active' ? (
             <button
@@ -871,7 +872,7 @@ function PlaybookEditor({
           disabled={!dirty || state === 'saving' || problem !== null}
           onClick={submit}
         >
-          {state === 'saving' ? 'Saving' : 'Save'}
+          <BusyLabel busy={state === 'saving'} idle="Save" working="Saving" />
         </button>
         {dirty ? (
           <button

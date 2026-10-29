@@ -24,14 +24,14 @@ function HookDocs() {
 
       <h2>What to send</h2>
       <p>
-        <strong>Nothing</strong> (an empty body or <code>{'{}'}</code>): a plain run, as if you
-        pressed Run now. <strong>A story</strong>: <code>{'{ "title", "url"?, "notes"? }'}</code>.
-        The research step opens the URL if given, treats it as a story to cover whatever its date,
-        and writes it in your playbook’s voice. If the automation already covered it, it is skipped
-        as a duplicate and the log says so, so a hook that fires twice does not post twice. Add{' '}
-        <code>"dry": true</code>, or <code>?dry=1</code> to the URL, to see what it would post
-        without sending anything to Buffer. Use the URL form for GitHub, whose body you cannot
-        change.
+        <strong>Nothing</strong>, or an empty JSON object: a plain run, as if you pressed Run now.{' '}
+        <strong>A story</strong>: a JSON object with a <code>title</code>, and optionally a{' '}
+        <code>url</code> and <code>notes</code>. The research step opens the URL if given, treats it
+        as a story to cover whatever its date, and writes it in your playbook’s voice. If the
+        automation already covered it, it is skipped as a duplicate and the log says so, so a hook
+        that fires twice does not post twice. Add <code>"dry": true</code>, or <code>?dry=1</code>{' '}
+        to the URL, to see what it would post without sending anything to Buffer. Use the URL form
+        for GitHub, whose body you cannot change.
       </p>
       <pre>{`curl -X POST https://dispatchlet.com/api/v1/hooks/dlh_… \\
   -H "Content-Type: application/json" \\

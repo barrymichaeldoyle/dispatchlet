@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { errorText } from '../lib/format'
 import { Wordmark } from './wordmark'
+import { BusyLabel } from './busy-label'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
@@ -100,7 +101,7 @@ function Consent() {
   }
 
   return (
-    <Frame title={`Let ${client} use your Dispatchlet?`}>
+    <Frame title={`Connect ${client} to Dispatchlet`}>
       <p>
         {domain ? (
           <>
@@ -141,7 +142,7 @@ function Consent() {
           disabled={busy}
           onClick={() => void decide('approve')}
         >
-          {busy ? 'Connecting' : 'Allow'}
+          <BusyLabel busy={busy} idle="Allow" working="Connecting" />
         </button>
         <button
           type="button"

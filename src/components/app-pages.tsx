@@ -16,6 +16,7 @@ import {
 import { Automate } from './app-api'
 import { StepArt } from './step-art'
 import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
+import { BusyLabel } from './busy-label'
 
 export function SignOut() {
   const { signOut } = useAuthActions()
@@ -30,7 +31,7 @@ export function SignOut() {
         void signOut().catch(() => setPending(false))
       }}
     >
-      {pending ? 'Signing out' : 'Sign out'}
+      <BusyLabel busy={pending} idle="Sign out" working="Signing out" />
     </button>
   )
 }
@@ -61,7 +62,11 @@ export function ConnectionBanner() {
       </p>
       <button type="button" className="app-gate-primary" disabled={pending} onClick={reconnect}>
         <BufferMark size={16} />
-        {pending ? 'Opening Buffer' : connection ? 'Reconnect Buffer' : 'Connect Buffer'}
+        <BusyLabel
+          busy={pending}
+          idle={connection ? 'Reconnect Buffer' : 'Connect Buffer'}
+          working="Opening Buffer"
+        />
       </button>
     </section>
   )
@@ -180,7 +185,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
                 })
             }}
           >
-            {state === 'working' ? 'Approving' : 'Approve'}
+            <BusyLabel busy={state === 'working'} idle="Approve" working="Approving" />
           </button>
         )}
         <a
@@ -329,39 +334,121 @@ function EmptyHome({ firstName, viewer }: { firstName: string | undefined; viewe
   )
 }
 
+const SETTINGS_SECTIONS = [
+  ['account', 'Account'],
+  ['buffer', 'Buffer'],
+  ['usage', 'Usage'],
+  ['notifications', 'Notifications'],
+  ['anthropic', 'Anthropic key'],
+  ['timezone', 'Time zone'],
+  ['api', 'API tokens'],
+  ['assistant', 'AI assistants'],
+  ['webhooks', 'Webhooks'],
+  ['hooks', 'Inbound hooks'],
+  ['delete', 'Delete account'],
+] as const
+
+/** Which settings section is at the top of the screen, for the index beside them. */
+function useCurrentSection(ids: readonly string[]): string {
+  const [current, setCurrent] = useState<string>(ids[0] ?? '')
+  useEffect(() => {
+    const seen = new Map<string, boolean>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) seen.set(e.target.id, e.isIntersecting)
+        const first = ids.find((id) => seen.get(id))
+        if (first) setCurrent(first)
+      },
+      { rootMargin: '0px 0px -70% 0px' },
+    )
+    for (const id of ids) {
+      const el = document.getElementById(id)
+      if (el) observer.observe(el)
+    }
+    return () => observer.disconnect()
+  }, [ids])
+  return current
+}
+
+function SettingsIndex() {
+  const ids = useMemo(() => SETTINGS_SECTIONS.map(([id]) => id), [])
+  const current = useCurrentSection(ids)
+  return (
+    <nav className="settings-index" aria-label="Settings sections">
+      <ol>
+        {SETTINGS_SECTIONS.map(([id, label]) => (
+          <li key={id}>
+            <a href={`#${id}`} aria-current={current === id ? 'true' : undefined}>
+              {label}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  )
+}
+
+/** A named stop in settings, for the index and for links into it (such as #api). */
+function Anchor({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <div id={id} className="settings-anchor">
+      {children}
+    </div>
+  )
+}
+
 export function AppSettings() {
   const viewer = useQuery(api.users.viewer)
   if (!viewer) return null
   return (
     <>
       <h1>Settings.</h1>
-      <section className="app-section app-settings-account" aria-labelledby="account-title">
-        <h2 id="account-title">Account</h2>
-        <p>
-          {viewer.name ?? 'Your Buffer account'}
-          {viewer.email ? (
-            <>
-              <br />
-              <span className="app-muted">{viewer.email}</span>
-            </>
-          ) : null}
-        </p>
-        <p className="app-muted">Your name and email come from Buffer.</p>
-        <SignOut />
-      </section>
-      <BufferConnection />
-      <Usage />
-      <OwnerTotals />
-      <EmailPrefs />
-      <AnthropicKey
-        ownKey={viewer.ownKey}
-        invalid={viewer.keyInvalid}
-        runsLeft={viewer.runsLeft}
-        dryRunsLeft={viewer.dryRunsLeft}
-      />
-      <TimezoneSetting value={viewer.timezone} />
-      <Automate timezone={viewer.timezone ?? 'UTC'} />
-      <DeleteAccount />
+      <div className="settings-layout">
+        <div className="settings-main">
+          <Anchor id="account">
+            <section className="app-section app-settings-account" aria-labelledby="account-title">
+              <h2 id="account-title">Account</h2>
+              <p>
+                {viewer.name ?? 'Your Buffer account'}
+                {viewer.email ? (
+                  <>
+                    <br />
+                    <span className="app-muted">{viewer.email}</span>
+                  </>
+                ) : null}
+              </p>
+              <p className="app-muted">Your name and email come from Buffer.</p>
+              <SignOut />
+            </section>
+          </Anchor>
+          <Anchor id="buffer">
+            <BufferConnection />
+          </Anchor>
+          <Anchor id="usage">
+            <Usage />
+            <OwnerTotals />
+          </Anchor>
+          <Anchor id="notifications">
+            <EmailPrefs />
+          </Anchor>
+          <Anchor id="anthropic">
+            <AnthropicKey
+              ownKey={viewer.ownKey}
+              invalid={viewer.keyInvalid}
+              runsLeft={viewer.runsLeft}
+              dryRunsLeft={viewer.dryRunsLeft}
+            />
+          </Anchor>
+          <Anchor id="timezone">
+            <TimezoneSetting value={viewer.timezone} />
+          </Anchor>
+          <Automate timezone={viewer.timezone ?? 'UTC'} />
+          <Anchor id="delete">
+            <DeleteAccount />
+          </Anchor>
+        </div>
+        <SettingsIndex />
+      </div>
     </>
   )
 }
@@ -434,7 +521,7 @@ function BufferConnection() {
                   .finally(() => setSyncing(false))
               }}
             >
-              {syncing ? 'Syncing channels' : 'Sync channels'}
+              <BusyLabel busy={syncing} idle="Sync channels" working="Syncing channels" />
             </button>
           )}
           <button
@@ -449,7 +536,7 @@ function BufferConnection() {
                 .finally(() => setDisconnecting(false))
             }}
           >
-            {disconnecting ? 'Disconnecting' : 'Disconnect Buffer'}
+            <BusyLabel busy={disconnecting} idle="Disconnect Buffer" working="Disconnecting" />
           </button>
         </div>
       ) : null}
@@ -790,7 +877,7 @@ function AnthropicKey({
           disabled={state === 'saving' || !value.trim()}
           onClick={() => submit(value)}
         >
-          {state === 'saving' ? 'Saving' : 'Save key'}
+          <BusyLabel busy={state === 'saving'} idle="Save key" working="Saving" />
         </button>
         {ownKey ? (
           <button
@@ -895,7 +982,7 @@ function DeleteAccount() {
                 })
             }}
           >
-            {pending ? 'Deleting' : 'Delete my account'}
+            <BusyLabel busy={pending} idle="Delete my account" working="Deleting" />
           </button>
           <button
             type="button"

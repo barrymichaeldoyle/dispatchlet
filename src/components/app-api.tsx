@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { WEBHOOK_EVENTS } from '../../convex/lib/standardWebhooks'
 import { errorText, whenIn } from '../lib/format'
+import { BusyLabel } from './busy-label'
 
 /**
  * Settings → Automate Dispatchlet (SPEC §44): API tokens, webhooks, inbound hooks and the MCP
@@ -86,10 +87,18 @@ export function Automate({ timezone }: { timezone: string }) {
   const [latestToken, setLatestToken] = useState<string | null>(null)
   return (
     <>
-      <ApiTokens timezone={timezone} onCreated={setLatestToken} />
-      <AssistantConnect token={latestToken} />
-      <Webhooks timezone={timezone} />
-      <InboundHooks timezone={timezone} />
+      <div id="api" className="settings-anchor">
+        <ApiTokens timezone={timezone} onCreated={setLatestToken} />
+      </div>
+      <div id="assistant" className="settings-anchor">
+        <AssistantConnect token={latestToken} />
+      </div>
+      <div id="webhooks" className="settings-anchor">
+        <Webhooks timezone={timezone} />
+      </div>
+      <div id="hooks" className="settings-anchor">
+        <InboundHooks timezone={timezone} />
+      </div>
     </>
   )
 }
@@ -150,7 +159,7 @@ function ApiTokens({
           <option value="read">Read only</option>
         </select>
         <button type="submit" className="app-gate-secondary" disabled={busy || !name.trim()}>
-          {busy ? 'Making' : 'Create token'}
+          <BusyLabel busy={busy} idle="Create token" working="Making" />
         </button>
       </form>
       {error ? (
@@ -416,7 +425,7 @@ function Webhooks({ timezone }: { timezone: string }) {
             className="app-gate-secondary"
             disabled={busy || !url.trim() || !events.length}
           >
-            {busy ? 'Adding' : 'Add webhook'}
+            <BusyLabel busy={busy} idle="Add webhook" working="Adding" />
           </button>
           {error ? (
             <span className="app-connection-error" role="alert">
@@ -446,11 +455,7 @@ function Webhooks({ timezone }: { timezone: string }) {
                   </span>
                 ) : null}
               </p>
-              <p className="app-chips">
-                {w.events.map((ev) => (
-                  <span key={ev}>{ev}</span>
-                ))}
-              </p>
+              <p className="app-events">{w.events.join(', ')}</p>
               <p className="app-muted">
                 {!w.active
                   ? 'Off.'
@@ -613,7 +618,7 @@ function InboundHooks({ timezone }: { timezone: string }) {
           className="app-gate-secondary"
           disabled={busy || !name.trim() || !chosen}
         >
-          {busy ? 'Making' : 'Create hook URL'}
+          <BusyLabel busy={busy} idle="Create hook URL" working="Making" />
         </button>
         {error ? (
           <span className="app-connection-error" role="alert">
@@ -645,7 +650,7 @@ function InboundHooks({ timezone }: { timezone: string }) {
             {hooks.map((h) => (
               <tr key={h._id}>
                 <td>{h.name}</td>
-                <td>{names.get(h.automationId) ?? '—'}</td>
+                <td>{names.get(h.automationId) ?? 'Deleted'}</td>
                 <td className="tabular">
                   <code>…/hooks/{h.prefix}…</code>
                 </td>

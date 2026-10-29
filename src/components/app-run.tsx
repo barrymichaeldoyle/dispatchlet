@@ -9,6 +9,7 @@ import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
 import { bufferChannelUrl, errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
+import { BusyLabel } from './busy-label'
 
 const DECISION_WORDS: Record<string, string> = {
   kept: 'Kept',
@@ -186,7 +187,7 @@ function RunView({
               <time className="tabular" dateTime={new Date(s.at).toISOString()}>
                 {timeIn(s.at, tz)}
               </time>
-              <p>{s.note}</p>
+              <LogNote text={s.note} />
             </li>
           ))}
           {live ? (
@@ -350,7 +351,7 @@ function RunView({
                             .finally(() => setApproving(null))
                         }}
                       >
-                        {approving === p._id ? 'Approving' : 'Approve'}
+                        <BusyLabel busy={approving === p._id} idle="Approve" working="Approving" />
                       </button>
                     ) : null}
                     {p.externalLink ? (
@@ -390,5 +391,29 @@ function RunView({
         <p className="app-connection-error">{run.error}</p>
       ) : null}
     </>
+  )
+}
+
+/** Notes past this length start folded to three lines: research notes can run to a page. */
+const LONG_NOTE = 320
+
+/** One line of the run log. A long note folds, with a control to read the rest. */
+function LogNote({ text }: { text: string }) {
+  const [open, setOpen] = useState(false)
+  if (text.length <= LONG_NOTE) return <p>{text}</p>
+  return (
+    <div>
+      <p className="app-log-note" data-open={open}>
+        {text}
+      </p>
+      <button
+        type="button"
+        className="app-link app-log-more"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
+        {open ? 'Show less' : 'Show the whole note'}
+      </button>
+    </div>
   )
 }

@@ -5,6 +5,7 @@ import { api } from '../../convex/_generated/api'
 import { ChannelMark } from './brand-icons'
 import { TEMPLATES } from '../../convex/lib/templates'
 import { errorText, serviceName } from '../lib/format'
+import { BusyLabel } from './busy-label'
 
 const WEEKDAYS = [
   ['mon', 'Monday'],
@@ -182,7 +183,7 @@ export function NewAutomation() {
               disabled={syncing}
               onClick={runSync}
             >
-              {syncing ? 'Syncing channels' : 'Sync channels'}
+              <BusyLabel busy={syncing} idle="Sync channels" working="Syncing channels" />
             </button>
           )}
           {channels.map((c) => (
@@ -467,7 +468,7 @@ export function NewAutomation() {
                   Back
                 </button>
                 <button type="submit" className="app-gate-primary" disabled={pending}>
-                  {pending ? 'Creating playbook' : 'Create playbook'}
+                  <BusyLabel busy={pending} idle="Create playbook" working="Creating playbook" />
                 </button>
               </div>
               {error ? (

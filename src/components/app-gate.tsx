@@ -7,6 +7,7 @@ import { ConnectionBanner, SignOut } from './app-pages'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
 import { registerServiceWorker } from '../lib/service-worker'
+import { BusyLabel } from './busy-label'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
@@ -147,7 +148,7 @@ function SignIn() {
         }}
       >
         <BufferMark size={16} />
-        {pending ? 'Opening Buffer' : 'Sign in with Buffer'}
+        <BusyLabel busy={pending} idle="Sign in with Buffer" working="Opening Buffer" />
       </button>
       {open === false ? (
         <p className="app-gate-note">

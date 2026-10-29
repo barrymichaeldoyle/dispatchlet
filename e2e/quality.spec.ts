@@ -100,7 +100,7 @@ test('signup remains usable on slow requests and announces confirmation with foc
   await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
   await page.getByLabel('Email', { exact: true }).fill('quality@example.com')
   await page.getByRole('button', { name: 'Notify me at launch' }).click()
-  await expect(page.getByRole('button', { name: 'Saving…' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Saving', exact: true })).toBeDisabled()
   await expect(page.getByRole('form')).toHaveAttribute('aria-busy', 'true')
   finish?.()
   await expect(page.getByRole('status')).toContainText('You are number 7.')
