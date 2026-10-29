@@ -110,6 +110,14 @@ export async function triggerFor(
     if (!automation || automation.userId !== userId || automation.deletedAt)
       throw new Error('Automation not found')
     if (!automation.playbookVersionId) throw new Error('The playbook is not ready yet')
+    // The app's Run now works on a paused automation: a person pressed it. Callers outside the app
+    // never run one Dispatchlet paused itself, and a hook never runs one the person paused.
+    if (startedBy !== 'app') {
+      if (automation.status === 'failed')
+        throw new Error('This automation is paused after failed runs. Look at it in the app first.')
+      if (automation.status === 'paused' && startedBy === 'hook')
+        throw new Error('This automation is paused, so its hooks do not start runs.')
+    }
     const running = await ctx.db
       .query('runs')
       .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
@@ -464,7 +472,7 @@ export const execute = internalAction({
       if (
         !allowanceFor(user).ownKey &&
         spentTodayUsd >= globalDailyCapUsd() &&
-        run.kind === 'scheduled'
+        (run.kind === 'scheduled' || (run.startedBy !== undefined && run.startedBy !== 'app'))
       ) {
         await ctx.runMutation(internal.runs.finish, {
           runId,

@@ -31,9 +31,10 @@ describe('OAuth helpers', () => {
   })
 
   it('checks a token with the API', async () => {
-    const ok = (async () => Response.json({ id: 'u1' })) as unknown as typeof fetch
+    const ok = (async () =>
+      Response.json({ id: 'u1', tokenScope: 'read' })) as unknown as typeof fetch
     const no = (async () => new Response('{}', { status: 401 })) as unknown as typeof fetch
-    expect(await apiTokenOwner('https://x/v1', 'dl_a', ok)).toBe('u1')
+    expect(await apiTokenOwner('https://x/v1', 'dl_a', ok)).toEqual({ userId: 'u1', write: false })
     expect(await apiTokenOwner('https://x/v1', 'dl_a', no)).toBeNull()
   })
 })

@@ -61,4 +61,28 @@ describe('webhook URL checks', () => {
     expect(webhookUrlProblem('https://intranet/x')).toMatch(/full host/)
     expect(webhookUrlProblem('nope')).toMatch(/not a URL/)
   })
+
+  it('refuses the forms that slipped past a name check', () => {
+    for (const url of [
+      'https://localhost./',
+      'https://x.internal./',
+      'https://metadata.google.internal./',
+      'https://[::ffff:127.0.0.1]/',
+      'https://[::ffff:10.0.0.1]/',
+      'https://[::ffff:a9fe:a9fe]/',
+      'https://[::127.0.0.1]/',
+      'https://[64:ff9b::a9fe:a9fe]/',
+      'https://[fec0::1]/',
+      'https://[fe80::1]/',
+      'https://[fd00::1]/',
+      'https://[ff02::1]/',
+      'https://[2002:7f00:1::]/',
+      'https://[::]/',
+      'https://0.0.0.0/',
+      'https://224.0.0.1/',
+    ])
+      expect(webhookUrlProblem(url), url).not.toBeNull()
+    expect(webhookUrlProblem('https://[2606:4700:4700::1111]/')).toBeNull()
+    expect(webhookUrlProblem('https://[::ffff:203.0.113.4]/')).toBeNull()
+  })
 })

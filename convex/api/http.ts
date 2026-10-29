@@ -93,7 +93,9 @@ export function fromAppError(error: unknown): ApiError {
   // A malformed id fails the function's `v.id()` validator; to the caller that is an unknown id.
   if (/Validator: v\.id\(|Expected ID for table/.test(message))
     return new ApiError(404, 'not_found', 'No such id.')
-  if (/already going/i.test(text)) return new ApiError(409, 'conflict', text)
+  if (/already going|is paused/i.test(text)) return new ApiError(409, 'conflict', text)
+  if (/is the limit|Too many/i.test(text)) return new ApiError(429, 'rate_limited', text)
+  if (/No playbook generations left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/No (free |dry )?runs left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/Buffer/.test(text) && /did not|refused|lost|ended|Sign in with Buffer/i.test(text))
     return new ApiError(502, 'buffer', text)
@@ -119,8 +121,13 @@ export function matchPath(pattern: string, path: string): Params | null {
   for (let i = 0; i < want.length; i++) {
     const w = want[i]!
     const h = have[i]!
-    if (w.startsWith(':')) params[w.slice(1)] = decodeURIComponent(h)
-    else if (w !== h) return null
+    if (w.startsWith(':')) {
+      try {
+        params[w.slice(1)] = decodeURIComponent(h)
+      } catch {
+        return null
+      }
+    } else if (w !== h) return null
   }
   return params
 }

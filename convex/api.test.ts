@@ -548,3 +548,90 @@ describe('the OpenAPI document', () => {
     expect(matchPath('/automations/:id/runs', '/automations/abc')).toBeNull()
   })
 })
+
+describe('rules from the security review', () => {
+  it('a hook never runs a paused automation, and nothing outside the app runs a failed one', async () => {
+    const { t, call, automationId } = await account(convexTest(schema, modules))
+    const hook = await (
+      await call('/hooks', { method: 'POST', body: JSON.stringify({ automationId, name: 'h' }) })
+    ).json()
+    await t.run((ctx) => ctx.db.patch(automationId, { status: 'paused' }))
+    const paused = await t.fetch(`/v1/hooks/${hook.token}`, { method: 'POST' })
+    expect(paused.status).toBe(409)
+    await t.run((ctx) => ctx.db.patch(automationId, { status: 'failed' }))
+    const failed = await call(`/automations/${automationId}/runs`, {
+      method: 'POST',
+      body: '{"dry":true}',
+    })
+    expect(failed.status).toBe(409)
+    expect((await failed.json()).error.message).toContain('paused after failed runs')
+  })
+
+  it('caps playbook generations a day and live automations', async () => {
+    const { t, userId, call } = await account(convexTest(schema, modules))
+    process.env.GENERATIONS_PER_DAY = '1'
+    try {
+      const body = JSON.stringify({
+        setup: { research: 'F1', cadence: { preset: 'daily', time: '08:00', weekday: null } },
+        channelIds: ['c1'],
+      })
+      expect((await call('/automations', { method: 'POST', body })).status).toBe(202)
+      const second = await call('/automations', { method: 'POST', body })
+      expect(second.status).toBe(402)
+      await t.run((ctx) => ctx.db.patch(userId, { generationsToday: 0 }))
+      process.env.AUTOMATIONS_PER_USER = '2'
+      const capped = await call('/automations', { method: 'POST', body })
+      expect(capped.status).toBe(429)
+    } finally {
+      delete process.env.GENERATIONS_PER_DAY
+      delete process.env.AUTOMATIONS_PER_USER
+    }
+  })
+
+  it('syncs channels at most once a minute', async () => {
+    const { call } = await account(convexTest(schema, modules))
+    // The first call reaches Buffer (no connection here, so it fails); the second is refused first.
+    await call('/channels/sync', { method: 'POST' })
+    const again = await call('/channels/sync', { method: 'POST' })
+    expect(again.status).toBe(429)
+  })
+
+  it('retries only failed deliveries', async () => {
+    const { t, userId, user } = await account(convexTest(schema, modules))
+    const deliveryId = await t.run(async (ctx) => {
+      const webhookId = await ctx.db.insert('webhooks', {
+        userId,
+        url: 'https://hooks.example.com/a',
+        secretEnc: 'x',
+        events: ['ping'],
+        active: true,
+        createdAt: Date.now(),
+        failedInARow: 0,
+      })
+      return await ctx.db.insert('webhookDeliveries', {
+        webhookId,
+        userId,
+        event: 'ping',
+        payload: '{}',
+        attempt: 1,
+        status: 'ok',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    })
+    await expect(user.mutation(api.webhooks.retry, { deliveryId })).rejects.toThrow('Only a failed')
+  })
+
+  it('/me says what the token can do', async () => {
+    const { call } = await account(convexTest(schema, modules), 'read')
+    expect((await (await call('/me')).json()).tokenScope).toBe('read')
+  })
+
+  it('deleting an account removes automations, runs, posts and playbooks', async () => {
+    const { t, userId, automationId, call } = await account(convexTest(schema, modules))
+    await call(`/automations/${automationId}/runs`, { method: 'POST', body: '{"dry":true}' })
+    await t.mutation(internal.users.deleteUserData, { userId })
+    for (const table of ['automations', 'playbookVersions', 'runs', 'posts', 'apiTokens'] as const)
+      expect(await t.run((ctx) => ctx.db.query(table).collect()), table).toHaveLength(0)
+  })
+})

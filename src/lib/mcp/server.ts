@@ -56,6 +56,9 @@ async function guarded(fn: () => Promise<unknown>): Promise<ToolResult> {
   }
 }
 
+/** Ids go into URL paths, so they are encoded: a model can pass anything. */
+const e = encodeURIComponent
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function createDispatchletServer(
@@ -88,7 +91,7 @@ export function createDispatchletServer(
       inputSchema: { automation_id: z.string() },
       annotations: { readOnlyHint: true },
     },
-    ({ automation_id }) => guarded(() => api.get(`/automations/${automation_id}`)),
+    ({ automation_id }) => guarded(() => api.get(`/automations/${e(automation_id)}`)),
   )
 
   server.registerTool(
@@ -152,7 +155,7 @@ export function createDispatchletServer(
     },
     ({ automation_id, cadence, channel_ids, posting_mode, max_posts_per_run, status }) =>
       guarded(() =>
-        api.send('PATCH', `/automations/${automation_id}`, {
+        api.send('PATCH', `/automations/${e(automation_id)}`, {
           ...(cadence ? { cadence } : {}),
           ...(channel_ids ? { channelIds: channel_ids } : {}),
           ...(posting_mode ? { postingMode: posting_mode } : {}),
@@ -171,7 +174,7 @@ export function createDispatchletServer(
       annotations: { readOnlyHint: true },
     },
     ({ automation_id }) =>
-      guarded(() => api.get(`/automations/${automation_id}/playbook`, 'text/markdown')),
+      guarded(() => api.get(`/automations/${e(automation_id)}/playbook`, 'text/markdown')),
   )
 
   server.registerTool(
@@ -184,7 +187,7 @@ export function createDispatchletServer(
     },
     ({ automation_id, text: body }) =>
       guarded(() =>
-        api.send('PUT', `/automations/${automation_id}/playbook`, body, 'text/markdown'),
+        api.send('PUT', `/automations/${e(automation_id)}/playbook`, body, 'text/markdown'),
       ),
   )
 
@@ -196,7 +199,7 @@ export function createDispatchletServer(
       inputSchema: { automation_id: z.string(), rule: z.string().min(3).max(200) },
     },
     ({ automation_id, rule }) =>
-      guarded(() => api.send('POST', `/automations/${automation_id}/rules`, { rule })),
+      guarded(() => api.send('POST', `/automations/${e(automation_id)}/rules`, { rule })),
   )
 
   server.registerTool(
@@ -213,7 +216,7 @@ export function createDispatchletServer(
       annotations: { openWorldHint: true },
     },
     ({ automation_id, dry, hint }) =>
-      guarded(() => api.send('POST', `/automations/${automation_id}/runs`, { dry, hint })),
+      guarded(() => api.send('POST', `/automations/${e(automation_id)}/runs`, { dry, hint })),
   )
 
   server.registerTool(
@@ -229,7 +232,7 @@ export function createDispatchletServer(
       guarded(async () => {
         const until = Date.now() + wait_seconds * 1000
         for (;;) {
-          const result = (await api.get(`/runs/${run_id}`)) as {
+          const result = (await api.get(`/runs/${e(run_id)}`)) as {
             run: { finishedAt: number | null }
           }
           if (result.run.finishedAt || Date.now() >= until) return result
@@ -251,7 +254,7 @@ export function createDispatchletServer(
       annotations: { readOnlyHint: true },
     },
     ({ automation_id, limit }) =>
-      guarded(() => api.get(`/automations/${automation_id}/runs?limit=${limit}`)),
+      guarded(() => api.get(`/automations/${e(automation_id)}/runs?limit=${limit}`)),
   )
 
   server.registerTool(
@@ -265,7 +268,7 @@ export function createDispatchletServer(
     },
     ({ automation_id }) =>
       guarded(() =>
-        api.get(`/posts?status=draft${automation_id ? `&automation=${automation_id}` : ''}`),
+        api.get(`/posts?status=draft${automation_id ? `&automation=${e(automation_id)}` : ''}`),
       ),
   )
 
@@ -278,7 +281,7 @@ export function createDispatchletServer(
       inputSchema: { post_id: z.string() },
       annotations: { destructiveHint: true, idempotentHint: true },
     },
-    ({ post_id }) => guarded(() => api.send('POST', `/posts/${post_id}/approve`)),
+    ({ post_id }) => guarded(() => api.send('POST', `/posts/${e(post_id)}/approve`)),
   )
 
   server.registerTool(
@@ -289,7 +292,7 @@ export function createDispatchletServer(
       inputSchema: { post_id: z.string() },
       annotations: { readOnlyHint: true },
     },
-    ({ post_id }) => guarded(() => api.get(`/posts/${post_id}`)),
+    ({ post_id }) => guarded(() => api.get(`/posts/${e(post_id)}`)),
   )
 
   server.registerTool(
@@ -310,7 +313,7 @@ export function createDispatchletServer(
       description: 'A public link to a run’s log, stories and posts.',
       inputSchema: { run_id: z.string() },
     },
-    ({ run_id }) => guarded(() => api.send('POST', `/runs/${run_id}/share`)),
+    ({ run_id }) => guarded(() => api.send('POST', `/runs/${e(run_id)}/share`)),
   )
 
   server.registerResource(
@@ -326,7 +329,7 @@ export function createDispatchletServer(
         {
           uri: uri.href,
           mimeType: 'text/markdown',
-          text: String(await api.get(`/automations/${id}/playbook`, 'text/markdown')),
+          text: String(await api.get(`/automations/${e(String(id))}/playbook`, 'text/markdown')),
         },
       ],
     }),
@@ -345,7 +348,7 @@ export function createDispatchletServer(
         {
           uri: uri.href,
           mimeType: 'application/json',
-          text: JSON.stringify(await api.get(`/runs/${id}`), null, 2),
+          text: JSON.stringify(await api.get(`/runs/${e(String(id))}`), null, 2),
         },
       ],
     }),

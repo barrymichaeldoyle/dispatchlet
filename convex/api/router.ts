@@ -67,7 +67,7 @@ const Cadence = SetupAnswers.shape.cadence
 route('GET', '/me', 'read', async (ctx, caller) => {
   const me = await ctx.runQuery(internal.api.fns.me, { userId: caller.userId })
   if (!me) throw new ApiError(404, 'not_found', 'Account not found.')
-  return jsonResponse(200, me, { rate: caller.rate })
+  return jsonResponse(200, { ...me, tokenScope: caller.scope }, { rate: caller.rate })
 })
 
 route('GET', '/channels', 'read', async (ctx, caller) =>
@@ -79,6 +79,8 @@ route('GET', '/channels', 'read', async (ctx, caller) =>
 )
 
 route('POST', '/channels/sync', 'write', async (ctx, caller) => {
+  if (!(await ctx.runMutation(internal.api.rate.claimSync, { userId: caller.userId })))
+    throw new ApiError(429, 'rate_limited', 'Channels can be synced once a minute.')
   const result = await syncChannelsFor(ctx, caller.userId)
   return jsonResponse(
     200,
@@ -445,11 +447,11 @@ async function inboundHook(ctx: ActionCtx, token: string, req: Request): Promise
   if (!looksLikeSecret(token, HOOK_PREFIX)) return errorResponse(404, 'not_found', 'No such hook.')
   const hook = await ctx.runQuery(internal.hooks.byHash, { hash: await hashSecret(token) })
   if (!hook) return errorResponse(404, 'not_found', 'No such hook.')
-  const rate = await ctx.runMutation(internal.api.rate.check, {
-    tokenKey: `hook:${hook._id}`,
-    userKey: hook.userId,
-  })
-  if (!rate.ok) return errorResponse(429, 'rate_limited', 'Too many requests to this hook.')
+  const rate = await ctx.runMutation(internal.api.rate.checkHook, { hookId: hook._id })
+  if (!rate.ok)
+    return errorResponse(429, 'rate_limited', 'Too many requests to this hook.', {
+      retryAfter: Math.max(1, rate.reset - Math.floor(Date.now() / 1000)),
+    })
   let body: unknown
   try {
     body = await readJson(req)

@@ -10,10 +10,28 @@ import {
   type QueryCtx,
 } from './_generated/server'
 import { SetupAnswers, type Service } from './lib/ai/setup'
-import { allowanceFor } from './lib/limits'
+import { allowanceFor, automationCap, generationsPerDay } from './lib/limits'
 import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
 import { nextRunAt, type Cadence } from './lib/schedule'
 import { cadenceValidator, setupValidator } from './schema'
+
+/**
+ * Counts one playbook generation for a person on Dispatchlet's key and refuses past the daily cap.
+ * Someone with their own key pays for it, so they are not counted.
+ */
+async function claimGeneration(ctx: MutationCtx, user: Doc<'users'>): Promise<void> {
+  if (allowanceFor(user).ownKey) return
+  const day = new Date().toISOString().slice(0, 10)
+  const used = user.generationDay === day ? (user.generationsToday ?? 0) : 0
+  if (used >= generationsPerDay())
+    throw new Error(
+      'No playbook generations left today. Try again tomorrow, or add your own Anthropic key.',
+    )
+  await ctx.db.patch(user._id, { generationDay: day, generationsToday: used + 1 })
+}
+
+/** The longest playbook text accepted, so a huge playbook cannot inflate every run's prompt. */
+const MAX_PLAYBOOK_CHARS = 20_000
 
 async function viewerId(ctx: QueryCtx | MutationCtx): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx)
@@ -77,6 +95,15 @@ export async function createFor(
   {
     const user = await ctx.db.get(userId)
     if (!user) throw new Error('Not signed in')
+    const live = (
+      await ctx.db
+        .query('automations')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect()
+    ).filter((a) => !a.deletedAt)
+    if (live.length >= automationCap())
+      throw new Error(`${automationCap()} automations is the limit. Delete one first.`)
+    await claimGeneration(ctx, user)
     const channels = await ctx.db
       .query('bufferChannels')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -113,6 +140,8 @@ export const regenerate = mutation({
   handler: async (ctx, { id }) => {
     const automation = await ownAutomation(ctx, id)
     if (automation.status === 'generating') return null
+    const user = await ctx.db.get(automation.userId)
+    if (user) await claimGeneration(ctx, user)
     await ctx.db.patch(id, {
       status: 'generating',
       generationError: undefined,
@@ -247,6 +276,12 @@ export async function savePlaybookFor(
 ): Promise<{ ok: true; version: number } | { ok: false; line: number; message: string }> {
   {
     await automationOf(ctx, userId, id)
+    if (text.length > MAX_PLAYBOOK_CHARS)
+      return {
+        ok: false as const,
+        line: 1,
+        message: `A playbook can be up to ${MAX_PLAYBOOK_CHARS.toLocaleString('en-US')} characters.`,
+      }
     const parsed = parsePlaybook(text)
     if (!parsed.ok) return parsed
     const latest = await latestVersion(ctx, id)

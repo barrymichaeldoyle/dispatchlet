@@ -89,9 +89,72 @@ export function envelope(id: string, type: WebhookEvent, createdAt: number, data
   return JSON.stringify({ id, type, createdAt, data })
 }
 
+/** Whether an IPv4 address (dotted) is private, loopback, link-local, shared or reserved. */
+export function isPrivateIPv4(ip: string): boolean {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip)
+  if (!m) return false
+  const [a, b] = [Number(m[1]), Number(m[2])]
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    a >= 224 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 192 && b === 0) ||
+    (a === 198 && (b === 18 || b === 19))
+  )
+}
+
+/** Expands an IPv6 address to eight 16-bit groups, or null when it is not one. */
+function ipv6Groups(ip: string): number[] | null {
+  let text = ip.toLowerCase()
+  // A trailing dotted IPv4 (::ffff:1.2.3.4) becomes two groups.
+  const v4 = /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(text)
+  if (v4) {
+    const n = v4.slice(1).map(Number)
+    text = `${text.slice(0, v4.index)}${((n[0]! << 8) | n[1]!).toString(16)}:${((n[2]! << 8) | n[3]!).toString(16)}`
+  }
+  const halves = text.split('::')
+  if (halves.length > 2) return null
+  const head = halves[0] ? halves[0].split(':') : []
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0
+  const parts = [...head, ...Array(Math.max(fill, 0)).fill('0'), ...tail]
+  if (parts.length !== 8 || !parts.every((p) => /^[0-9a-f]{1,4}$/.test(p))) return null
+  return parts.map((p) => parseInt(p, 16))
+}
+
+/**
+ * Whether an IPv6 address can reach something private: loopback, unspecified, unique-local,
+ * link- and site-local, multicast, and any form that embeds an IPv4 address (mapped, compatible,
+ * NAT64, 6to4), which is judged by that IPv4 address.
+ */
+export function isPrivateIPv6(ip: string): boolean {
+  const g = ipv6Groups(ip)
+  if (!g) return true
+  const embedded = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
+  if (g.slice(0, 6).every((x) => x === 0))
+    return g[6] === 0 && g[7]! <= 1 ? true : isPrivateIPv4(embedded(g[6]!, g[7]!))
+  if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff)
+    return isPrivateIPv4(embedded(g[6]!, g[7]!))
+  if (g[0] === 0x64 && g[1] === 0xff9b) return isPrivateIPv4(embedded(g[6]!, g[7]!))
+  if (g[0] === 0x2002) return isPrivateIPv4(embedded(g[1]!, g[2]!))
+  const first = g[0]!
+  return (
+    (first & 0xfe00) === 0xfc00 ||
+    (first & 0xffc0) === 0xfe80 ||
+    (first & 0xffc0) === 0xfec0 ||
+    (first & 0xff00) === 0xff00
+  )
+}
+
 /**
  * Why a webhook URL is refused (SPEC §44.10): not https, a loopback or private host, or a name
- * that cannot be public. Null when it is fine. Checked by name only; DNS is not consulted.
+ * that cannot be public. Null when it is fine. Checked by name here; `deliver` also resolves the
+ * name and refuses private answers, since a public name can point anywhere.
  */
 export function webhookUrlProblem(raw: string): string | null {
   let url: URL
@@ -102,32 +165,20 @@ export function webhookUrlProblem(raw: string): string | null {
   }
   if (url.protocol !== 'https:') return 'Webhook URLs must use https.'
   if (url.username || url.password) return 'Leave credentials out of the URL.'
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  const host = url.hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
   if (
     host === 'localhost' ||
     host.endsWith('.localhost') ||
     host.endsWith('.local') ||
-    host.endsWith('.internal')
+    host.endsWith('.internal') ||
+    host.endsWith('.home.arpa')
   )
     return 'That host is not reachable from the internet.'
-  if (!host.includes('.') && !host.includes(':')) return 'Use a full host name.'
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host)
-  if (v4) {
-    const [a, b] = [Number(v4[1]), Number(v4[2])]
-    if (
-      a === 10 ||
-      a === 127 ||
-      a === 0 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254) ||
-      (a === 100 && b >= 64 && b <= 127)
-    )
-      return 'That address is private.'
-  }
-  if (host.includes(':')) {
-    if (host === '::1' || host === '::' || /^f[cd]/i.test(host) || /^fe[89ab]/i.test(host))
-      return 'That address is private.'
-  }
+  if (host.includes(':')) return isPrivateIPv6(host) ? 'That address is private.' : null
+  if (/^[\d.]+$/.test(host)) return isPrivateIPv4(host) ? 'That address is private.' : null
+  if (!host.includes('.')) return 'Use a full host name.'
   return null
 }

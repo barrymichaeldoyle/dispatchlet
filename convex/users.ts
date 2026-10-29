@@ -177,6 +177,47 @@ export const deleteUserData = internalMutation({
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect(),
     )
+    // Automations and everything they made: schedules are cancelled, and deleting the runs also
+    // takes down any shared run links.
+    const automations = await ctx.db
+      .query('automations')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    for (const a of automations) {
+      if (a.scheduledFnId) await ctx.scheduler.cancel(a.scheduledFnId)
+      await deleteAll(
+        await ctx.db
+          .query('playbookVersions')
+          .withIndex('by_automation_version', (q) => q.eq('automationId', a._id))
+          .collect(),
+      )
+    }
+    const runs = await ctx.db
+      .query('runs')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    for (const run of runs) {
+      await deleteAll(
+        await ctx.db
+          .query('stories')
+          .withIndex('by_run', (q) => q.eq('runId', run._id))
+          .collect(),
+      )
+      await deleteAll(
+        await ctx.db
+          .query('aiCalls')
+          .withIndex('by_run', (q) => q.eq('runId', run._id))
+          .collect(),
+      )
+    }
+    await deleteAll(
+      await ctx.db
+        .query('posts')
+        .withIndex('by_user_createdAt', (q) => q.eq('userId', userId))
+        .collect(),
+    )
+    await deleteAll(runs)
+    await deleteAll(automations)
     for (const table of ['apiTokens', 'webhooks', 'webhookDeliveries', 'inboundHooks'] as const)
       await deleteAll(
         await ctx.db

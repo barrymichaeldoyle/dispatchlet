@@ -52,6 +52,9 @@ export default defineSchema({
     /** Runs and dry runs used on the free allowance (lib/limits). */
     freeRunsUsed: v.optional(v.number()),
     freeDryRunsUsed: v.optional(v.number()),
+    /** Playbooks written on Dispatchlet's key today (UTC day), capped so a loop cannot burn the key. */
+    generationDay: v.optional(v.string()),
+    generationsToday: v.optional(v.number()),
     /** The person's own Anthropic key, AES-GCM encrypted, which lifts the run allowance. */
     anthropicKeyEnc: v.optional(v.string()),
     anthropicKeyInvalidAt: v.optional(v.number()),

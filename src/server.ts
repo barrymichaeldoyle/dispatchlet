@@ -98,7 +98,6 @@ async function authorize(request: Request, env: Env, origin: string): Promise<Re
       handle?: unknown
       decision?: unknown
       token?: unknown
-      write?: unknown
     } | null
     const handle = typeof body?.handle === 'string' ? body.handle : ''
     if (!handle) return json(400, { error: 'This page has expired. Start again from the app.' })
@@ -107,9 +106,11 @@ async function authorize(request: Request, env: Env, origin: string): Promise<Re
       return json(200, { redirectTo: denied.redirectTo }, denied.headers)
     }
     const token = typeof body.token === 'string' ? body.token : ''
-    const userId = token ? await apiTokenOwner(API_BASE, token) : null
-    if (!userId) return json(400, { error: 'That token is not valid. Start again from the app.' })
-    const scope = grantedScopes(body.write === true)
+    const owner = token ? await apiTokenOwner(API_BASE, token) : null
+    if (!owner) return json(400, { error: 'That token is not valid. Start again from the app.' })
+    const { userId } = owner
+    // The grant says what the token can do; the page's checkbox only chose the token's scope.
+    const scope = grantedScopes(owner.write)
     const approved = await oauth.approveConsent(request, handle, { scope })
     const { redirectTo } = await oauth.completeAuthorization({
       request: approved.request,
@@ -161,9 +162,12 @@ function providerFor(origin: string): OAuthProvider<Env> {
     // A pasted Dispatchlet token keeps working on /mcp: checked with the API, then used as is.
     resolveExternalToken: async ({ token }: { token: string }) => {
       if (!/^dl_[A-Za-z0-9_-]{43}$/.test(token)) return null
-      const userId = await apiTokenOwner(API_BASE, token)
-      if (!userId) return null
-      return { props: { apiToken: token, userId } satisfies GrantProps, audience: `${origin}/mcp` }
+      const owner = await apiTokenOwner(API_BASE, token)
+      if (!owner) return null
+      return {
+        props: { apiToken: token, userId: owner.userId } satisfies GrantProps,
+        audience: `${origin}/mcp`,
+      }
     },
   } as never)
   providers.set(origin, provider)

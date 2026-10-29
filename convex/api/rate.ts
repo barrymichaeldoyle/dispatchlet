@@ -14,7 +14,7 @@ export type RateResult = {
   reset: number
 }
 
-async function take(
+export async function take(
   ctx: MutationCtx,
   key: string,
   windowMs: number,
@@ -35,6 +35,23 @@ async function take(
   await ctx.db.patch(row._id, { count: row.count + 1 })
   return { ok: true, remaining: limit - row.count - 1, resetAt }
 }
+
+/** An inbound hook's own limit (SPEC §44.5): 10 a minute, not charged to the owner's API hour. */
+export const checkHook = internalMutation({
+  args: { hookId: v.string() },
+  returns: v.object({ ok: v.boolean(), reset: v.number() }),
+  handler: async (ctx, { hookId }) => {
+    const r = await take(ctx, `hook:${hookId}`, 60_000, num('HOOK_RATE_PER_MINUTE', 10))
+    return { ok: r.ok, reset: Math.ceil(r.resetAt / 1000) }
+  },
+})
+
+/** One channel sync a minute per person, so the shared Buffer budget is not spent by a loop. */
+export const claimSync = internalMutation({
+  args: { userId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, { userId }) => (await take(ctx, `sync:${userId}`, 60_000, 1)).ok,
+})
 
 /**
  * Counts one request against the token's minute and the user's hour (SPEC §44.3). The response

@@ -24,6 +24,14 @@ export function allowanceFor(user: {
   }
 }
 
+/** Live automations per account, and playbooks written a day on Dispatchlet's key. */
+export function automationCap(): number {
+  return num('AUTOMATIONS_PER_USER', 10)
+}
+export function generationsPerDay(): number {
+  return num('GENERATIONS_PER_DAY', 10)
+}
+
 /** The most a day of runs may cost across every account, before scheduled runs are skipped. */
 export function globalDailyCapUsd(): number {
   return num('GLOBAL_DAILY_USD_CAP', 15)

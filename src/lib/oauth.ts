@@ -47,16 +47,16 @@ export function grantedScopes(write: boolean): string[] {
   return write ? ['read', 'write'] : ['read']
 }
 
-/** Checks an API token against the API and returns whose it is, or null when it is not valid. */
+/** Checks an API token with the API: whose it is and whether it can write, or null if invalid. */
 export async function apiTokenOwner(
   apiBase: string,
   token: string,
   fetchImpl: typeof fetch = fetch,
-): Promise<string | null> {
+): Promise<{ userId: string; write: boolean } | null> {
   const response = await fetchImpl(`${apiBase}/me`, {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!response.ok) return null
-  const me = (await response.json()) as { id?: string }
-  return typeof me.id === 'string' ? me.id : null
+  const me = (await response.json()) as { id?: string; tokenScope?: string }
+  return typeof me.id === 'string' ? { userId: me.id, write: me.tokenScope === 'write' } : null
 }

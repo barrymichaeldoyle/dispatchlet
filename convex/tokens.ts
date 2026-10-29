@@ -113,6 +113,14 @@ export const createForOAuth = mutation({
   handler: async (ctx, { clientName, write }) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
+    const live = (
+      await ctx.db
+        .query('apiTokens')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect()
+    ).filter((t) => !t.revokedAt)
+    if (live.length >= 20)
+      throw new Error('Twenty tokens is the limit. Revoke one in settings first.')
     const label = clientName.trim().replace(/\s+/g, ' ').slice(0, 40) || 'An assistant'
     const made = await createForUser(ctx, userId, {
       name: label,

@@ -13,14 +13,41 @@ import {
 } from './_generated/server'
 import { automationOf } from './automations'
 import { decryptSecret, encryptSecret } from './lib/crypto'
+import { take } from './api/rate'
 import {
   envelope,
   generateWebhookSecret,
+  isPrivateIPv4,
+  isPrivateIPv6,
   signWebhook,
   WEBHOOK_EVENTS,
   webhookUrlProblem,
   type WebhookEvent,
 } from './lib/standardWebhooks'
+
+/** Test pings and retries per webhook per hour, so a person cannot aim a flood through us. */
+const MANUAL_SENDS_PER_HOUR = 20
+
+/**
+ * Resolves a host over DNS-over-HTTPS and says whether any answer is private. A name that does
+ * not resolve counts as private: there is nowhere safe to send it.
+ */
+async function resolvesPrivate(host: string): Promise<boolean> {
+  const name = host.replace(/\.+$/, '')
+  if (name.includes(':') || /^[\d.]+$/.test(name)) return false
+  const answers: string[] = []
+  for (const type of ['A', 'AAAA']) {
+    const response = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
+      { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) },
+    )
+    if (!response.ok) return true
+    const body = (await response.json()) as { Answer?: { type: number; data: string }[] }
+    for (const a of body.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data)
+  }
+  if (!answers.length) return true
+  return answers.some((ip) => (ip.includes(':') ? isPrivateIPv6(ip) : isPrivateIPv4(ip)))
+}
 
 /**
  * Outbound webhooks (SPEC §44.4). `emit` is called inside the mutations where things happen; it
@@ -203,6 +230,8 @@ export async function emit(
 
 async function testOf(ctx: MutationCtx, userId: Id<'users'>, id: Id<'webhooks'>) {
   const w = await own(ctx, userId, id)
+  if (!(await take(ctx, `whsend:${id}`, 3_600_000, MANUAL_SENDS_PER_HOUR)).ok)
+    throw new Error('Too many test sends for this webhook. Try again in an hour.')
   return await enqueue(ctx, w, 'ping', { at: Date.now() })
 }
 
@@ -280,6 +309,9 @@ export const retry = mutation({
     if (!userId) throw new Error('Not signed in')
     const d = await ctx.db.get(deliveryId)
     if (!d || d.userId !== userId) throw new Error('Delivery not found')
+    if (d.status !== 'failed') throw new Error('Only a failed delivery can be retried.')
+    if (!(await take(ctx, `whsend:${d.webhookId}`, 3_600_000, MANUAL_SENDS_PER_HOUR)).ok)
+      throw new Error('Too many retries for this webhook. Try again in an hour.')
     await ctx.db.patch(deliveryId, {
       status: 'pending',
       nextAttemptAt: Date.now(),
@@ -399,6 +431,21 @@ export const deliver = internalAction({
       return null
     }
     const { delivery, webhook } = loaded
+    // Checked again at send time: the rules may be stricter than when it was saved, and the name
+    // may now point somewhere private.
+    const refused =
+      webhookUrlProblem(webhook.url) ??
+      ((await resolvesPrivate(new URL(webhook.url).hostname).catch(() => true))
+        ? 'The host resolves to a private address, or does not resolve.'
+        : null)
+    if (refused) {
+      await ctx.runMutation(internal.webhooks.recordAttempt, {
+        deliveryId,
+        ok: false,
+        error: refused,
+      })
+      return null
+    }
     const timestamp = Math.floor(Date.now() / 1000)
     const signature = await signWebhook(
       await decryptSecret(webhook.secretEnc),
@@ -434,9 +481,7 @@ export const deliver = internalAction({
         error:
           error instanceof Error && error.name === 'TimeoutError'
             ? 'No answer within 10 seconds.'
-            : error instanceof Error
-              ? error.message
-              : String(error),
+            : 'Could not connect to the receiver.',
       })
     }
     return null

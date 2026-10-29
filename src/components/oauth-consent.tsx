@@ -88,7 +88,7 @@ function Consent() {
       const response = await fetch('/oauth/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ handle, decision, token, write }),
+        body: JSON.stringify({ handle, decision, token }),
       })
       const body = (await response.json()) as { redirectTo?: string; error?: string }
       if (!response.ok || !body.redirectTo) throw new Error(body.error ?? 'That did not work.')
