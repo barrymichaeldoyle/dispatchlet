@@ -38,6 +38,11 @@ metadata, `editPost` to approve a draft from the email, `createTag`, and `posts`
 bring status and metrics back into the log. Every call is reserved against the rate-limit budget
 Buffer reports in its headers.
 
+**Open to other tools.** Dispatchlet is itself automatable: a REST API with personal tokens, events
+signed the Standard Webhooks way (Buffer has none, so this is also how you learn a post went out),
+an inbound hook for releases and crons, and a remote MCP server so Claude or Cursor can run research
+and approve drafts beside Buffer's own MCP.
+
 **What I learned.** A research run costs about 15 cents and two minutes. The hard part is not the
 writing but the judgement: what is new, what is a repeat told by another outlet, when to post
 nothing. That is where most of the prompt work went.

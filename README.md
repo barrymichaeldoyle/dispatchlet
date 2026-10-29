@@ -68,6 +68,29 @@ draft into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `posts`
 for status once an hour and `post` for metrics once a day. Every call is
 reserved against the rate-limit budget Buffer reports in its headers.
 
+## Automate it
+
+Everything the app does is open to other tools (SPEC §44 in the planning notes):
+
+- **REST API** at `https://dispatchlet.com/api/v1` with personal tokens from
+  Settings (`read` or `write`), an OpenAPI document at `/api/v1/openapi.json`
+  and a reference at [dispatchlet.com/docs/api](https://dispatchlet.com/docs/api).
+  Every route goes through the same rules as the app: one run at a time, the
+  run allowance, Buffer's limits.
+- **Webhooks** signed the [Standard Webhooks](https://www.standardwebhooks.com/)
+  way: `run.finished`, `post.created`, `post.approved`, `post.sent`,
+  `automation.paused`, `buffer.reauth_needed`. Retries at 1 min, 10 min and 1 h;
+  deliveries listed in settings. Buffer has no webhooks, so this is also how to
+  know a post went out. [docs/webhooks](https://dispatchlet.com/docs/webhooks)
+- **Inbound hooks**: a URL per automation that starts a run, optionally with a
+  story to cover; a GitHub release webhook works as is.
+  [docs/hooks](https://dispatchlet.com/docs/hooks)
+- **MCP server** at `https://dispatchlet.com/mcp` (Streamable HTTP, stateless,
+  bearer token) for Claude Code, Claude Desktop and Cursor: run research, read
+  the log, approve drafts, beside Buffer's own MCP.
+  [docs/mcp](https://dispatchlet.com/docs/mcp)
+- `https://dispatchlet.com/llms.txt` points at all of it.
+
 ## Stack
 
 TanStack Start on Cloudflare Workers. Convex for data, scheduling and the agent
