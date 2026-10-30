@@ -660,9 +660,16 @@ export const execute = internalAction({
               ]
         })
         if (!failed.length) break
+        const n = failed.length
+        const posts = `${n} ${n === 1 ? 'post' : 'posts'}`
+        const tooLong = failed.filter((f) => f.over > 0).length
         await say(
           'write',
-          `${failed.length} ${failed.length === 1 ? 'post' : 'posts'} missed the limit. Asking for a shorter version.`,
+          tooLong === n
+            ? `${posts} missed the limit. Asking for a shorter version.`
+            : tooLong === 0
+              ? `${posts} need a rewrite. ${failed[0]!.reason}`
+              : `${posts} need a rewrite, ${tooLong} for length.`,
         )
         const repaired = await callStructured(client, {
           model: modelFor('write'),

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   checkPost,
+  creditedOutlets,
   limitFor,
+  nameMatchesHost,
   overBy,
   withLink,
   withoutLink,
@@ -116,5 +118,86 @@ describe('the link the system adds', () => {
   it('says how far over a post is', () => {
     expect(overBy({ ...post, text: 'x'.repeat(250) }, x, playbook)).toBe(10)
     expect(overBy(post, x, playbook)).toBe(0)
+  })
+})
+
+describe('crediting the outlet of the link', () => {
+  it('finds the outlets a post credits', () => {
+    expect(creditedOutlets('Antonelli leads by 123 points, per Reuters.')).toEqual(['Reuters'])
+    expect(creditedOutlets('The Race reports the deal runs to 2029.')).toEqual(['The Race'])
+    expect(creditedOutlets('According to BBC Sport, the race moves.')).toEqual(['BBC Sport'])
+    expect(creditedOutlets('Mercedes said nothing about it.')).toEqual([])
+    expect(creditedOutlets('Cadillac confirmed the extension.')).toEqual([])
+    expect(creditedOutlets('The FIA named AWS, per Autosport. Work goes on.')).toEqual([
+      'Autosport',
+    ])
+    expect(creditedOutlets('The FIA named AWS, per Motorsport.com.')).toEqual(['Motorsport.com'])
+  })
+
+  it('matches a name to its site', () => {
+    expect(nameMatchesHost('Al Jazeera', 'aljazeera.com')).toBe(true)
+    expect(nameMatchesHost('The Race', 'the-race.com')).toBe(true)
+    expect(nameMatchesHost('BBC Sport', 'bbc.co.uk')).toBe(true)
+    expect(nameMatchesHost('PlanetF1', 'planetf1.com')).toBe(true)
+    expect(nameMatchesHost('F1', 'formula1.com')).toBe(true)
+    expect(nameMatchesHost('Formula 1', 'formula1.com')).toBe(true)
+    expect(nameMatchesHost('Autosport', 'autosport.com')).toBe(true)
+    expect(nameMatchesHost('Reuters', 'aljazeera.com')).toBe(false)
+    expect(nameMatchesHost('Motorsport.com', 'motorsport.com')).toBe(true)
+  })
+
+  it('sends back a post that credits an outlet other than its link', () => {
+    const channel = { channelId: 'c1', service: 'twitter' as const, name: 'GPP', maxLength: null }
+    const playbook = {
+      name: 'F1',
+      about: '',
+      sources: [],
+      searchQueries: [],
+      freshnessHours: 24,
+      include: [],
+      exclude: [],
+      voice: {
+        tone: '',
+        notes: '',
+        avoidSaying: [],
+        emoji: 'none' as const,
+        hashtags: 'none' as const,
+      },
+      formats: [],
+    }
+    const url = 'https://aljazeera.com/sports/2026/10/26/antonelli-wins'
+    const post = (text: string) => ({
+      storyUrl: url,
+      channelId: 'c1',
+      text,
+      thread: null,
+      linkAttachment: null,
+    })
+    const wrong = checkPost(
+      post('Antonelli won the US GP, per Reuters.'),
+      channel,
+      playbook,
+      new Set([url]),
+    )
+    expect(wrong.ok).toBe(false)
+    if (!wrong.ok)
+      expect(wrong.reason).toBe(
+        'It credits Reuters but the link is to aljazeera.com. Credit the outlet of the link.',
+      )
+    expect(
+      checkPost(post('Antonelli won the US GP, per Al Jazeera.'), channel, playbook, new Set([url]))
+        .ok,
+    ).toBe(true)
+    expect(
+      checkPost(
+        post('Al Jazeera, citing Reuters, says Antonelli won.'),
+        channel,
+        playbook,
+        new Set([url]),
+      ).ok,
+    ).toBe(true)
+    expect(
+      checkPost(post('Antonelli won the US GP from pole.'), channel, playbook, new Set([url])).ok,
+    ).toBe(true)
   })
 })

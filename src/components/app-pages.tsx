@@ -370,7 +370,48 @@ function useCurrentSection(ids: readonly string[]): string {
   return current
 }
 
+/**
+ * A link such as /app/settings#webhooks arrives before the sections exist (they appear once
+ * sign-in finishes), so the browser's own jump finds nothing. Scroll once they are there, and
+ * hold the section in place while rows above it load, until the person scrolls themselves.
+ */
+function useScrollToHash() {
+  useEffect(() => {
+    const id = decodeURIComponent(window.location.hash.slice(1))
+    if (!id) return
+    let timer = 0
+    let stopped = false
+    const started = performance.now()
+    // Every 100ms, for a few seconds: if the section is not at the top, put it there. This
+    // outlasts the router's own scroll reset and rows loading above the section.
+    const tick = () => {
+      if (stopped) return
+      const target = document.getElementById(id)
+      const page = document.scrollingElement ?? document.documentElement
+      const atBottom = window.scrollY + window.innerHeight >= page.scrollHeight - 1
+      const offset = target ? target.getBoundingClientRect().top : 0
+      // A section near the end cannot reach the top; at the bottom of the page it is as close as it gets.
+      if (target && Math.abs(offset) > 30 && !(atBottom && offset > 0))
+        // Instant: arriving at a link should land, not animate, and the site's smooth scrolling
+        // does not run at all in a background tab.
+        target.scrollIntoView({ block: 'start', behavior: 'instant' })
+      if (performance.now() - started < 8000) timer = window.setTimeout(tick, 100)
+    }
+    const stop = () => {
+      stopped = true
+      window.clearTimeout(timer)
+      for (const e of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const)
+        window.removeEventListener(e, stop)
+    }
+    for (const e of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const)
+      window.addEventListener(e, stop, { passive: true })
+    tick()
+    return stop
+  }, [])
+}
+
 function SettingsIndex() {
+  useScrollToHash()
   const ids = useMemo(() => SETTINGS_SECTIONS.map(([id]) => id), [])
   const current = useCurrentSection(ids)
   return (

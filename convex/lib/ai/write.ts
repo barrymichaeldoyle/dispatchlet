@@ -45,6 +45,7 @@ Rules:
 - Write one post per story per channel, in the voice and format the playbook gives for that channel.
 - Count characters. Each post, and each thread part, must fit the limit given for its channel, and the brief gives a target below it: write to the target, not to the limit. A post that stops early is fine; one that runs over is thrown away. When a story will not fit, cut words, not facts.
 - Only state what is in the story's key facts and summary. Never add numbers, names, quotes or dates that are not there. Never speculate.
+- If you credit a source ("per X", "X reports", "according to X"), credit the outlet whose link goes with the post, given as "link outlet". Readers check the credit against the link. Name another outlet only alongside it, as in "Al Jazeera, citing Reuters", and only when the key facts say so.
 - Use a thread only on channels that allow one, and only when the story needs more than one post. Most do not.
 - Never put a URL in the text. On channels that show a link card, give a linkAttachment. On the others the story's link is added after your text by the system, and the limit you are given already allows for it.
 - No hashtags unless the playbook allows them. No emoji unless the playbook allows them. No exclamation marks. Plain words. Never say "exciting", "game-changer", "heartwarming" or the like.
@@ -132,6 +133,7 @@ export function writeUserMessage(
       `${i + 1}. ${s.title}`,
       `   canonicalUrl: ${s.canonicalUrl}`,
       `   source: ${s.source}, published ${s.publishedAt}`,
+      `   link outlet: ${linkHost(s.canonicalUrl) ?? s.source}`,
       `   summary: ${s.summary}`,
       `   why it matters: ${s.whyItMatters}`,
       `   key facts: ${s.keyFacts.map((f) => `• ${f}`).join(' ')}`,
@@ -139,6 +141,67 @@ export function writeUserMessage(
   })
   lines.push('', `Write ${stories.length * channels.length} posts: every story for every channel.`)
   return lines.join('\n')
+}
+
+/** The host of a story's link without www, such as aljazeera.com, or null if it is not a URL. */
+export function linkHost(url: string): string | null {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return null
+  }
+}
+
+/** Letters and digits only, lower-cased: "The Race" and the-race.com both become "therace". */
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/** Second-level labels that are not the outlet's name, so bbc.co.uk compares as bbc. */
+const NOT_A_NAME = new Set(['co', 'com', 'org', 'net', 'gov', 'ac'])
+
+/** Names an outlet goes by that its domain does not spell. */
+const ALIASES: Record<string, string[]> = {
+  formula1: ['f1', 'formula1', 'formulaone'],
+  apnews: ['ap', 'associatedpress'],
+  nytimes: ['newyorktimes', 'nyt'],
+  theguardian: ['guardian'],
+  ft: ['financialtimes'],
+  wsj: ['wallstreetjournal'],
+}
+
+/** Whether an outlet's name refers to the site at this host. */
+export function nameMatchesHost(name: string, host: string): boolean {
+  const n = squash(name.replace(/^the\s+/i, ''))
+  if (!n) return true
+  const labels = host.split('.').filter((l) => !NOT_A_NAME.has(l))
+  const site = squash(labels.at(-2) ?? labels[0] ?? host)
+  const whole = squash(host)
+  const known = ALIASES[site] ?? []
+  return (
+    whole.includes(n) ||
+    n.includes(site) ||
+    site.includes(n) ||
+    known.includes(n) ||
+    known.some((a) => n.startsWith(a))
+  )
+}
+
+/**
+ * The outlets a post credits: "per X", "according to X", "X reports", "X reported", "via X".
+ * Not "X said": that is how a post quotes a team or a driver, not an outlet.
+ * X is a run of capitalised words (and digits, as in PlanetF1). Conservative on purpose: a false
+ * match costs a rewrite.
+ */
+export function creditedOutlets(text: string): string[] {
+  // A word may carry a domain ending (Motorsport.com) but a full stop ends the name.
+  const word = String.raw`[\w&'-]*(?:\.[a-z]{2,})*`
+  const name = String.raw`((?:The\s+)?[A-Z]${word}(?:\s+[A-Z0-9]${word}){0,3})`
+  const patterns = [
+    new RegExp(String.raw`\b(?:[Pp]er|[Aa]ccording to|[Vv]ia)\s+${name}`, 'g'),
+    new RegExp(String.raw`${name}\s+(?:reports|reported)\b`, 'g'),
+  ]
+  const out: string[] = []
+  for (const p of patterns) for (const m of text.matchAll(p)) out.push(m[1]!.replace(/[.,]$/, ''))
+  return out
 }
 
 export type Checked = { ok: true; post: PostDraft } | { ok: false; post: PostDraft; reason: string }
@@ -170,6 +233,15 @@ export function checkPost(
     return { ok: true, post: { ...post, linkAttachment: null } }
   if (playbook.voice.hashtags === 'none' && /(^|\s)#\w/.test(parts.join(' ')))
     return { ok: false, post, reason: 'It used a hashtag and the playbook says none.' }
+  // A credit that names an outlet must name the one whose link goes with the post.
+  const host = linkHost(post.storyUrl)
+  const credits = creditedOutlets(parts.map((p) => p.replace(URL_PATTERN, '')).join(' '))
+  if (host && credits.length && !credits.some((c) => nameMatchesHost(c, host)))
+    return {
+      ok: false,
+      post,
+      reason: `It credits ${credits[0]} but the link is to ${host}. Credit the outlet of the link.`,
+    }
   return { ok: true, post }
 }
 
