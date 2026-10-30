@@ -740,6 +740,51 @@ function Usage() {
 }
 
 /** Only the owner sees this: this month across every account. */
+/** How the API, assistants, webhooks and hooks are being used, across every account. */
+function OutsideUse({
+  o,
+}: {
+  o: {
+    tokens: number
+    assistants: number
+    tokensUsedThisMonth: number
+    runsFromApi: number
+    runsFromMcp: number
+    runsFromHooks: number
+    webhooks: number
+    deliveries: number
+    deliveriesOk: number
+    hooks: number
+  }
+}) {
+  const rows: [string, string][] = [
+    ['API tokens', `${o.tokens}`],
+    ['Assistants connected', `${o.assistants}`],
+    ['Tokens used this month', `${o.tokensUsedThisMonth}`],
+    ['Runs started from the API', `${o.runsFromApi}`],
+    ['Runs started by an assistant', `${o.runsFromMcp}`],
+    ['Runs started by a hook', `${o.runsFromHooks}`],
+    ['Webhooks on', `${o.webhooks}`],
+    ['Deliveries this month', o.deliveries ? `${o.deliveriesOk} of ${o.deliveries} arrived` : '0'],
+    ['Inbound hooks', `${o.hooks}`],
+  ]
+  return (
+    <>
+      <h3 className="app-subhead">From outside the app</h3>
+      <table className="app-table app-usage">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label}>
+              <th>{label}</th>
+              <td className="tabular">{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  )
+}
+
 /**
  * Buffer's call budget for the app, which every account shares (Buffer limits per app client).
  * An operations figure for the owner, so it lives in the owner-only card.
@@ -814,6 +859,7 @@ function OwnerTotals() {
           </tr>
         </tbody>
       </table>
+      <OutsideUse o={t.outside} />
       <BufferBudget />
       <p className="app-muted">Only you see this. It is what pricing will be worked out from.</p>
     </section>

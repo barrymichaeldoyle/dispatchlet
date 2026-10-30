@@ -370,7 +370,29 @@ export const ownerTotals = query({
       .withIndex('by_createdAt', (q) => q.gt('createdAt', monthStart))
       .collect()
     const done = runs.filter((r) => r.status === 'done')
+    // How the ways in from outside are used (SPEC §44), for the write-up.
+    const tokens = await ctx.db.query('apiTokens').collect()
+    const live = tokens.filter((t) => !t.revokedAt)
+    const webhooks = await ctx.db.query('webhooks').collect()
+    const deliveries = await ctx.db
+      .query('webhookDeliveries')
+      .withIndex('by_createdAt', (q) => q.gt('createdAt', monthStart))
+      .collect()
+    const hooks = await ctx.db.query('inboundHooks').collect()
+    const startedBy = (by: string) => runs.filter((r) => r.startedBy === by).length
     return {
+      outside: {
+        tokens: live.filter((t) => t.source === 'settings').length,
+        assistants: live.filter((t) => t.source === 'oauth').length,
+        tokensUsedThisMonth: live.filter((t) => (t.lastUsedAt ?? 0) > monthStart).length,
+        runsFromApi: startedBy('api'),
+        runsFromMcp: startedBy('mcp'),
+        runsFromHooks: startedBy('hook'),
+        webhooks: webhooks.filter((w) => w.active).length,
+        deliveries: deliveries.length,
+        deliveriesOk: deliveries.filter((d) => d.status === 'ok').length,
+        hooks: hooks.length,
+      },
       accounts: users.length,
       withKey: users.filter((u) => u.anthropicKeyEnc).length,
       automations: automations.length,
