@@ -5,7 +5,7 @@ test('keyboard users can skip navigation and keep focus when starting the demo',
   page,
 }) => {
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await page.keyboard.press('Tab')
   await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
   await page.keyboard.press('Enter')
@@ -24,7 +24,7 @@ test('chapters allow inspection without waiting, and Read instead leaves the pla
   page,
 }) => {
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
@@ -50,7 +50,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await page.setViewportSize({ width: colorScheme === 'light' ? 320 : 1360, height: 900 })
     await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' })
     await page.goto('/')
-    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+    await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
     const audit = () => new AxeBuilder({ page }).analyze()
     expect((await audit()).violations).toEqual([])
     await page.getByText('Can I review posts before they go out?', { exact: true }).click()
@@ -81,47 +81,6 @@ for (const colorScheme of ['light', 'dark'] as const) {
     expect((await audit()).violations).toEqual([])
   })
 }
-
-test('signup remains usable on slow requests and announces confirmation with focus', async ({
-  page,
-}) => {
-  let finish: (() => void) | undefined
-  const pending = new Promise<void>((resolve) => {
-    finish = resolve
-  })
-  await page.route('**/waitlist', async (route) => {
-    await pending
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ ok: true, position: 7 }),
-    })
-  })
-  await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  await page.getByLabel('Email', { exact: true }).fill('quality@example.com')
-  await page.getByRole('button', { name: 'Notify me at launch' }).click()
-  await expect(page.getByRole('button', { name: 'Saving', exact: true })).toBeDisabled()
-  await expect(page.getByRole('form')).toHaveAttribute('aria-busy', 'true')
-  finish?.()
-  await expect(page.getByRole('status')).toContainText('You are number 7.')
-  await expect(page.getByRole('status')).toBeFocused()
-  await expect(page.getByRole('link', { name: 'Watch the demo' })).toBeVisible()
-})
-
-test('offline signup keeps the address and supports recovery', async ({ page }) => {
-  await page.route('**/waitlist', (route) => route.abort('failed'))
-  await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
-  await page.getByLabel('Email', { exact: true }).fill('offline@example.com')
-  await page.getByRole('button', { name: 'Notify me at launch' }).click()
-  await expect(page.getByText('Something went wrong. Try again in a minute.')).toBeVisible()
-  await expect(page.getByLabel('Email', { exact: true })).toHaveValue('offline@example.com')
-  await expect(page.getByLabel('Email', { exact: true })).not.toHaveAttribute(
-    'aria-invalid',
-    'true',
-  )
-  await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeEnabled()
-})
 
 test('search and social metadata are rendered on the server', async ({
   browser,
@@ -187,14 +146,14 @@ test('missing pages return a real 404 and are not indexed', async ({ page }) => 
 test('layout reflows with enlarged text on a narrow viewport', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 })
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%'
   })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   )
-  await expect(page.getByRole('button', { name: 'Notify me at launch' })).toBeVisible()
+  await expect(page.locator('#start')).toBeVisible()
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
   await demo.getByRole('button', { name: 'Your posts', exact: true }).click()
@@ -203,26 +162,14 @@ test('layout reflows with enlarged text on a narrow viewport', async ({ page }) 
   )
 })
 
-test('optional analytics and count downloads cannot block the main experience', async ({
-  page,
-}) => {
-  await page.route(/waitlist-count|module\.slim|posthog-js_dist_module/, (route) =>
-    route.abort('failed'),
-  )
-  await page.route('**/waitlist', (route) =>
-    route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ ok: true, position: 7 }),
-    }),
-  )
+test('optional analytics downloads cannot block the main experience', async ({ page }) => {
+  await page.route(/module\.slim|posthog-js_dist_module/, (route) => route.abort('failed'))
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('An agent that researches')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(page.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await page.getByRole('button', { name: 'Close walkthrough' }).click()
-  await page.getByLabel('Email', { exact: true }).fill('optional@example.com')
-  await page.getByRole('button', { name: 'Notify me at launch' }).click()
-  await expect(page.getByRole('status')).toContainText('You are number 7.')
+  await expect(page.locator('#start')).toHaveAttribute('href', '/app')
 })

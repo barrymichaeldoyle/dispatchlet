@@ -179,7 +179,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
   const focusPreview = useRef(false)
   const opener = useRef<HTMLElement | null>(null)
   const readAfterClose = useRef(false)
-  const joinAfterClose = useRef(false)
   const [focused, setFocused] = useState(false)
   const overview = useSyncExternalStore(subscribeLayout, getOverview, () => false)
   const [elapsed, setElapsed] = useState(0)
@@ -480,14 +479,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         onClose={() => {
           setFocused(false)
           setPlaying(false)
-          if (joinAfterClose.current) {
-            joinAfterClose.current = false
-            const target =
-              document.getElementById('waitlist-email') ??
-              document.querySelector<HTMLElement>('.waitlist-confirmation')
-            target?.focus({ preventScroll: true })
-            target?.scrollIntoView({ block: 'center', behavior: reduced ? 'instant' : 'smooth' })
-          } else if (!readAfterClose.current) opener.current?.focus({ preventScroll: true })
+          if (!readAfterClose.current) opener.current?.focus({ preventScroll: true })
         }}
       >
         <header className="flow-focus-header">
@@ -1114,16 +1106,9 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
               )}
             </span>
             {complete ? (
-              <button
-                type="button"
-                className="flow-join"
-                onClick={() => {
-                  joinAfterClose.current = true
-                  close()
-                }}
-              >
-                Notify me at launch <Icon kind="arrow" />
-              </button>
+              <a href="/app" className="flow-join">
+                Start with Buffer <Icon kind="arrow" />
+              </a>
             ) : null}
             <div className="flow-player-actions">
               <label className="flow-speed">

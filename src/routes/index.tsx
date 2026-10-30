@@ -1,28 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { lazy, Suspense, useEffect, useRef, useSyncExternalStore, type MouseEvent } from 'react'
+import { useEffect, useRef, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
 import { SiteFooter } from '../components/site-footer'
 import { PostPreview } from '../components/post-preview'
 import { RunSteps } from '../components/run-steps'
 import { ThemeToggle } from '../components/theme-toggle'
-import { WaitlistForm } from '../components/waitlist-form'
 import { Wordmark } from '../components/wordmark'
 import { STORIES } from '../lib/example-run'
-import { convexConfigured } from '../lib/waitlist'
 import { track } from '../integrations/posthog/track'
-
-// The optional live count must not delay the landing page or block signup if its chunk fails.
-const WaitlistCount = lazy(() =>
-  import('../components/waitlist-count')
-    .then((module) => ({ default: module.WaitlistCount }))
-    .catch(() => ({ default: () => <></> })),
-)
 
 const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
 const DESCRIPTION =
-  'Keep your account posting about your topic and save hours of research every week. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Sign-up opens 7 November.'
+  'Keep your account posting about your topic and save hours of research every week. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Your first 10 runs are free.'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -174,24 +165,19 @@ function Home() {
                 <BrandText>{`An example post, written from a ${HERO_STORY.source} story and scheduled in Buffer for ${HERO_STORY.time}.`}</BrandText>
               </figcaption>
             </figure>
-            <h2>Get the launch email.</h2>
-            <WaitlistForm />
+            <h2>Try it on your own topic.</h2>
+            <a
+              href="/app"
+              id="start"
+              className="landing-start"
+              data-enhanced={mounted ? 'true' : undefined}
+            >
+              Start with Buffer
+            </a>
             <p className="landing-notice" aria-live="polite">
-              {notice === 'confirmed'
-                ? 'Thanks, you are on the list.'
-                : notice === 'unsubscribed'
-                  ? 'You are off the list and will not get the launch email.'
-                  : 'Sign-up opens 7 November. You’ll get one email when it does.'}
-              {/* The count gets its own line from the first render, so nothing below moves when it arrives. */}
-              {convexConfigured ? (
-                <span className="landing-count">
-                  {mounted ? (
-                    <Suspense fallback={null}>
-                      <WaitlistCount />
-                    </Suspense>
-                  ) : null}
-                </span>
-              ) : null}
+              {notice === 'unsubscribed'
+                ? 'You are off the list and will not get any more emails from it.'
+                : 'Your first 10 runs are free, and no card is needed.'}
             </p>
           </div>
         </section>
@@ -360,8 +346,8 @@ function Home() {
                 </BrandText>
               </p>
               <p>
-                Your email is used for one confirmation and one launch email. Both include an
-                unsubscribe link. The <a href="/privacy">privacy policy</a> lists everything that is
+                The app emails you about your runs, and you can turn off the approval emails in
+                settings. The <a href="/privacy">privacy policy</a> lists everything that is
                 collected and who handles it.
               </p>
             </details>
@@ -384,20 +370,7 @@ function Home() {
               </span>
               Watch the full run
             </button>
-            <a
-              href="#waitlist-email"
-              onClick={(event) => {
-                const target =
-                  document.getElementById('waitlist-email') ??
-                  document.querySelector<HTMLElement>('.waitlist-confirmation')
-                if (!target) return
-                event.preventDefault()
-                target.focus({ preventScroll: true })
-                target.scrollIntoView({ block: 'center', behavior: 'smooth' })
-              }}
-            >
-              Get the launch email
-            </a>
+            <a href="/app">Start with Buffer</a>
           </div>
         </section>
       </main>

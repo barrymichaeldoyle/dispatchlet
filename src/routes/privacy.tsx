@@ -13,11 +13,11 @@ export const Route = createFileRoute('/privacy')({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="30 Oct 2026">
+    <LegalPage title="Privacy policy" updated="7 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
-        covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opens
-        on 7 November 2026. Until then only invited accounts can use it.
+        covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opened
+        on 7 November 2026, and the waiting list closed then.
       </p>
 
       <h2>The website and waiting list</h2>
@@ -83,17 +83,41 @@ function Privacy() {
           deleted when you remove it.
         </li>
         <li>Your time zone and email settings.</li>
+        <li>
+          If you turn on browser notifications, the address your browser gives for sending them and
+          your browser type.
+        </li>
+      </ul>
+      <p>If you connect other tools to Dispatchlet, it also stores:</p>
+      <ul>
+        <li>
+          The name, access level and last use of each API token. Only a one-way hash of the token is
+          kept, so nobody can read it back.
+        </li>
+        <li>
+          For each webhook: its address, its events and an encrypted signing secret, plus a copy of
+          each delivery and the reply status for a month. A delivery carries the run or post it is
+          about, including the post text, and goes to the address you chose.
+        </li>
+        <li>
+          For each run URL: its name, a one-way hash of the URL’s secret part, and how often it was
+          used.
+        </li>
+        <li>
+          If you connect an assistant such as Claude: its name, and an encrypted record of the
+          connection, stored by Cloudflare. The assistant receives whatever it asks Dispatchlet for,
+          and what it does with that is covered by its own provider’s terms.
+        </li>
       </ul>
       <p>
-        If you sign in before you have been invited, your email address goes on the waiting list as
-        confirmed, because Buffer has already verified it. The access Buffer granted is revoked
-        straight away and nothing else is kept.
+        If you share a run, anyone with its link can see that run’s log and posts until you stop
+        sharing it.
       </p>
 
       <h2>How it is used</h2>
       <p>
-        The waiting list gets 2 emails: one to confirm your place, and one when Dispatchlet opens.
-        If you were added by signing in with Buffer, you only get the launch email.
+        The waiting list got 2 emails: one to confirm your place, and one when Dispatchlet opened.
+        It gets no more.
       </p>
       <p>
         The app uses your data only to run your playbooks and show you the results. Its emails are
@@ -132,7 +156,10 @@ function Privacy() {
         <li>Resend sends the emails, from the United States.</li>
         <li>PostHog records the analytics events, in the European Union.</li>
         <li>Sentry records the error reports, in the United States.</li>
-        <li>Cloudflare hosts the site and serves it from its worldwide network.</li>
+        <li>
+          Cloudflare hosts the site, serves it from its worldwide network, and stores the
+          connections you make with assistants.
+        </li>
       </ul>
       <p>
         This means your data leaves South Africa and the European Union. Each of these providers
@@ -141,16 +168,16 @@ function Privacy() {
 
       <h2>How long it is kept</h2>
       <p>
-        The IP hash is deleted after 7 days. Your waiting list email address is kept until you ask
-        for it to be deleted or the waiting list closes, whichever comes first. If you unsubscribe,
-        a record that you unsubscribed is kept so you are not emailed again. Ask and that is deleted
-        too.
+        The IP hash is deleted after 7 days. Waiting list email addresses are deleted within 30 days
+        of the list closing. If you unsubscribe, a record that you unsubscribed is kept so you are
+        not emailed again. Ask and that is deleted too.
       </p>
       <p>
         App data is kept while you have an account. Disconnecting Buffer deletes the tokens and
         channels and pauses your playbooks, but keeps their history so you can reconnect. Deleting
-        your account in settings deletes everything: your account, playbooks, runs and posts. It
-        also revokes Dispatchlet’s access at Buffer. Posts already in Buffer stay there, under your
+        your account in settings deletes everything: your account, playbooks, runs, posts, tokens,
+        webhooks, run URLs and notification settings, and ends any assistant connections. It also
+        revokes Dispatchlet’s access at Buffer. Posts already in Buffer stay there, under your
         control.
       </p>
 

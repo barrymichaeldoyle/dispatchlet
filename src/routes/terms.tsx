@@ -13,26 +13,13 @@ export const Route = createFileRoute('/terms')({
 
 function Terms() {
   return (
-    <LegalPage title="Terms of use" updated="19 Oct 2026">
+    <LegalPage title="Terms of use" updated="7 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. These terms
         apply when you use dispatchlet.com, join the waiting list or use the Dispatchlet app. If you
         do not agree with them, do not use the site or the app.
       </p>
-      <p>
-        Sign-up for the app opens on 7 November 2026. Until then only invited accounts can use it.
-      </p>
-
-      <h2>The waiting list</h2>
-      <p>
-        Joining is free and commits you to nothing. It does not guarantee access, a price or a
-        launch date. Your number on the list shows the order people joined in, nothing more. You can
-        leave at any time with the unsubscribe link in any email.
-      </p>
-      <p>
-        Only add your own email address. Do not submit addresses for other people or send automated
-        submissions.
-      </p>
+      <p>Sign-up for the app opened on 7 November 2026. The waiting list closed then.</p>
 
       <h2>Your account</h2>
       <p>
@@ -52,6 +39,13 @@ function Terms() {
       <p>
         Do not use Dispatchlet for spam, to mislead people, to impersonate anyone, to infringe
         someone else’s rights, or for anything that breaks the rules of the networks you post to.
+      </p>
+
+      <h2>Other tools</h2>
+      <p>
+        You can connect other tools with API tokens, webhooks, run URLs or an assistant. Anything a
+        connected tool does with your account counts as done by you. Keep tokens and run URLs
+        secret, and remove them in settings if one leaks.
       </p>
 
       <h2>Free runs, paid plans and limits</h2>

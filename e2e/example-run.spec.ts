@@ -29,7 +29,7 @@ test('full-screen walkthrough plays from brief to scheduled posts, pauses, and r
   await page.setViewportSize({ width: 390, height: 844 })
   await page.clock.install()
   await page.goto('/')
-  await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await expect(page.getByRole('heading', { name: 'See how it works.' })).toBeVisible()
   await page.locator('.flow-launch-icon').scrollIntoViewIfNeeded()
   const icon = (await page.locator('.flow-launch-icon').boundingBox())!
@@ -521,7 +521,7 @@ test('feedback confirms completed work without an elapsed-seconds counter', asyn
   await page.clock.fastForward(T.RECEIPT - 1000 - (T.CREATED + 200))
   await expect(demo.locator('.flow-finish-status .is-active')).toContainText('Scheduling in Buffer')
   await expect(demo.locator('.flow-receipt')).not.toBeVisible()
-  await expect(demo.getByRole('button', { name: 'Notify me at launch' })).toHaveCount(0)
+  await expect(demo.getByRole('link', { name: 'Start with Buffer' })).toHaveCount(0)
   await page.clock.fastForward(1200)
   await expect(demo.locator('.flow-finish-status .is-active')).toContainText('6 posts scheduled')
   await expect(demo.locator('.flow-receipt')).toBeVisible()
@@ -532,29 +532,19 @@ for (const viewport of [
   { width: 320, height: 568 },
   { width: 1440, height: 900 },
 ]) {
-  test(`completed demo returns to signup without submitting at ${viewport.width}px`, async ({
-    page,
-  }) => {
+  test(`completed demo offers a start and can replay at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.clock.install()
-    let submissions = 0
-    await page.route('**/waitlist', async (route) => {
-      submissions += 1
-      await route.abort()
-    })
     await page.goto('/')
     await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
     const demo = page.getByRole('dialog')
     await page.clock.fastForward(T.DURATION)
-    const join = demo.getByRole('button', { name: 'Notify me at launch' })
-    await expect(join).toBeInViewport()
-    await join.focus()
-    await page.keyboard.press('Enter')
+    const start = demo.getByRole('link', { name: 'Start with Buffer' })
+    await expect(start).toBeInViewport()
+    await expect(start).toHaveAttribute('href', '/app')
+    await page.keyboard.press('Escape')
     await expect(demo).not.toBeVisible()
-    await expect(page.getByLabel('Email', { exact: true })).toBeFocused()
-    await expect(page.getByLabel('Email', { exact: true })).toBeInViewport()
-    expect(submissions).toBe(0)
     // Replay starts the clock-driven run again, so hold time still while checking it restarted.
     await pauseClock(page)
     await page.getByRole('button', { name: 'Replay demo', exact: true }).click()
@@ -718,7 +708,7 @@ for (const viewport of [
     await page.setViewportSize(viewport)
     await page.clock.install()
     await page.goto('/')
-    await expect(page.locator('form')).toHaveAttribute('data-enhanced', 'true')
+    await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
     const watch = page.getByRole('link', { name: 'Watch the demo' })
     await watch.click()
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
