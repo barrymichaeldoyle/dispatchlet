@@ -1,20 +1,57 @@
 import { v } from 'convex/values'
+import { take } from './api/rate'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { postMetrics, postStatuses } from './buffer'
 import { emitPostEvent } from './runs'
+import { serverEvent } from './lib/serverEvents'
 
 /** The home page lists a week of drafts, so a week of open posts is checked, with a day spare. */
 const OPEN_WINDOW = 8 * 86_400_000
 /** Buffer's page size for the status query; a full page means there may be more. */
 export const STATUS_PAGE = 50
 
-/** Posts that reached Buffer in the last week and are not yet sent, failed or deleted, by user. */
+const MINUTE = 60_000
+const HOUR = 60 * MINUTE
+/** How soon after its due time a scheduled post is first checked, giving Buffer time to send it. */
+const AFTER_DUE = 5 * MINUTE
+
+/**
+ * Whether a post is worth asking Buffer about now. Every check costs a call from a budget all
+ * users share, so posts are only checked when they can have changed: a scheduled post a few
+ * minutes after it was due and then hourly until it is sent, a draft every 6 hours (it changes
+ * only when someone approves or deletes it), and a post not yet due once a day, for deletions.
+ */
+export function dueForCheck(
+  post: { status: string; dueAt?: number; statusCheckedAt?: number },
+  now: number,
+): { check: boolean; urgent: boolean } {
+  const last = post.statusCheckedAt ?? 0
+  if (post.status === 'draft') return { check: now - last >= 6 * HOUR, urgent: false }
+  const due = post.dueAt
+  if (due !== undefined && now < due + AFTER_DUE)
+    return { check: now - last >= 24 * HOUR, urgent: false }
+  // Due, or in the queue without a known time: the first check after it is due, then hourly.
+  const firstAfterDue = due !== undefined && last < due + AFTER_DUE
+  return { check: firstAfterDue || now - last >= HOUR - MINUTE, urgent: true }
+}
+
+/** The most status calls a day across all users, so checking never crowds out posting. */
+export function statusCallsPerDay(): number {
+  const raw = Number(process.env.STATUS_CALLS_PER_DAY)
+  return Number.isFinite(raw) && raw > 0 ? raw : 100
+}
+
+/**
+ * Organizations with a post worth checking now (dueForCheck), by user, overdue ones first. A
+ * call returns every open post in the organization, so all of them count as checked.
+ */
 export const pending = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const since = Date.now() - OPEN_WINDOW
+  args: { now: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const now = args.now ?? Date.now()
+    const since = now - OPEN_WINDOW
     const posts = await ctx.db
       .query('posts')
       .withIndex('by_createdAt', (q) => q.gt('createdAt', since))
@@ -30,22 +67,44 @@ export const pending = internalQuery({
         .query('bufferChannels')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
-      const orgs = new Map<string, { channelIds: string[]; expected: string[] }>()
+      const orgs = new Map<
+        string,
+        { channelIds: string[]; expected: string[]; check: boolean; urgent: boolean }
+      >()
       for (const c of channels) {
         const mine = rows.filter((r) => r.channelId === c.channelId)
         if (!mine.length) continue
-        const org = orgs.get(c.organizationId) ?? { channelIds: [], expected: [] }
+        const org = orgs.get(c.organizationId) ?? {
+          channelIds: [],
+          expected: [],
+          check: false,
+          urgent: false,
+        }
         org.channelIds.push(c.channelId)
         org.expected.push(...mine.map((r) => r.bufferPostId!))
+        for (const r of mine) {
+          const due = dueForCheck(r, now)
+          if (due.check) {
+            org.check = true
+            org.urgent ||= due.urgent
+          }
+        }
         orgs.set(c.organizationId, org)
       }
-      out.push({
-        userId,
-        since,
-        orgs: [...orgs].map(([organizationId, o]) => ({ organizationId, ...o })),
-      })
+      const wanted = [...orgs]
+        .filter(([, o]) => o.check)
+        .map(([organizationId, o]) => ({
+          organizationId,
+          channelIds: o.channelIds,
+          expected: o.expected,
+          urgent: o.urgent,
+        }))
+      if (wanted.length) out.push({ userId, since, orgs: wanted })
     }
-    return out
+    // Overdue posts first, so a tight day still notices what went out.
+    return out.sort(
+      (a, b) => Number(b.orgs.some((o) => o.urgent)) - Number(a.orgs.some((o) => o.urgent)),
+    )
   },
 })
 
@@ -62,9 +121,19 @@ export const apply = internalMutation({
     ),
     /** Posts Buffer was asked about and did not return: deleted there, so marked deleted here. */
     missing: v.optional(v.array(v.string())),
+    /** Every post the call covered, so the next check waits (dueForCheck). */
+    checked: v.optional(v.array(v.string())),
   },
   returns: v.null(),
-  handler: async (ctx, { updates, missing }) => {
+  handler: async (ctx, { updates, missing, checked }) => {
+    const now = Date.now()
+    for (const id of checked ?? []) {
+      const post = await ctx.db
+        .query('posts')
+        .withIndex('by_bufferPostId', (q) => q.eq('bufferPostId', id))
+        .first()
+      if (post) await ctx.db.patch(post._id, { statusCheckedAt: now })
+    }
     for (const id of missing ?? []) {
       const post = await ctx.db
         .query('posts')
@@ -114,8 +183,18 @@ export const poll = internalAction({
   returns: v.null(),
   handler: async (ctx) => {
     const groups = await ctx.runQuery(internal.status.pending, {})
+    const wanted = groups.reduce((n, g) => n + g.orgs.length, 0)
+    let checked = 0
+    const summary = (capped: boolean) =>
+      serverEvent('status_poll', { organizations: wanted, checked, capped })
     for (const group of groups) {
       for (const org of group.orgs) {
+        if (!(await ctx.runMutation(internal.status.claimStatusCall, {}))) {
+          console.log('Status poll stopped: the daily status-call cap is reached.')
+          await summary(true)
+          return null
+        }
+        checked++
         try {
           const rows = await postStatuses(
             ctx,
@@ -131,6 +210,7 @@ export const poll = internalAction({
           await ctx.runMutation(internal.status.apply, {
             updates: rows.map(({ id, ...r }) => ({ bufferPostId: id, ...r })),
             missing,
+            checked: org.expected,
           })
         } catch (error) {
           console.log(
@@ -139,6 +219,7 @@ export const poll = internalAction({
         }
       }
     }
+    if (wanted) await summary(false)
     return null
   },
 })
@@ -203,4 +284,11 @@ export const pollMetrics = internalAction({
     }
     return null
   },
+})
+
+/** One status call from the day's cap (statusCallsPerDay); false once it is used up. */
+export const claimStatusCall = internalMutation({
+  args: {},
+  returns: v.boolean(),
+  handler: async (ctx) => (await take(ctx, 'status-poll:day', 24 * HOUR, statusCallsPerDay())).ok,
 })

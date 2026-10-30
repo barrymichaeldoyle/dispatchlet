@@ -43,6 +43,7 @@ import type * as lib_hookPayload from "../lib/hookPayload.js";
 import type * as lib_limits from "../lib/limits.js";
 import type * as lib_playbook from "../lib/playbook.js";
 import type * as lib_schedule from "../lib/schedule.js";
+import type * as lib_serverEvents from "../lib/serverEvents.js";
 import type * as lib_standardWebhooks from "../lib/standardWebhooks.js";
 import type * as lib_templates from "../lib/templates.js";
 import type * as playbooks from "../playbooks.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   "lib/limits": typeof lib_limits;
   "lib/playbook": typeof lib_playbook;
   "lib/schedule": typeof lib_schedule;
+  "lib/serverEvents": typeof lib_serverEvents;
   "lib/standardWebhooks": typeof lib_standardWebhooks;
   "lib/templates": typeof lib_templates;
   playbooks: typeof playbooks;

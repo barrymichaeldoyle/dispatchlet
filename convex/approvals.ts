@@ -77,15 +77,21 @@ export const postById = internalQuery({
 })
 
 export const markApproved = internalMutation({
-  args: { postId: v.id('posts'), bufferStatus: v.string(), from: v.string() },
+  args: {
+    postId: v.id('posts'),
+    bufferStatus: v.string(),
+    dueAt: v.optional(v.number()),
+    from: v.string(),
+  },
   returns: v.null(),
-  handler: async (ctx, { postId, bufferStatus, from }) => {
+  handler: async (ctx, { postId, bufferStatus, dueAt, from }) => {
     const post = await ctx.db.get(postId)
     if (!post) return null
     await ctx.db.patch(postId, {
       status: bufferStatus === 'draft' ? 'draft' : 'queued',
       bufferStatus,
       approveToken: undefined,
+      ...(dueAt ? { dueAt } : {}),
     })
     const run = await ctx.db.get(post.runId)
     const channel = await ctx.db
@@ -129,10 +135,11 @@ async function approve(
     return 'This post was deleted in Buffer, so there is nothing to approve.'
   if (post.status !== 'draft') return 'This post is already in the queue.'
   try {
-    const status = await approveBufferPost(ctx, post.userId, post.bufferPostId)
+    const { status, dueAt } = await approveBufferPost(ctx, post.userId, post.bufferPostId)
     await ctx.runMutation(internal.approvals.markApproved, {
       postId: post._id,
       bufferStatus: status,
+      dueAt,
       from,
     })
     return 'Added to your Buffer queue.'

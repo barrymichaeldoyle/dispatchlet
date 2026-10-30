@@ -13,6 +13,7 @@ import {
 } from './_generated/server'
 import { isAllowlisted } from './lib/allowlist'
 import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
+import { operationName, serverEvent } from './lib/serverEvents'
 import { parseRateLimit, reserve, type Priority } from './lib/budget'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { emit } from './webhooks'
@@ -180,12 +181,30 @@ async function callBuffer<T>(
     calls: 1,
     priority,
   })
-  if (!reserved.ok) throw new BufferBudgetError(reserved.retryAt)
+  const operation = operationName(document)
+  if (!reserved.ok) {
+    await serverEvent('buffer_call_refused', { operation, priority })
+    throw new BufferBudgetError(reserved.retryAt)
+  }
+  const startedAt = Date.now()
   try {
     const { data, rateLimit } = await bufferRequest<T>(token, document, variables)
     if (rateLimit) await ctx.runMutation(internal.buffer.recordRateLimit, { userId, rateLimit })
+    await serverEvent('buffer_call', {
+      operation,
+      priority,
+      ok: true,
+      ms: Date.now() - startedAt,
+    })
     return data
   } catch (error) {
+    await serverEvent('buffer_call', {
+      operation,
+      priority,
+      ok: false,
+      status: error instanceof BufferApiError ? error.status : null,
+      ms: Date.now() - startedAt,
+    })
     if (error instanceof BufferApiError && error.rateLimit) {
       await ctx.runMutation(internal.buffer.recordRateLimit, {
         userId,
@@ -820,28 +839,33 @@ export async function createBufferPost(
   throw new BufferPostError(createPost.message ?? `Buffer returned ${createPost.__typename}`, kind)
 }
 
-/** Moves a draft into the queue (SPEC §24.6). Returns the post's new status. */
+/** Moves a draft into the queue (SPEC §24.6). Returns the post's new status and due time. */
 export async function approveBufferPost(
   ctx: ActionCtx,
   userId: Id<'users'>,
   bufferPostId: string,
-): Promise<string> {
+): Promise<{ status: string; dueAt: number | undefined }> {
   const { editPost } = await bufferCallFor<{
-    editPost: MutationPayload & { post?: { id: string; status: string } }
+    editPost: MutationPayload & { post?: { id: string; status: string; dueAt: string | null } }
   }>(
     ctx,
     userId,
     `mutation DispatchletApprove($id: PostId!) {
       editPost(input: { id: $id, saveToDraft: false, mode: addToQueue }) {
         __typename
-        ... on PostActionSuccess { post { id status } }
+        ... on PostActionSuccess { post { id status dueAt } }
         ... on MutationError { message }
       }
     }`,
     { id: bufferPostId },
     'interactive',
   )
-  if (editPost.post) return editPost.post.status
+  if (editPost.post)
+    return {
+      status: editPost.post.status,
+      // The queue slot Buffer picked, so the status poll knows when to look (status.dueForCheck).
+      dueAt: editPost.post.dueAt ? Date.parse(editPost.post.dueAt) : undefined,
+    }
   throw new BufferPostError(editPost.message ?? 'Buffer did not move the post', 'other')
 }
 

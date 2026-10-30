@@ -536,3 +536,98 @@ describe('saving a story to Buffer Ideas', () => {
     await expect(save(await story('skipped_limit'))).rejects.toThrow('Reconnect Buffer')
   })
 })
+
+describe('when the status poll asks Buffer about a post', () => {
+  const MIN = 60_000
+  const HOUR = 60 * MIN
+
+  it('checks a scheduled post a few minutes after it is due, then hourly', async () => {
+    const { dueForCheck } = await import('./status')
+    const due = Date.parse('2026-11-10T08:00:00Z')
+    const checkedYesterday = due - 20 * HOUR
+    const post = { status: 'scheduled', dueAt: due, statusCheckedAt: checkedYesterday }
+    expect(dueForCheck(post, due - HOUR).check).toBe(false)
+    expect(dueForCheck(post, due + 2 * MIN).check).toBe(false)
+    expect(dueForCheck(post, due + 6 * MIN)).toEqual({ check: true, urgent: true })
+    const checked = { ...post, statusCheckedAt: due + 6 * MIN }
+    expect(dueForCheck(checked, due + 30 * MIN).check).toBe(false)
+    expect(dueForCheck(checked, due + 66 * MIN).check).toBe(true)
+  })
+
+  it('checks a draft every 6 hours and a post not yet due once a day', async () => {
+    const { dueForCheck } = await import('./status')
+    const now = Date.parse('2026-11-10T12:00:00Z')
+    expect(dueForCheck({ status: 'draft', statusCheckedAt: now - 2 * HOUR }, now).check).toBe(false)
+    expect(dueForCheck({ status: 'draft', statusCheckedAt: now - 7 * HOUR }, now).check).toBe(true)
+    expect(dueForCheck({ status: 'draft' }, now).check).toBe(true)
+    const later = { status: 'scheduled', dueAt: now + 3 * 24 * HOUR }
+    expect(dueForCheck({ ...later, statusCheckedAt: now - HOUR }, now).check).toBe(false)
+    expect(dueForCheck({ ...later, statusCheckedAt: now - 25 * HOUR }, now).check).toBe(true)
+  })
+
+  it('leaves an organization alone after a check, and caps calls a day', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    await t.run(async (ctx) => {
+      const runId = await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'now',
+        status: 'done',
+        startedAt: 0,
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      })
+      const storyId = await ctx.db.insert('stories', {
+        automationId,
+        runId,
+        title: 't',
+        canonicalUrl: 'https://e.com/a',
+        source: 'e.com',
+        publishedAt: '',
+        summary: '',
+        whyItMatters: '',
+        keyFacts: [],
+        confidence: 1,
+        decision: 'kept',
+        reason: '',
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'hello',
+        status: 'draft',
+        bufferPostId: 'b-1',
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('bufferChannels', {
+        userId,
+        organizationId: 'o1',
+        channelId: 'c1',
+        service: 'twitter',
+        name: 'GPP',
+        usable: true,
+        syncedAt: Date.now(),
+      })
+    })
+    expect(await t.query(internal.status.pending, {})).toHaveLength(1)
+    await t.mutation(internal.status.apply, { updates: [], checked: ['b-1'] })
+    expect(await t.query(internal.status.pending, {})).toEqual([])
+    expect(await t.query(internal.status.pending, { now: Date.now() + 7 * HOUR })).toHaveLength(1)
+
+    process.env.STATUS_CALLS_PER_DAY = '2'
+    try {
+      expect(await t.mutation(internal.status.claimStatusCall, {})).toBe(true)
+      expect(await t.mutation(internal.status.claimStatusCall, {})).toBe(true)
+      expect(await t.mutation(internal.status.claimStatusCall, {})).toBe(false)
+    } finally {
+      delete process.env.STATUS_CALLS_PER_DAY
+    }
+  })
+})

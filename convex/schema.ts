@@ -255,6 +255,8 @@ export default defineSchema({
       v.array(v.object({ type: v.string(), value: v.number(), unit: v.string() })),
     ),
     metricsUpdatedAt: v.optional(v.number()),
+    /** When the status poll last asked Buffer about this post (status.dueForCheck). */
+    statusCheckedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])
