@@ -69,3 +69,37 @@ export function bufferChannelUrl(channelId: string, status: string): string {
   const tab = status === 'draft' ? 'drafts' : status === 'sent' ? 'sent' : 'queue'
   return `https://publish.buffer.com/channel/${channelId}/tab/${tab}`
 }
+
+/** The line under "Where should it post?", from what the channel sync found. */
+export function channelHint({
+  usable,
+  blocked,
+  others,
+  syncing,
+  syncError,
+}: {
+  usable: number
+  blocked: number
+  others: string[]
+  syncing: boolean
+  syncError: string | null
+}): string {
+  const othersLine = others.length ? `Dispatchlet can’t post to ${serviceList(others)} yet.` : ''
+  if (usable)
+    return `Text channels in your Buffer account. Pick as many as you like. ${othersLine}`.trim()
+  if (syncing) return 'Reading your channels from Buffer.'
+  if (syncError) return syncError
+  if (blocked)
+    return 'Buffer won’t let Dispatchlet use these channels yet. Fix them in Buffer, then sync again.'
+  return `${othersLine} Connect X, LinkedIn, Threads, Bluesky or Mastodon in Buffer, then sync again.`.trim()
+}
+
+/** What a skipped story shows for Buffer Ideas: nothing, a reconnect note, the link, or done. */
+export function ideaLinkState(
+  saved: boolean,
+  ideas: 'off' | 'reconnect' | 'ready',
+): 'hidden' | 'reconnect' | 'save' | 'saved' {
+  if (saved) return 'saved'
+  if (ideas === 'off') return 'hidden'
+  return ideas === 'reconnect' ? 'reconnect' : 'save'
+}

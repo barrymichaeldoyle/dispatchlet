@@ -8,7 +8,15 @@ import { PostText } from './post-text'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
-import { bufferChannelUrl, errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
+import {
+  bufferChannelUrl,
+  errorText,
+  ideaLinkState,
+  serviceName,
+  timeIn,
+  usd,
+  whenIn,
+} from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
 
@@ -29,9 +37,10 @@ function SaveIdea({ storyId, saved }: { storyId: Id<'stories'>; saved: boolean }
   const ideas = useQuery(api.buffer.myConnection)?.ideas ?? 'off'
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  if (saved) return <p className="app-muted">Saved to your Ideas in Buffer.</p>
-  if (ideas === 'off') return null
-  if (ideas === 'reconnect')
+  const state = ideaLinkState(saved, ideas)
+  if (state === 'saved') return <p className="app-muted">Saved to your Ideas in Buffer.</p>
+  if (state === 'hidden') return null
+  if (state === 'reconnect')
     return (
       <p className="app-muted">
         To save stories to Buffer Ideas, <Link to="/app/settings">reconnect Buffer</Link> once.
