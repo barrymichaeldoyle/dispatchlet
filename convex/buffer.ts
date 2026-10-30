@@ -578,13 +578,30 @@ export async function bufferCallFor<T>(
 type MutationPayload = { __typename: string; message?: string }
 
 /** The "Dispatchlet" tag in an organization, created the first time it is needed. */
+/**
+ * The tag every post gets, so it can be found in Buffer. Dev sets BUFFER_TAG_NAME to
+ * "Dispatchlet dev": dev and production share Barry's Buffer account, and test posts should be
+ * easy to tell apart and clear.
+ */
+export function tagName(): string {
+  return process.env.BUFFER_TAG_NAME?.trim() || 'Dispatchlet'
+}
+
+/** BUFFER_DRAFTS_ONLY=true (set on dev) saves every post as a draft whatever the posting mode. */
+export function draftsOnly(): boolean {
+  return process.env.BUFFER_DRAFTS_ONLY?.trim().toLowerCase() === 'true'
+}
+
 export async function ensureTag(
   ctx: ActionCtx,
   userId: Id<'users'>,
   organizationId: string,
 ): Promise<string | null> {
   const connection = await ctx.runQuery(internal.buffer.connectionFor, { userId })
-  const known = connection?.tags?.find((t) => t.organizationId === organizationId)
+  const name = tagName()
+  const known = connection?.tags?.find(
+    (t) => t.organizationId === organizationId && (t.name ?? 'Dispatchlet') === name,
+  )
   if (known) return known.tagId
   let tagId: string | null = null
   try {
@@ -593,15 +610,15 @@ export async function ensureTag(
     }>(
       ctx,
       userId,
-      `mutation DispatchletTag($orgId: OrganizationId!) {
-        createTag(input: { organizationId: $orgId, tag: { name: "Dispatchlet", color: "#0F6E56" } }) {
+      `mutation DispatchletTag($orgId: OrganizationId!, $name: String!) {
+        createTag(input: { organizationId: $orgId, tag: { name: $name, color: "#0F6E56" } }) {
           __typename
           ... on TagActionSuccess { tag { id name } }
           ... on DuplicateError { message }
           ... on MutationError { message }
         }
       }`,
-      { orgId: organizationId },
+      { orgId: organizationId, name },
     )
     tagId = createTag.tag?.id ?? null
     if (!tagId && createTag.__typename === 'DuplicateError') {
@@ -615,7 +632,7 @@ export async function ensureTag(
         }`,
         { orgId: organizationId },
       )
-      tagId = tagsV2.edges.find((e) => e.node.name === 'Dispatchlet')?.node.id ?? null
+      tagId = tagsV2.edges.find((e) => e.node.name === name)?.node.id ?? null
     }
   } catch (error) {
     // Tags are a nicety; a post without one is still a post.
@@ -627,18 +644,24 @@ export async function ensureTag(
       connectionId: connection._id,
       organizationId,
       tagId,
+      name,
     })
   return tagId
 }
 
 export const storeTag = internalMutation({
-  args: { connectionId: v.id('bufferConnections'), organizationId: v.string(), tagId: v.string() },
+  args: {
+    connectionId: v.id('bufferConnections'),
+    organizationId: v.string(),
+    tagId: v.string(),
+    name: v.optional(v.string()),
+  },
   returns: v.null(),
-  handler: async (ctx, { connectionId, organizationId, tagId }) => {
+  handler: async (ctx, { connectionId, organizationId, tagId, name }) => {
     const connection = await ctx.db.get(connectionId)
     if (!connection) return null
     const tags = (connection.tags ?? []).filter((t) => t.organizationId !== organizationId)
-    await ctx.db.patch(connectionId, { tags: [...tags, { organizationId, tagId }] })
+    await ctx.db.patch(connectionId, { tags: [...tags, { organizationId, tagId, name }] })
     return null
   },
 })
@@ -723,7 +746,7 @@ export async function createBufferPost(
     source: 'dispatchlet',
     ...(post.tagId ? { tagIds: [post.tagId] } : {}),
     ...(Object.keys(metadata).length ? { metadata } : {}),
-    ...(post.mode === 'draft'
+    ...(post.mode === 'draft' || draftsOnly()
       ? { mode: 'addToQueue', saveToDraft: true }
       : post.mode === 'queue'
         ? { mode: 'addToQueue' }

@@ -88,7 +88,11 @@ export default defineSchema({
     /** Buffer's `pk` for this grant's budget: the same for two accounts if the budget is shared. */
     ratePartition: v.optional(v.string()),
     /** The "Dispatchlet" tag id in each Buffer organization, created on first publish. */
-    tags: v.optional(v.array(v.object({ organizationId: v.string(), tagId: v.string() }))),
+    tags: v.optional(
+      v.array(
+        v.object({ organizationId: v.string(), tagId: v.string(), name: v.optional(v.string()) }),
+      ),
+    ),
     updatedAt: v.number(),
   }).index('by_user', ['userId']),
   /** The text channels in the user's Buffer organizations, refreshed by channel sync. */

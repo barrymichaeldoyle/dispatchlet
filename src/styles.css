@@ -5776,26 +5776,52 @@ header nav button {
 .settings-layout {
   display: block;
 }
+/* Narrower than the side column allows: the index is a row of links under the heading. */
 .settings-index {
-  display: none;
+  margin: 0 0 8px;
+}
+.settings-index ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0 0 12px;
+  list-style: none;
+  border-bottom: 1px solid var(--color-rule);
+}
+.settings-index a {
+  color: var(--color-muted);
+  font-size: 14px;
+  text-decoration: none;
+}
+.settings-index a:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
 }
 @media (min-width: 1240px) {
   .settings-layout {
     display: grid;
     grid-template-columns: minmax(0, 760px) 176px;
+    grid-template-areas: 'main index';
     gap: 56px;
     align-items: start;
   }
+  .settings-main {
+    grid-area: main;
+  }
   .settings-index {
+    grid-area: index;
     display: block;
     position: sticky;
     top: 36px;
     margin-top: 6px;
   }
   .settings-index ol {
+    display: block;
     margin: 0;
     padding: 0;
     list-style: none;
+    border-bottom: 0;
     border-left: 1px solid var(--color-rule);
   }
   .settings-index a {

@@ -52,7 +52,13 @@ export function briefFromSetup(answers: SetupAnswers): ResearchBrief {
       .split(/[.;,\n]/)
       .map((s) => s.trim())
       .filter(Boolean),
-    sources: answers.sources,
+    // Real runs give research full URLs from the playbook, and the fetch tool only opens a URL it
+    // has already seen. A bare "formula1.com" here made the model guess a page and be refused, so
+    // the eval read worse than real runs. Name the site's front page instead.
+    sources: answers.sources.map((s) => {
+      const host = hostOf(s)
+      return host && !/^https?:\/\//i.test(s.trim()) && !s.includes('/') ? `https://${host}/` : s
+    }),
     onlyTheseSources: answers.onlyTheseSources,
     freshnessHours: freshnessFor(answers.cadence.preset),
     maxCandidates: answers.maxStories,

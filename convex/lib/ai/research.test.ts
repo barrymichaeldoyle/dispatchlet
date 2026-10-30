@@ -61,7 +61,7 @@ describe('the research user message', () => {
     expect(text).toMatch(/Now: Wednesday,? 28 October 2026 at 08:00 \(Africa\/Johannesburg\)\./)
     expect(text).toContain('Skip: Rumours without a named source; betting.')
     expect(text).toContain(
-      'Preferred sources: formula1.com, the-race.com, autosport.com. Other reliable',
+      'Preferred sources: https://formula1.com/, https://the-race.com/, https://autosport.com/. Other reliable',
     )
     expect(text).toContain('- Verstappen wins in Mexico (https://formula1.com/x)')
     expect(text).toContain('Return at most 3 candidates.')
@@ -69,7 +69,7 @@ describe('the research user message', () => {
 
   it('says sources are the only ones when the user ticked that', () => {
     expect(researchUserMessage(briefFromSetup(rust), { ...context, covered: [] })).toContain(
-      'Sources, and only these: github.com, blog.rust-lang.org.\nNothing has been covered yet.',
+      'Sources, and only these: https://github.com/, https://blog.rust-lang.org/.\nNothing has been covered yet.',
     )
   })
 

@@ -136,7 +136,7 @@ async function approve(
     return 'Added to your Buffer queue.'
   } catch (error) {
     if (error instanceof BufferPostError)
-      throw new Error(`Buffer did not move the post. ${error.message}`)
+      throw new Error(`Buffer did not move the post. ${error.message}`, { cause: error })
     throw error
   }
 }

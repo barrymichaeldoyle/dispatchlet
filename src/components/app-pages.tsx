@@ -445,6 +445,7 @@ export function AppSettings() {
     <>
       <h1>Settings.</h1>
       <div className="settings-layout">
+        <SettingsIndex />
         <div className="settings-main">
           <Anchor id="account">
             <section className="app-section app-settings-account" aria-labelledby="account-title">
@@ -488,7 +489,6 @@ export function AppSettings() {
             <DeleteAccount />
           </Anchor>
         </div>
-        <SettingsIndex />
       </div>
     </>
   )

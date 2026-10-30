@@ -23,7 +23,11 @@ type KvLike = {
   delete(key: string): Promise<void>
 }
 type Env = { OAUTH_KV: KvLike; OAUTH_PROVIDER: OAuthHelpersLike }
-type Ctx = { waitUntil(promise: Promise<unknown>): void; props?: unknown }
+type Ctx = {
+  waitUntil(promise: Promise<unknown>): void
+  props?: unknown
+  auth?: { userId?: string; clientId?: string }
+}
 
 /** The helpers this file uses; the library types them fully, this keeps the Worker types local. */
 type OAuthHelpersLike = {
@@ -42,6 +46,11 @@ type OAuthHelpersLike = {
     options: { scope: string[] },
   ): Promise<{ request: { scope: string[] }; headers: Headers }>
   denyConsent(request: Request, handle: string): Promise<{ redirectTo: string; headers: Headers }>
+  listUserGrants(
+    userId: string,
+    options?: { cursor?: string; limit?: number },
+  ): Promise<{ items: { id: string; clientId: string }[]; cursor?: string }>
+  revokeGrant(grantId: string, userId: string): Promise<void>
   completeAuthorization(options: {
     request: unknown
     userId: string
@@ -131,6 +140,41 @@ async function authorize(request: Request, env: Env, origin: string): Promise<Re
   }
 }
 
+/** Tokens checked in the last minute, so a busy assistant does not cost an API call a request. */
+const checked = new Map<string, { ok: boolean; at: number }>()
+const CHECK_FOR_MS = 60_000
+
+async function tokenStillWorks(token: string): Promise<boolean> {
+  const hit = checked.get(token)
+  if (hit && Date.now() - hit.at < CHECK_FOR_MS) return hit.ok
+  const ok = (await apiTokenOwner(API_BASE, token)) !== null
+  checked.set(token, { ok, at: Date.now() })
+  if (checked.size > 500) checked.delete(checked.keys().next().value!)
+  return ok
+}
+
+/**
+ * A grant whose API token was revoked in settings, or whose account was deleted, is useless; on
+ * its next use it is revoked here and the client is told to sign in again, instead of every
+ * tool failing one by one. (The provider's own TTLs and the daily sweep clear the rest.)
+ */
+async function grantedMcp(request: Request, env: Env, ctx: Ctx, origin: string) {
+  const props = ctx.props as GrantProps
+  if (ctx.auth?.clientId && !(await tokenStillWorks(props.apiToken))) {
+    const userId = ctx.auth.userId ?? props.userId
+    const clientId = ctx.auth.clientId
+    ctx.waitUntil(
+      (async () => {
+        const grants = await env.OAUTH_PROVIDER.listUserGrants(userId)
+        for (const g of grants.items)
+          if (g.clientId === clientId) await env.OAUTH_PROVIDER.revokeGrant(g.id, userId)
+      })().catch((error: unknown) => console.error('Revoking a dead grant failed', error)),
+    )
+    return mcpUnauthorized(origin, 'This connection was revoked in Dispatchlet. Connect again.')
+  }
+  return handleMcp(request, props.apiToken, API_BASE, origin)
+}
+
 const providers = new Map<string, OAuthProvider<Env>>()
 
 function providerFor(origin: string): OAuthProvider<Env> {
@@ -139,8 +183,7 @@ function providerFor(origin: string): OAuthProvider<Env> {
   provider = new OAuthProvider<Env>({
     apiRoute: '/mcp',
     apiHandler: {
-      fetch: (request: Request, _env: Env, ctx: Ctx) =>
-        handleMcp(request, (ctx.props as GrantProps).apiToken, API_BASE, origin),
+      fetch: (request: Request, env: Env, ctx: Ctx) => grantedMcp(request, env, ctx, origin),
     } as never,
     defaultHandler: {
       fetch: (request: Request, env: Env) =>

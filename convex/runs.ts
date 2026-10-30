@@ -802,7 +802,12 @@ export const execute = internalAction({
           if (mode === 'spread') dueAt += SPREAD_GAP_MS
           await ctx.runMutation(internal.runs.savePost, {
             ...base,
-            status: mode === 'draft' ? 'draft' : created.dueAt ? 'scheduled' : 'queued',
+            status:
+              mode === 'draft' || created.status === 'draft'
+                ? 'draft'
+                : created.dueAt
+                  ? 'scheduled'
+                  : 'queued',
             bufferPostId: created.id,
             bufferStatus: created.status,
             externalLink: created.externalLink ?? undefined,
@@ -964,7 +969,12 @@ export const sendHeld = internalAction({
         if (mode === 'spread') dueAt += SPREAD_GAP_MS
         await ctx.runMutation(internal.runs.markSent, {
           postId: post._id,
-          status: mode === 'draft' ? 'draft' : created.dueAt ? 'scheduled' : 'queued',
+          status:
+            mode === 'draft' || created.status === 'draft'
+              ? 'draft'
+              : created.dueAt
+                ? 'scheduled'
+                : 'queued',
           bufferPostId: created.id,
           bufferStatus: created.status,
           externalLink: created.externalLink ?? undefined,
