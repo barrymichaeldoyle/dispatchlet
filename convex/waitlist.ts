@@ -189,3 +189,32 @@ export const purge = internalMutation({
     return rows.length
   },
 })
+
+/** How long the launch email's unsubscribe link keeps working before the row goes. */
+const LAUNCH_GRACE = 14 * 24 * 60 * 60 * 1000
+
+/**
+ * Daily, once sign-up is open: rows that will never get the launch email (unconfirmed or
+ * unsubscribed) go straight away, and the rest go 14 days after it was sent. That keeps the
+ * privacy policy's promise to delete the list within 30 days of it closing, as long as
+ * `email:sendLaunch` runs in the first two weeks. Does nothing while the list is open.
+ */
+export const purgeClosed = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    if (!isSignupOpen()) return 0
+    const cutoff = Date.now() - LAUNCH_GRACE
+    const rows = await ctx.db.query('waitlist').take(2000)
+    let deleted = 0
+    for (const row of rows) {
+      const neverSent = !row.confirmedAt || row.unsubscribedAt !== undefined
+      const sentLongAgo = row.launchEmailSentAt !== undefined && row.launchEmailSentAt < cutoff
+      if (neverSent || sentLongAgo) {
+        await ctx.db.delete(row._id)
+        deleted++
+      }
+    }
+    return deleted
+  },
+})

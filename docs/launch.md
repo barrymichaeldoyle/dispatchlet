@@ -9,7 +9,9 @@ Nothing here has been run. Every step is Barry's call.
   They get in by signing in again.
 - With the flag on, the waiting list form endpoint answers 410 and stores nothing, and sign-ins
   stop joining the list.
-- `waitlist:purge` deletes the list. It refuses while the flag is off.
+- A daily job deletes the closed list. Unconfirmed and unsubscribed rows go at once. The rest go
+  14 days after their launch email, so its unsubscribe link works until then. `waitlist:purge`
+  deletes everything by hand. Both do nothing while the flag is off.
 
 ## What is on the local `launch` branch
 
@@ -23,13 +25,8 @@ The branch is not pushed, so Cloudflare builds nothing from it. It holds one com
   the 18 October policy does not mention.
 - The end-to-end tests are updated, and the unused waiting list components are removed.
 
-Read the privacy and terms diff before merging, because it makes two new claims. Waiting list
-addresses are deleted within 30 days of the list closing. Assistant connections are stored by
-Cloudflare.
-
-```sh
-git diff main launch -- src/routes/privacy.tsx src/routes/terms.tsx
-```
+The policy promises the list is deleted within 30 days of closing. The daily job keeps that
+promise as long as the launch email goes out within two weeks of opening.
 
 ## Steps
 
@@ -67,7 +64,8 @@ git diff main launch -- src/routes/privacy.tsx src/routes/terms.tsx
 6. Test with a Buffer account that is not yours. Sign in, answer the questions, and check the dry
    run starts on its own (SPEC D11).
 
-7. Within 30 days, delete the list. Run this until it prints 0.
+7. Nothing to do for the list. The daily job deletes it. To delete it at once instead, run this
+   until it prints 0.
 
    ```sh
    npx convex run waitlist:purge --prod

@@ -13,12 +13,12 @@ Deadline: 13 November 2026, 23:59 PT (14 November, 09:59 SAST). Submit on 12 Nov
 - Up to five links. Not using the build-in-public award.
 - The demo video and the write-up below.
 
-## Write-up (about 300 words)
+## Write-up (under 300 words)
 
 **Problem.** Keeping an account posting about one topic means the same research every day: what
 happened, have I posted it, is it worth a post, how do I write it for each channel. I did this by
-hand for GrandPrixPicks, my F1 predictions game, then wrote a script for it. Dispatchlet is that
-script, rebuilt for anyone with a Buffer account.
+hand for GrandPrixPicks, my F1 game, then scripted it. Dispatchlet is that script, rebuilt for any
+Buffer account.
 
 **Who it's for.** People who share news about a topic: a local food page, a fan account, a
 software company, a charity.
@@ -27,18 +27,16 @@ software company, a charity.
 dry run straight away. On schedule it reads your sources, searches the web, skips what you have
 already posted, writes a post for each channel within its limit, credits the outlet it links to,
 and puts the posts in Buffer as drafts or in your queue. You can edit and approve drafts from the
-app, the email or a chat. Every run is logged: what it searched, kept, skipped and why, and what it
-cost.
+app, the email or a chat. Every run logs what it searched, kept and skipped, and why.
 
 **Built on the Buffer API.** OAuth with rotating refresh tokens, `channels` and
 `dailyPostingLimits` before every run, `createPost` in its three modes, `editPost` to change and
 approve drafts, `createTag`, and `posts` for status, deletions and metrics. Every call is reserved
-against the rate-limit budget Buffer reports.
+against Buffer's rate limits.
 
-**Open to other tools.** A REST API with personal tokens, signed webhooks (Buffer has none, so this
-is also how you learn a post went out), a URL that turns a GitHub release into a run, and an MCP
-server: add it to claude.ai and Claude can run research and approve drafts beside Buffer's own
-connector.
+**Open to other tools.** A REST API, signed webhooks (Buffer has none, so they also tell
+you a post went out), a URL that turns a GitHub release into a run, and an MCP server: in claude.ai,
+Claude can run research and approve drafts beside Buffer's own connector.
 
 **What I learned.** A run costs about 6 cents and two minutes. The hard part is judgement, not
 writing: what is new, what is a repeat from another outlet, and when to post nothing.

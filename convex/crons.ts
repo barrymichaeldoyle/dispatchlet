@@ -14,5 +14,11 @@ crons.daily(
   {},
 )
 crons.daily('purge webhook deliveries', { hourUTC: 3, minuteUTC: 20 }, internal.webhooks.purge, {})
+crons.daily(
+  'delete the closed waiting list',
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.waitlist.purgeClosed,
+  {},
+)
 
 export default crons

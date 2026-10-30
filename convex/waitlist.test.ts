@@ -247,4 +247,27 @@ describe('after sign-up opens', () => {
     expect(await tc.mutation(internal.waitlist.purge, {})).toBe(1)
     expect(await tc.mutation(internal.waitlist.purge, {})).toBe(0)
   })
+
+  it('the daily cleanup waits two weeks after the launch email', async () => {
+    vi.stubEnv('SIGNUP_OPEN', '')
+    const tc = t()
+    const day = 24 * 60 * 60 * 1000
+    const row = (email: string, extra: Record<string, number>) =>
+      tc.run((ctx) =>
+        ctx.db.insert('waitlist', { email, createdAt: 0, source: 'x', token: email, ...extra }),
+      )
+    await row('unconfirmed@example.com', {})
+    await row('unsubscribed@example.com', { confirmedAt: 1, unsubscribedAt: 2 })
+    await row('recent@example.com', { confirmedAt: 1, launchEmailSentAt: Date.now() - day })
+    await row('old@example.com', { confirmedAt: 1, launchEmailSentAt: Date.now() - 15 * day })
+    await row('unsent@example.com', { confirmedAt: 1 })
+    expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(0)
+    vi.stubEnv('SIGNUP_OPEN', 'true')
+    expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(3)
+    const left = await tc.run((ctx) => ctx.db.query('waitlist').collect())
+    expect(left.map((r) => r.email).toSorted()).toEqual([
+      'recent@example.com',
+      'unsent@example.com',
+    ])
+  })
 })
