@@ -436,7 +436,7 @@ function RunView({
                     ) : null}
                     {p.bufferStatus && !shared ? (
                       <a
-                        href={bufferChannelUrl(p.channelId, p.status)}
+                        href={bufferChannelUrl(p.channelId, p.status, p.bufferPostId)}
                         target="_blank"
                         rel="noreferrer"
                         className="app-gate-secondary app-buffer-link"

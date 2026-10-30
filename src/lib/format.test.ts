@@ -51,6 +51,18 @@ describe('channels Dispatchlet cannot post to', () => {
 })
 
 describe('links into Buffer', () => {
+  it('open the post itself when Buffer gave an id, unless it was deleted there', () => {
+    expect(bufferChannelUrl('c1', 'draft', 'abc123')).toBe(
+      'https://publish.buffer.com/posts/abc123',
+    )
+    expect(bufferChannelUrl('c1', 'queued', 'abc123')).toBe(
+      'https://publish.buffer.com/posts/abc123',
+    )
+    expect(bufferChannelUrl('c1', 'deleted', 'abc123')).toBe(
+      'https://publish.buffer.com/channel/c1/tab/queue',
+    )
+  })
+
   it('open drafts on the drafts tab and other posts on their channel', () => {
     expect(bufferChannelUrl('c1', 'draft')).toBe('https://publish.buffer.com/schedule?tab=drafts')
     expect(bufferChannelUrl('c1', 'queued')).toBe('https://publish.buffer.com/channel/c1/tab/queue')

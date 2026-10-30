@@ -1280,6 +1280,7 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
         _id: p._id,
         storyId: p.storyId,
         channelId: p.channelId,
+        bufferPostId: p.bufferPostId ?? null,
         channelName: names.get(p.channelId) ?? p.service,
         service: p.service,
         text: p.text,

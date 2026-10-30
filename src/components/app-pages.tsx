@@ -293,7 +293,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
           </button>
         )}
         <a
-          href={bufferChannelUrl(draft.channelId, 'draft')}
+          href={bufferChannelUrl(draft.channelId, 'draft', draft.bufferPostId)}
           target="_blank"
           rel="noreferrer"
           className="app-gate-secondary app-buffer-link"

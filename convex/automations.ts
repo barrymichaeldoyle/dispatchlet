@@ -581,6 +581,7 @@ export const dashboard = query({
         automationId: p.automationId,
         channelName: names.get(p.channelId) ?? p.service,
         channelId: p.channelId,
+        bufferPostId: p.bufferPostId ?? null,
         service: p.service,
         text: p.text,
         limit: limits.get(p.channelId) ?? SERVICE_LIMITS[p.service as Service]?.maxLength ?? 280,

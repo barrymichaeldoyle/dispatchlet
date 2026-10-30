@@ -67,10 +67,17 @@ export function errorText(reason: unknown, fallback: string): string {
 }
 
 /**
- * Buffer's web app where the post is; the API gives no per-post page. Drafts open on Buffer's
- * drafts tab, which lists every channel's drafts; other posts open on their channel's tab.
+ * The post in Buffer's web app: its own page at /posts/<id> when Buffer gave us an id and it
+ * still exists there. Otherwise drafts open on Buffer's drafts tab and other posts on their
+ * channel's tab.
  */
-export function bufferChannelUrl(channelId: string, status: string): string {
+export function bufferChannelUrl(
+  channelId: string,
+  status: string,
+  bufferPostId?: string | null,
+): string {
+  if (bufferPostId && status !== 'deleted')
+    return `https://publish.buffer.com/posts/${encodeURIComponent(bufferPostId)}`
   if (status === 'draft') return 'https://publish.buffer.com/schedule?tab=drafts'
   const tab = status === 'sent' ? 'sent' : 'queue'
   return `https://publish.buffer.com/channel/${channelId}/tab/${tab}`
