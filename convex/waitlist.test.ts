@@ -265,9 +265,8 @@ describe('after sign-up opens', () => {
     vi.stubEnv('SIGNUP_OPEN', 'true')
     expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(3)
     const left = await tc.run((ctx) => ctx.db.query('waitlist').collect())
-    expect(left.map((r) => r.email).toSorted()).toEqual([
-      'recent@example.com',
-      'unsent@example.com',
-    ])
+    expect(new Set(left.map((r) => r.email))).toEqual(
+      new Set(['recent@example.com', 'unsent@example.com']),
+    )
   })
 })
