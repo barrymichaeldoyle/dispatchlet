@@ -71,3 +71,17 @@ test('llms.txt points at the API and the MCP server', async ({ request }) => {
   expect(text).toContain('/api/v1/openapi.json')
   expect(text).toContain('/mcp')
 })
+
+test('the landing page says it works with Claude and links each way in', async ({ page }) => {
+  await page.goto('/')
+  await expect(
+    page.getByRole('heading', { name: 'Works with Claude and your other tools' }),
+  ).toBeVisible()
+  for (const [name, href] of [
+    ['An MCP server', '/docs/mcp'],
+    ['An API', '/docs/api'],
+    ['Webhooks', '/docs/webhooks'],
+    ['A URL that starts a run', '/docs/hooks'],
+  ])
+    await expect(page.getByRole('link', { name, exact: true })).toHaveAttribute('href', href)
+})

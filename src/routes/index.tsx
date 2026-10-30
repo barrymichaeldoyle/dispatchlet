@@ -218,6 +218,49 @@ function Home() {
           </div>
         </section>
 
+        <section className="landing-origin" aria-labelledby="tools-title">
+          <h2 id="tools-title">Works with Claude and your other tools</h2>
+          <div>
+            <p>
+              Anything you can do in Dispatchlet, you can do from somewhere else. Connect it to
+              claude.ai or Claude Code and ask what it posted this week, or tell it to approve a
+              draft. Buffer’s own connector works in the same chat, so it can check your queue too.
+            </p>
+            <figure className="landing-chat" aria-label="An example conversation with Claude">
+              <p data-who="you">
+                <span>You</span>What did Good News Today post this week, and is anything waiting?
+              </p>
+              <p data-who="claude">
+                <span>Claude</span>Four posts went out. One draft is waiting: sea otters are back in
+                the Kent estuary for the first time in 50 years. Approve it?
+              </p>
+              <p data-who="you">
+                <span>You</span>Yes.
+              </p>
+              <p data-who="claude">
+                <span>Claude</span>Approved. It is in the Good News Today queue for 18:00.
+              </p>
+            </figure>
+            <ul className="landing-tools">
+              <li>
+                <a href="/docs/mcp">An MCP server</a> for claude.ai, Claude Code, Cursor and other
+                assistants.
+              </li>
+              <li>
+                <a href="/docs/api">An API</a> with personal tokens, for scripts and no-code tools.
+              </li>
+              <li>
+                <a href="/docs/webhooks">Webhooks</a> when a run finishes, a draft is approved or
+                Buffer publishes a post.
+              </li>
+              <li>
+                <a href="/docs/hooks">A URL that starts a run</a>, so a GitHub release can become a
+                post.
+              </li>
+            </ul>
+          </div>
+        </section>
+
         <section className="landing-origin" aria-labelledby="commit-title">
           <h2 id="commit-title">Built for Buffer Commit</h2>
           <div>
