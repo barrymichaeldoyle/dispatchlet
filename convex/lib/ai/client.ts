@@ -51,6 +51,49 @@ export type StructuredCall<T extends z.ZodType> = {
   tools?: Anthropic.Beta.BetaToolUnion[]
 }
 
+/** A web search or fetch the server ran that came back as an error, with what was asked. */
+export type ToolError = { tool: string; code: string; input: string }
+
+type Block = {
+  type?: string
+  id?: string
+  name?: string
+  input?: unknown
+  tool_use_id?: string
+  content?: unknown
+}
+
+/**
+ * The server tools' failures in a reply. A failed search or fetch is not an API error: the model
+ * sees an error block and carries on, so without this the only trace is its own summary.
+ */
+export function toolErrorsIn(content: readonly unknown[]): ToolError[] {
+  const asked = new Map<string, { tool: string; input: string }>()
+  const errors: ToolError[] = []
+  for (const block of content as Block[]) {
+    if (block.type === 'server_tool_use' && block.id)
+      asked.set(block.id, {
+        tool: block.name ?? 'tool',
+        input: JSON.stringify(block.input ?? {}).slice(0, 300),
+      })
+    const result = block.content as { error_code?: unknown } | undefined
+    if (
+      (block.type === 'web_search_tool_result' || block.type === 'web_fetch_tool_result') &&
+      result &&
+      !Array.isArray(result) &&
+      typeof result.error_code === 'string'
+    ) {
+      const call = asked.get(block.tool_use_id ?? '')
+      errors.push({
+        tool: call?.tool ?? block.type.replace('_tool_result', ''),
+        code: result.error_code,
+        input: call?.input ?? '',
+      })
+    }
+  }
+  return errors
+}
+
 /** Flattens the API's usage, whose fields may be null, into numbers. */
 export function usageFrom(usage: Anthropic.Beta.BetaUsage): Usage {
   return {
@@ -87,7 +130,7 @@ export async function callStructured<T extends z.ZodType>(
   client: Anthropic,
   call: StructuredCall<T>,
   attempt = 0,
-): Promise<{ output: z.infer<T> | null; record: CallRecord }> {
+): Promise<{ output: z.infer<T> | null; record: CallRecord; toolErrors: ToolError[] }> {
   const startedAt = Date.now()
   let message: Awaited<ReturnType<typeof parse<T>>>
   try {
@@ -100,6 +143,7 @@ export async function callStructured<T extends z.ZodType>(
   const usage = usageFrom(message.usage)
   const refused = message.stop_reason === 'refusal'
   return {
+    toolErrors: toolErrorsIn(message.content),
     output: refused ? null : message.parsed_output,
     record: {
       model: message.model,

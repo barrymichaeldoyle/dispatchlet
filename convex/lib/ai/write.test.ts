@@ -132,6 +132,12 @@ describe('crediting the outlet of the link', () => {
       'Autosport',
     ])
     expect(creditedOutlets('The FIA named AWS, per Motorsport.com.')).toEqual(['Motorsport.com'])
+    expect(creditedOutlets('Perez extended, per formula1.com.')).toEqual(['formula1.com'])
+    expect(creditedOutlets('He told Reuters the car is quick.')).toEqual(['Reuters'])
+    expect(creditedOutlets('As reported by The Athletic, the deal is done.')).toEqual([
+      'The Athletic',
+    ])
+    expect(creditedOutlets('Autosport has learned the deal is done.')).toEqual(['Autosport'])
   })
 
   it('matches a name to its site', () => {
@@ -199,5 +205,9 @@ describe('crediting the outlet of the link', () => {
     expect(
       checkPost(post('Antonelli won the US GP from pole.'), channel, playbook, new Set([url])).ok,
     ).toBe(true)
+    const ok = (text: string) => checkPost(post(text), channel, playbook, new Set([url])).ok
+    expect(ok('Antonelli won, citing Reuters.')).toBe(false)
+    expect(ok('Antonelli won, per aljazeera.com.')).toBe(true)
+    expect(ok('He told Reuters he was happy.')).toBe(false)
   })
 })

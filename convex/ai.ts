@@ -45,6 +45,7 @@ type EvalSummary = {
   usage: UsageShape
   durationMs: number
   notes: string
+  toolErrors?: { tool: string; code: string; input: string }[]
 }
 
 /**
@@ -67,6 +68,9 @@ export const researchEval = internalAction({
     usage: usageValidator,
     durationMs: v.number(),
     notes: v.string(),
+    toolErrors: v.optional(
+      v.array(v.object({ tool: v.string(), code: v.string(), input: v.string() })),
+    ),
     posts: v.optional(v.any()),
     writeModel: v.string(),
     researchModel: v.string(),
@@ -118,7 +122,7 @@ export const researchEval = internalAction({
         })
       }
       const domains = allowedDomains(brief)
-      const { output, record } = await callStructured(client, {
+      const { output, record, toolErrors } = await callStructured(client, {
         model: modelFor('research'),
         effort: 'high',
         maxTokens: 8_000,
@@ -129,6 +133,7 @@ export const researchEval = internalAction({
       })
       await ctx.runMutation(internal.ai.recordCall, { runId, purpose: 'research', ...record })
       const candidates = output?.candidates.length ?? 0
+      if (toolErrors.length) console.log(`research tool errors: ${JSON.stringify(toolErrors)}`)
       let posts: unknown = undefined
       let writeCostUsd = 0
       if (args.write && playbook && output?.candidates.length) {
@@ -179,6 +184,7 @@ export const researchEval = internalAction({
         candidates,
         posts,
         writeModel: modelFor('write'),
+        toolErrors,
         researchModel: modelFor('research'),
         costUsd: record.costUsd + writeCostUsd,
         usage: record.usage,

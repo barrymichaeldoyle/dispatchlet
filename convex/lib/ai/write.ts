@@ -168,6 +168,12 @@ const ALIASES: Record<string, string[]> = {
   wsj: ['wallstreetjournal'],
 }
 
+/** The outlet's own label in a host: aljazeera for aljazeera.com, bbc for bbc.co.uk. */
+function siteName(host: string): string {
+  const labels = host.split('.').filter((l) => !NOT_A_NAME.has(l))
+  return squash(labels.at(-2) ?? labels[0] ?? host) || '\u0000'
+}
+
 /** Whether an outlet's name refers to the site at this host. */
 export function nameMatchesHost(name: string, host: string): boolean {
   const n = squash(name.replace(/^the\s+/i, ''))
@@ -185,6 +191,25 @@ export function nameMatchesHost(name: string, host: string): boolean {
   )
 }
 
+/** Words that start "X reported" or "X wrote" without being anyone's name. */
+const NOT_AN_OUTLET = new Set([
+  'as',
+  'it',
+  'he',
+  'she',
+  'they',
+  'we',
+  'this',
+  'that',
+  'the',
+  'who',
+  'which',
+  'also',
+  'earlier',
+  'previously',
+  'later',
+])
+
 /**
  * The outlets a post credits: "per X", "according to X", "X reports", "X reported", "via X".
  * Not "X said": that is how a post quotes a team or a driver, not an outlet.
@@ -194,13 +219,23 @@ export function nameMatchesHost(name: string, host: string): boolean {
 export function creditedOutlets(text: string): string[] {
   // A word may carry a domain ending (Motorsport.com) but a full stop ends the name.
   const word = String.raw`[\w&'-]*(?:\.[a-z]{2,})*`
-  const name = String.raw`((?:The\s+)?[A-Z]${word}(?:\s+[A-Z0-9]${word}){0,3})`
+  // An outlet's name (Capitalised words), or its domain written out (formula1.com).
+  const proper = String.raw`(?:The\s+)?[A-Z]${word}(?:\s+[A-Z0-9]${word}){0,3}`
+  const domain = String.raw`[a-z0-9][a-z0-9-]*(?:\.[a-z]{2,})+`
+  const name = `(${proper}|${domain})`
   const patterns = [
-    new RegExp(String.raw`\b(?:[Pp]er|[Aa]ccording to|[Vv]ia)\s+${name}`, 'g'),
-    new RegExp(String.raw`${name}\s+(?:reports|reported)\b`, 'g'),
+    new RegExp(
+      String.raw`\b(?:[Pp]er|[Aa]ccording to|[Vv]ia|[Cc]iting|[Rr]eported by|[Tt]old)\s+${name}`,
+      'g',
+    ),
+    new RegExp(String.raw`${name}\s+(?:reports|reported|writes|wrote|has learned)\b`, 'g'),
   ]
   const out: string[] = []
-  for (const p of patterns) for (const m of text.matchAll(p)) out.push(m[1]!.replace(/[.,]$/, ''))
+  for (const p of patterns)
+    for (const m of text.matchAll(p)) {
+      const found = m[1]!.replace(/[.,]$/, '')
+      if (!NOT_AN_OUTLET.has(found.toLowerCase())) out.push(found)
+    }
   return out
 }
 
@@ -235,8 +270,11 @@ export function checkPost(
     return { ok: false, post, reason: 'It used a hashtag and the playbook says none.' }
   // A credit that names an outlet must name the one whose link goes with the post.
   const host = linkHost(post.storyUrl)
-  const credits = creditedOutlets(parts.map((p) => p.replace(URL_PATTERN, '')).join(' '))
-  if (host && credits.length && !credits.some((c) => nameMatchesHost(c, host)))
+  const prose = parts.map((p) => p.replace(URL_PATTERN, '')).join(' ')
+  const credits = creditedOutlets(prose)
+  // Naming the link's outlet anywhere is enough: "Al Jazeera, citing Reuters" credits both.
+  const namesLinkOutlet = squash(prose).includes(siteName(host ?? ''))
+  if (host && credits.length && !namesLinkOutlet && !credits.some((c) => nameMatchesHost(c, host)))
     return {
       ok: false,
       post,

@@ -56,6 +56,11 @@ import { emit } from './webhooks'
 
 /** Stories below this confidence are never posted (SPEC §25). */
 const MIN_CONFIDENCE = 0.5
+/**
+ * A story the run was asked to cover (a hook, the API, MCP) is kept above this instead. Below it,
+ * research found the page does not back the story up, so it is skipped with that reason.
+ */
+const MIN_REQUESTED_CONFIDENCE = 0.25
 /** Spread mode: posts in one run go out at least this far apart, starting soon. */
 const SPREAD_GAP_MS = 2 * 60 * 60_000
 const SPREAD_FIRST_MS = 10 * 60_000
@@ -516,6 +521,12 @@ export const execute = internalAction({
         tools: researchTools(domains),
       })
       await record(ctx, runId, 'research', research.record)
+      // Searches and page opens that failed, by the tool's own error code, so the log says why.
+      for (const e of research.toolErrors)
+        await say(
+          'research',
+          `A ${e.tool === 'web_fetch' ? 'page open' : 'search'} failed (${e.code}): ${e.input}`,
+        )
       if (!research.output) {
         await fail(
           research.record.refusal
@@ -535,8 +546,19 @@ export const execute = internalAction({
       const decided: (Candidate & { decision: string; reason: string; dupOf?: Id<'stories'> })[] =
         []
       const keptSoFar: { title: string; canonicalUrl: string; _id?: Id<'stories'> }[] = [...covered]
+      // The story the run was asked to cover, matched by its link, or by title without one.
+      const hint = run.hint
+      const hintUrl = hint?.url ? canonicalUrl(hint.url) : null
+      const isRequested = (c: Candidate) =>
+        Boolean(hint) &&
+        (hintUrl
+          ? canonicalUrl(c.canonicalUrl) === hintUrl
+          : Boolean(duplicateOf({ title: hint!.title, canonicalUrl: '' }, [c])))
+      // Asked-for first, then by confidence.
       // oxlint-disable-next-line unicorn/no-array-sort -- the copy is sorted in place on purpose
-      const ranked = [...found].sort((a, b) => b.confidence - a.confidence)
+      const ranked = [...found].sort(
+        (a, b) => Number(isRequested(b)) - Number(isRequested(a)) || b.confidence - a.confidence,
+      )
       for (const c of ranked) {
         const url = canonicalUrl(c.canonicalUrl)
         const dup = duplicateOf({ title: c.title, canonicalUrl: url }, keptSoFar)
@@ -553,7 +575,17 @@ export const execute = internalAction({
           })
           continue
         }
-        if (c.confidence < MIN_CONFIDENCE) {
+        const requested = isRequested(c)
+        if (requested && c.confidence < MIN_REQUESTED_CONFIDENCE) {
+          decided.push({
+            ...c,
+            canonicalUrl: url,
+            decision: 'skipped_quality',
+            reason: `Asked for, but the page did not back it up (${Math.round(c.confidence * 100)}%).`,
+          })
+          continue
+        }
+        if (!requested && c.confidence < MIN_CONFIDENCE) {
           decided.push({
             ...c,
             canonicalUrl: url,
@@ -576,7 +608,11 @@ export const execute = internalAction({
           ...c,
           canonicalUrl: url,
           decision: dry ? 'dry' : 'kept',
-          reason: dry ? 'Kept for the dry run.' : 'Kept.',
+          reason: requested
+            ? 'Kept: the run was asked to cover it.'
+            : dry
+              ? 'Kept for the dry run.'
+              : 'Kept.',
         })
         keptSoFar.push({ title: c.title, canonicalUrl: url })
       }
