@@ -1417,11 +1417,30 @@ export const ideaContext = internalQuery({
 })
 
 export const markIdea = internalMutation({
-  args: { storyId: v.id('stories'), ideaId: v.string() },
+  args: { storyId: v.id('stories'), ideaId: v.optional(v.string()) },
   returns: v.null(),
   handler: async (ctx, { storyId, ideaId }) => {
-    await ctx.db.patch(storyId, { ideaId })
+    // Without an idea id this releases a claim after Buffer refused, so a retry can go ahead.
+    await ctx.db.patch(storyId, { ...(ideaId ? { ideaId } : {}), ideaSavingAt: undefined })
     return null
+  },
+})
+
+/** One save at a time per story, so a double click cannot put two ideas in Buffer. */
+export const claimIdea = internalMutation({
+  args: { storyId: v.id('stories') },
+  returns: v.union(
+    v.object({ kind: v.literal('claimed') }),
+    v.object({ kind: v.literal('busy') }),
+    v.object({ kind: v.literal('saved'), ideaId: v.string() }),
+  ),
+  handler: async (ctx, { storyId }) => {
+    const story = await ctx.db.get(storyId)
+    if (story?.ideaId) return { kind: 'saved' as const, ideaId: story.ideaId }
+    if (story?.ideaSavingAt && Date.now() - story.ideaSavingAt < 10 * 60_000)
+      return { kind: 'busy' as const }
+    if (story) await ctx.db.patch(storyId, { ideaSavingAt: Date.now() })
+    return { kind: 'claimed' as const }
   },
 })
 
@@ -1453,13 +1472,21 @@ export const saveIdeaForUser = internalAction({
     if (!canWriteIdeas)
       throw new Error('Reconnect Buffer in settings to let Dispatchlet save ideas.')
     if (!organizationId) throw new Error('Sync your Buffer channels first.')
-    const ideaId = await createBufferIdea(ctx, userId, organizationId, {
-      title: story.title.slice(0, 200),
-      text: ideaText(story),
-      services,
-    })
-    await ctx.runMutation(internal.runs.markIdea, { storyId, ideaId })
-    return ideaId
+    const claim = await ctx.runMutation(internal.runs.claimIdea, { storyId })
+    if (claim.kind === 'saved') return claim.ideaId
+    if (claim.kind === 'busy') throw new Error('This story is already being saved to Buffer Ideas.')
+    try {
+      const ideaId = await createBufferIdea(ctx, userId, organizationId, {
+        title: story.title.slice(0, 200),
+        text: ideaText(story),
+        services,
+      })
+      await ctx.runMutation(internal.runs.markIdea, { storyId, ideaId })
+      return ideaId
+    } catch (error) {
+      await ctx.runMutation(internal.runs.markIdea, { storyId })
+      throw error
+    }
   },
 })
 

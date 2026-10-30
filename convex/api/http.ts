@@ -93,7 +93,8 @@ export function fromAppError(error: unknown): ApiError {
   // A malformed id fails the function's `v.id()` validator; to the caller that is an unknown id.
   if (/Validator: v\.id\(|Expected ID for table/.test(message))
     return new ApiError(404, 'not_found', 'No such id.')
-  if (/already going|is paused/i.test(text)) return new ApiError(409, 'conflict', text)
+  if (/already going|already being|is paused/i.test(text))
+    return new ApiError(409, 'conflict', text)
   if (/is the limit|Too many/i.test(text)) return new ApiError(429, 'rate_limited', text)
   if (/No playbook generations left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/No (free |dry )?runs left/i.test(text)) return new ApiError(402, 'allowance', text)

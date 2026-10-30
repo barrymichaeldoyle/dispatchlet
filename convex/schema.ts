@@ -223,6 +223,8 @@ export default defineSchema({
     dupOf: v.optional(v.id('stories')),
     /** Buffer's idea id once the person saved this story to their Ideas board. */
     ideaId: v.optional(v.string()),
+    /** Set while a save to Buffer Ideas is in flight, so a second click cannot save twice. */
+    ideaSavingAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])
@@ -255,6 +257,8 @@ export default defineSchema({
       v.array(v.object({ type: v.string(), value: v.number(), unit: v.string() })),
     ),
     metricsUpdatedAt: v.optional(v.number()),
+    /** Set while an approval is in flight, so a second click cannot approve twice. */
+    approvingAt: v.optional(v.number()),
     /** When the status poll last asked Buffer about this post (status.dueForCheck). */
     statusCheckedAt: v.optional(v.number()),
     createdAt: v.number(),

@@ -777,3 +777,70 @@ describe('the approve link in the digest email', () => {
     expect((await t.fetch('/approve?token=nope', { method: 'POST' })).status).toBe(404)
   })
 })
+
+describe('double clicks', () => {
+  async function draftAndStory(t: ReturnType<typeof convexTest>) {
+    const { userId, automationId } = await seed(t)
+    return await t.run(async (ctx) => {
+      const runId = await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'now',
+        status: 'done',
+        startedAt: 0,
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      })
+      const storyId = await ctx.db.insert('stories', {
+        automationId,
+        runId,
+        title: 't',
+        canonicalUrl: 'https://e.com/a',
+        source: 'e.com',
+        publishedAt: '',
+        summary: '',
+        whyItMatters: '',
+        keyFacts: [],
+        confidence: 1,
+        decision: 'skipped_limit',
+        reason: '',
+        createdAt: 0,
+      })
+      const postId = await ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'draft',
+        bufferPostId: 'b-1',
+        createdAt: 0,
+      })
+      return { postId, storyId }
+    })
+  }
+
+  it('approve a draft once, and free it again if Buffer refused', async () => {
+    const t = convexTest(schema, modules)
+    const { postId } = await draftAndStory(t)
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('busy')
+    await t.mutation(internal.approvals.releaseApproval, { postId })
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
+  })
+
+  it('save a story to Buffer Ideas once', async () => {
+    const t = convexTest(schema, modules)
+    const { storyId } = await draftAndStory(t)
+    expect(await t.mutation(internal.runs.claimIdea, { storyId })).toEqual({ kind: 'claimed' })
+    expect(await t.mutation(internal.runs.claimIdea, { storyId })).toEqual({ kind: 'busy' })
+    await t.mutation(internal.runs.markIdea, { storyId, ideaId: 'idea-1' })
+    expect(await t.mutation(internal.runs.claimIdea, { storyId })).toEqual({
+      kind: 'saved',
+      ideaId: 'idea-1',
+    })
+  })
+})

@@ -91,6 +91,7 @@ export const markApproved = internalMutation({
       status: bufferStatus === 'draft' ? 'draft' : 'queued',
       bufferStatus,
       approveToken: undefined,
+      approvingAt: undefined,
       ...(dueAt ? { dueAt } : {}),
     })
     const run = await ctx.db.get(post.runId)
@@ -134,6 +135,12 @@ async function approve(
   if (post.status === 'deleted')
     return 'This post was deleted in Buffer, so there is nothing to approve.'
   if (post.status !== 'draft') return 'This post is already in the queue.'
+  // One approval at a time: a double click, or the email and the app at once, must not move
+  // the post twice. The claim is released if Buffer refuses, so the person can try again.
+  const claim = await ctx.runMutation(internal.approvals.claimApproval, { postId: post._id })
+  if (claim === 'done') return 'This post is already in the queue.'
+  if (claim === 'busy')
+    return 'This draft is already being approved. It will be in the queue in a moment.'
   try {
     const { status, dueAt } = await approveBufferPost(ctx, post.userId, post.bufferPostId)
     await ctx.runMutation(internal.approvals.markApproved, {
@@ -144,11 +151,36 @@ async function approve(
     })
     return 'Added to your Buffer queue.'
   } catch (error) {
+    await ctx.runMutation(internal.approvals.releaseApproval, { postId: post._id })
     if (error instanceof BufferPostError)
       throw new Error(`Buffer did not move the post. ${error.message}`, { cause: error })
     throw error
   }
 }
+
+/** How long a claim holds before it counts as abandoned (an action lasts 10 minutes at most). */
+const CLAIM_MS = 10 * 60_000
+
+export const claimApproval = internalMutation({
+  args: { postId: v.id('posts') },
+  returns: v.union(v.literal('claimed'), v.literal('busy'), v.literal('done')),
+  handler: async (ctx, { postId }) => {
+    const post = await ctx.db.get(postId)
+    if (!post || post.status !== 'draft') return 'done' as const
+    if (post.approvingAt && Date.now() - post.approvingAt < CLAIM_MS) return 'busy' as const
+    await ctx.db.patch(postId, { approvingAt: Date.now() })
+    return 'claimed' as const
+  },
+})
+
+export const releaseApproval = internalMutation({
+  args: { postId: v.id('posts') },
+  returns: v.null(),
+  handler: async (ctx, { postId }) => {
+    if (await ctx.db.get(postId)) await ctx.db.patch(postId, { approvingAt: undefined })
+    return null
+  },
+})
 
 /** From the email link. The token is single use and only ever points at a draft. */
 export const approveByToken = internalAction({
