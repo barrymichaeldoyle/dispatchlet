@@ -4,7 +4,7 @@ import type { GenericMutationCtx } from 'convex/server'
 import type { DataModel, Id } from './_generated/dataModel'
 import { internal } from './_generated/api'
 import { removeBufferConnection, saveBufferConnection, type SignInGrant } from './buffer'
-import { isAllowlisted } from './lib/allowlist'
+import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 import { expiresAtFrom, fetchBufferAccount, type BufferAccount } from './lib/buffer'
 import { encryptSecret } from './lib/crypto'
 import { isValidEmail, normalizeEmail } from './lib/email'
@@ -70,7 +70,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   session: { totalDurationMs: YEAR_MS, inactiveDurationMs: YEAR_MS },
   callbacks: {
     /**
-     * One user per Buffer account. Everyone who signs in before launch joins the waiting list.
+     * One user per Buffer account. Everyone who signs in before launch joins the waiting list;
+     * once sign-up is open the list is closed and nobody is added.
      * Only allowlisted accounts keep their Buffer grant (encrypted, in `bufferConnections`, never
      * on the user row); anyone else's grant is revoked straight away, since the app is not open.
      */
@@ -92,7 +93,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           refreshTokenEnc: grant.refreshTokenEnc,
         })
       }
-      if (email) await addSignInToWaitlist(ctx, email)
+      if (email && !isSignupOpen()) await addSignInToWaitlist(ctx, email)
       return userId
     },
   },

@@ -225,3 +225,26 @@ describe('nextLaunchBatch', () => {
     expect(batch.map((r) => r.email)).toEqual(['yes@example.com'])
   })
 })
+
+describe('after sign-up opens', () => {
+  it('the form endpoint is closed and stores nothing', async () => {
+    vi.stubEnv('SIGNUP_OPEN', 'true')
+    const tc = t()
+    const res = await post(tc, { email: 'late@example.com' })
+    expect(res.status).toBe(410)
+    expect(await res.json()).toEqual({ ok: false, error: 'closed' })
+    expect(await tc.run((ctx) => ctx.db.query('waitlist').collect())).toHaveLength(0)
+  })
+
+  it('purge refuses while the list is open, then deletes every row', async () => {
+    vi.stubEnv('SIGNUP_OPEN', '')
+    const tc = t()
+    await post(tc, { email: 'a@example.com' })
+    await post(tc, { email: 'b@example.com' })
+    await expect(tc.mutation(internal.waitlist.purge, {})).rejects.toThrow('still open')
+    vi.stubEnv('SIGNUP_OPEN', 'true')
+    expect(await tc.mutation(internal.waitlist.purge, { limit: 1 })).toBe(1)
+    expect(await tc.mutation(internal.waitlist.purge, {})).toBe(1)
+    expect(await tc.mutation(internal.waitlist.purge, {})).toBe(0)
+  })
+})

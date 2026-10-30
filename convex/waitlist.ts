@@ -2,6 +2,7 @@ import { v } from 'convex/values'
 import { internalMutation, internalQuery, query } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
+import { isSignupOpen } from './lib/allowlist'
 import { normalizeEmail } from './lib/email'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
@@ -170,5 +171,21 @@ export const markLaunchSent = internalMutation({
       await ctx.db.patch(id, { launchEmailSentAt: now })
     }
     return null
+  },
+})
+
+/**
+ * After launch the privacy policy promises the list is deleted within 30 days of closing. Deletes
+ * up to `limit` rows a call; run it until it returns 0:
+ * `npx convex run waitlist:purge --prod`. Refuses while sign-up is still closed.
+ */
+export const purge = internalMutation({
+  args: { limit: v.optional(v.number()) },
+  returns: v.number(),
+  handler: async (ctx, { limit }) => {
+    if (!isSignupOpen()) throw new Error('The waiting list is still open (SIGNUP_OPEN is not true)')
+    const rows = await ctx.db.query('waitlist').take(limit ?? 500)
+    for (const row of rows) await ctx.db.delete(row._id)
+    return rows.length
   },
 })

@@ -3,6 +3,7 @@ import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
 import { registerApi } from './api/router'
 import { auth } from './auth'
+import { isSignupOpen } from './lib/allowlist'
 import { isValidEmail, normalizeEmail } from './lib/email'
 
 const HOUR = 60 * 60 * 1000
@@ -111,6 +112,12 @@ http.route({
   method: 'POST',
   handler: httpAction(async (ctx, req) => {
     const asJson = wantsJson(req)
+    // The list closes when sign-up opens: an old page or a bot gets told where to go instead.
+    if (isSignupOpen()) {
+      return asJson
+        ? json(410, { ok: false, error: 'closed' })
+        : page(410, 'Dispatchlet is open. Sign in with Buffer at dispatchlet.com/app.')
+    }
     const body = await readSubmission(req)
 
     // Honeypot: a filled "website" field means a bot. Say yes and store nothing.
