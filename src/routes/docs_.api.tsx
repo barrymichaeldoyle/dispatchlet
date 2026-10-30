@@ -51,7 +51,7 @@ function ApiDocs() {
         token stops it on the next request. A token acts as you: runs it starts count against your
         allowance, and it can never see another account.
       </p>
-      <pre>{`curl https://dispatchlet.com/api/v1/me \\
+      <pre tabIndex={0}>{`curl https://dispatchlet.com/api/v1/me \\
   -H "Authorization: Bearer dl_…"`}</pre>
 
       <h2>Conventions</h2>
@@ -61,7 +61,9 @@ function ApiDocs() {
         <code>-Reset</code> (Unix seconds). An error comes back with a code and a message, and a{' '}
         <code>field</code> or <code>line</code> when one applies:
       </p>
-      <pre>{`{ "error": { "code": "invalid", "message": "maxPostsPerRun: Too big", "field": "maxPostsPerRun" } }`}</pre>
+      <pre
+        tabIndex={0}
+      >{`{ "error": { "code": "invalid", "message": "maxPostsPerRun: Too big", "field": "maxPostsPerRun" } }`}</pre>
       <table>
         <thead>
           <tr>
@@ -114,7 +116,9 @@ function ApiDocs() {
             </p>
           ) : null}
           {r.example ? (
-            <pre>{`${r.example.request ?? ''}${r.example.request ? '\n\n' : ''}${r.example.response}`}</pre>
+            <pre
+              tabIndex={0}
+            >{`${r.example.request ?? ''}${r.example.request ? '\n\n' : ''}${r.example.response}`}</pre>
           ) : null}
         </section>
       ))}

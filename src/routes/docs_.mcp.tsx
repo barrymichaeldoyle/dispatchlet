@@ -59,7 +59,7 @@ function McpDocs() {
         should run and approve), then use it as a Bearer header. Settings → Connect an AI assistant
         fills these in for you.
       </p>
-      <pre>{`# Claude Code
+      <pre tabIndex={0}>{`# Claude Code
 claude mcp add --transport http dispatchlet https://dispatchlet.com/mcp \\
   --header "Authorization: Bearer dl_…"
 
@@ -117,7 +117,7 @@ npx -y mcp-remote https://dispatchlet.com/mcp --header "Authorization: Bearer dl
       </p>
 
       <h2>A session</h2>
-      <pre>{`You: What did F1 news post this week, and are any drafts waiting?
+      <pre tabIndex={0}>{`You: What did F1 news post this week, and are any drafts waiting?
 Assistant: [list_automations] [list_runs] [list_drafts]
   Three runs, four posts reached Buffer. Two drafts are waiting:
   1. GrandPrixPicks (X): "Antonelli fastest in Vegas FP2 …"

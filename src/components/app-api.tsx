@@ -173,7 +173,10 @@ function ApiTokens({
           secret={made.token}
           note="Send it as a Bearer token. Revoke it below if it ever leaks."
         >
-          <pre className="app-snippet">{`curl ${SITE}/api/v1/me -H "Authorization: Bearer ${made.token}"`}</pre>
+          <pre
+            className="app-snippet"
+            tabIndex={0}
+          >{`curl ${SITE}/api/v1/me -H "Authorization: Bearer ${made.token}"`}</pre>
         </Reveal>
       ) : null}
       {tokens === undefined ? null : live.length || revoked.length ? (
@@ -331,7 +334,9 @@ function AssistantConnect({ token }: { token: string | null }) {
           </button>
         ))}
       </nav>
-      <pre className="app-snippet">{snippets[host]}</pre>
+      <pre className="app-snippet" tabIndex={0}>
+        {snippets[host]}
+      </pre>
       <p className="app-share">
         <CopyButton text={snippets[host]} label="Copy the snippet" />
         <span className="app-muted">{where[host]}</span>

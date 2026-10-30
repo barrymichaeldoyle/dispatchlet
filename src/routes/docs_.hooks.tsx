@@ -20,7 +20,7 @@ function HookDocs() {
         shortcut. Make one under Settings → Inbound hooks, or with <code>POST /api/v1/hooks</code>.
         The URL is shown once and holds the secret, so treat it like a password.
       </p>
-      <pre>{`https://dispatchlet.com/api/v1/hooks/dlh_…`}</pre>
+      <pre tabIndex={0}>{`https://dispatchlet.com/api/v1/hooks/dlh_…`}</pre>
 
       <h2>What to send</h2>
       <p>
@@ -33,7 +33,7 @@ function HookDocs() {
         to the URL, to see what it would post without sending anything to Buffer. Use the URL form
         for GitHub, whose body you cannot change.
       </p>
-      <pre>{`curl -X POST https://dispatchlet.com/api/v1/hooks/dlh_… \\
+      <pre tabIndex={0}>{`curl -X POST https://dispatchlet.com/api/v1/hooks/dlh_… \\
   -H "Content-Type: application/json" \\
   -d '{"title": "Dispatchlet 1.2 is out", "url": "https://github.com/barrymichaeldoyle/dispatchlet/releases/tag/v1.2.0", "notes": "Webhooks and an MCP server"}'
 
@@ -58,7 +58,7 @@ function HookDocs() {
         between: a GitHub Actions job after a deploy, a Zap when a row lands in a sheet, a Shortcut
         on your phone.
       </p>
-      <pre>{`# .github/workflows/announce.yml
+      <pre tabIndex={0}>{`# .github/workflows/announce.yml
 on:
   release:
     types: [published]

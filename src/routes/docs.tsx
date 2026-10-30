@@ -43,7 +43,7 @@ function Docs() {
         form or as text, and every save is a new version. A run keeps the version it started with.
       </p>
       <p>The text view is a plain document with fixed headings:</p>
-      <pre>{`# Good News Today
+      <pre tabIndex={0}>{`# Good News Today
 
 ## About
 One paragraph on the beat and who reads it.

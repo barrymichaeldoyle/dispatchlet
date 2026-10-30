@@ -36,7 +36,7 @@ function WebhookDocs() {
         One JSON body per event, with the same shapes the API returns (a run as{' '}
         <code>GET /runs/:id</code> gives it, a post as <code>GET /posts/:id</code> gives it):
       </p>
-      <pre>{`POST https://your.example/hook
+      <pre tabIndex={0}>{`POST https://your.example/hook
 Content-Type: application/json
 User-Agent: Dispatchlet-Webhooks/1
 webhook-id: <delivery id>
@@ -68,7 +68,7 @@ webhook-signature: v1,<base64 HMAC>
         and compare with the part after <code>v1,</code>. Refuse timestamps more than five minutes
         old.
       </p>
-      <pre>{`import { createHmac, timingSafeEqual } from 'node:crypto'
+      <pre tabIndex={0}>{`import { createHmac, timingSafeEqual } from 'node:crypto'
 
 export function verify(secret, headers, rawBody) {
   const id = headers['webhook-id']
