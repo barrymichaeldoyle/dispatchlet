@@ -13,7 +13,7 @@ export const Route = createFileRoute('/privacy')({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="18 Oct 2026">
+    <LegalPage title="Privacy policy" updated="30 Oct 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
         covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opens
@@ -130,7 +130,8 @@ function Privacy() {
           terms do not allow it to train models on this data.
         </li>
         <li>Resend sends the emails, from the United States.</li>
-        <li>PostHog records the analytics events and error reports, in the European Union.</li>
+        <li>PostHog records the analytics events, in the European Union.</li>
+        <li>Sentry records the error reports, in the United States.</li>
         <li>Cloudflare hosts the site and serves it from its worldwide network.</li>
       </ul>
       <p>

@@ -31,6 +31,8 @@
     "@cloudflare/workers-oauth-provider": "^1.2.4",
     "@convex-dev/auth": "0.0.96",
     "@modelcontextprotocol/sdk": "^1.32.2",
+    "@sentry/browser": "^11.10.0",
+    "@sentry/cloudflare": "^11.10.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "0.10.13",
     "@tanstack/react-router": "1.170.44",

@@ -13,7 +13,7 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self'",
-  "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.convex.site https://eu.i.posthog.com https://eu-assets.i.posthog.com https://cloudflareinsights.com",
+  "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.convex.site https://eu.i.posthog.com https://eu-assets.i.posthog.com https://o299144.ingest.us.sentry.io https://cloudflareinsights.com",
   "form-action 'self' https://*.convex.site",
   "frame-ancestors 'none'",
   "base-uri 'self'",

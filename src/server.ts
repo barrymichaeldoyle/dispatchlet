@@ -1,4 +1,5 @@
 import { AuthorizationError, OAuthProvider } from '@cloudflare/workers-oauth-provider'
+import * as Sentry from '@sentry/cloudflare'
 import handler from '@tanstack/react-start/server-entry'
 import { bearerApiToken, handleMcp, mcpUnauthorized } from './lib/mcp/handler'
 import {
@@ -217,7 +218,7 @@ function providerFor(origin: string): OAuthProvider<Env> {
   return provider
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     if (!CONVEX_SITE_URL) return startFetch(request)
     const url = new URL(request.url)
@@ -249,3 +250,28 @@ export default {
     else await env.OAUTH_KV.delete('purge-cursor')
   },
 }
+
+/** Errors in the Worker (OAuth, MCP, the site's server side) go to Sentry, project dispatchlet. */
+const SENTRY_DSN =
+  'https://86d51613502d5a11f3ec6aa7c48d4505@o299144.ingest.us.sentry.io/4512345285263360'
+
+export default Sentry.withSentry(
+  (_env: Env) => ({
+    dsn: SENTRY_DSN,
+    environment: CONVEX_SITE_URL?.includes('amiable-mosquito-364') ? 'production' : 'development',
+    initialScope: { tags: { runtime: 'worker' } },
+    tracesSampleRate: 0,
+    // Never send request bodies, headers or cookies: they can carry API tokens and OAuth codes.
+    beforeSend(event) {
+      if (event.request) {
+        delete event.request.headers
+        delete event.request.cookies
+        delete event.request.data
+        delete event.request.query_string
+        if (event.request.url) event.request.url = event.request.url.split(/[?#]/)[0]
+      }
+      return event
+    },
+  }),
+  worker as unknown as Parameters<typeof Sentry.withSentry>[1],
+)
