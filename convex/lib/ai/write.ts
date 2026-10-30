@@ -95,10 +95,45 @@ export function limitFor(channel: TargetChannel, playbook: Playbook): number {
   return format?.maxLength ? Math.min(base, format.maxLength) : base
 }
 
+/** A sent post that did well, given to the writer as an example of what this audience likes. */
+export type ProvenPost = { service: string; text: string; engagements: number; views: number }
+
+type Metric = { type: string; value: number }
+
+/** Counts that are not someone acting on the post: views, reach, rates and follower numbers. */
+const PASSIVE = /impression|view|reach|rate|follower|percent/i
+
+/**
+ * The best of an automation's sent posts by interactions (likes, replies, reposts, clicks and
+ * the like), with views to break ties. Needs at least `min` posts with metrics, so one lucky
+ * post is not taken as a pattern.
+ */
+export function provenPosts(
+  posts: { service: string; text: string; metrics?: Metric[] }[],
+  { take = 3, min = 3 } = {},
+): ProvenPost[] {
+  const scored = posts
+    .filter((p) => p.metrics?.length)
+    .map((p) => ({
+      service: p.service,
+      text: p.text,
+      engagements: p.metrics!.filter((m) => !PASSIVE.test(m.type)).reduce((s, m) => s + m.value, 0),
+      views: p
+        .metrics!.filter((m) => /impression|view/i.test(m.type))
+        .reduce((s, m) => s + m.value, 0),
+    }))
+  if (scored.length < min) return []
+  return scored
+    .filter((p) => p.engagements > 0 || p.views > 0)
+    .sort((a, b) => b.engagements - a.engagements || b.views - a.views)
+    .slice(0, take)
+}
+
 export function writeUserMessage(
   playbook: Playbook,
   stories: Candidate[],
   channels: TargetChannel[],
+  proven: ProvenPost[] = [],
 ): string {
   const lines = [
     `Playbook: ${playbook.name}`,
@@ -139,6 +174,16 @@ export function writeUserMessage(
       `   key facts: ${s.keyFacts.map((f) => `• ${f}`).join(' ')}`,
     )
   })
+  if (proven.length) {
+    lines.push(
+      '',
+      'Posts from this account that did well with its audience, best first. Learn from what worked, such as the angle, the opening line and the length. Do not copy them, and do not reuse their facts:',
+    )
+    for (const p of proven)
+      lines.push(
+        `- ${SERVICE_NAMES[p.service as Service] ?? p.service}, ${p.engagements} interactions${p.views ? `, ${p.views} views` : ''}: "${p.text.replaceAll('\n', ' ')}"`,
+      )
+  }
   lines.push('', `Write ${stories.length * channels.length} posts: every story for every channel.`)
   return lines.join('\n')
 }

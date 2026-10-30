@@ -44,16 +44,17 @@ import type { Service } from './lib/ai/setup'
 import {
   checkPost,
   overBy,
+  provenPosts,
   repairUserMessage,
   SERVICE_LIMITS,
   textLimitFor,
+  type PostDraft,
+  type TargetChannel,
   withLink,
   withoutLink,
   WRITE_SYSTEM,
   WriteResult,
   writeUserMessage,
-  type PostDraft,
-  type TargetChannel,
 } from './lib/ai/write'
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
@@ -289,6 +290,15 @@ export const load = internalQuery({
       )
       .order('desc')
       .take(200)
+    // Sent posts with Buffer's metrics from the last 90 days, for the writer's examples.
+    const sentPosts = (
+      await ctx.db
+        .query('posts')
+        .withIndex('by_user_createdAt', (q) =>
+          q.eq('userId', user._id).gt('createdAt', Date.now() - 90 * 86_400_000),
+        )
+        .collect()
+    ).filter((p) => p.automationId === automation._id && p.status === 'sent' && p.metrics?.length)
     const since = Date.now() - 86_400_000
     const today = await ctx.db
       .query('aiCalls')
@@ -302,6 +312,7 @@ export const load = internalQuery({
       channels: channels.filter((c) => automation.channelIds.includes(c.channelId)),
       covered: covered.map((s) => ({ _id: s._id, title: s.title, canonicalUrl: s.canonicalUrl })),
       spentTodayUsd: today.reduce((sum, c) => sum + c.costUsd, 0),
+      proven: provenPosts(sentPosts),
     }
   },
 })
@@ -507,7 +518,7 @@ export const execute = internalAction({
   handler: async (ctx, { runId }) => {
     const loaded = await ctx.runQuery(internal.runs.load, { runId })
     if (!loaded) return null
-    const { run, automation, playbook, user, channels, covered, spentTodayUsd } = loaded
+    const { run, automation, playbook, user, channels, covered, spentTodayUsd, proven } = loaded
     const dry = run.kind === 'dry'
     const say = (step: string, note: string, status?: string) =>
       ctx.runMutation(internal.runs.logStep, { runId, step, note, status })
@@ -683,7 +694,7 @@ export const execute = internalAction({
       // Write.
       await say(
         'write',
-        `Writing ${keep.length * usable.length} ${keep.length * usable.length === 1 ? 'post' : 'posts'}.`,
+        `Writing ${keep.length * usable.length} ${keep.length * usable.length === 1 ? 'post' : 'posts'}.${proven.length ? ` Learning from your ${proven.length} best ${proven.length === 1 ? 'post' : 'posts'} so far.` : ''}`,
         'writing',
       )
       const targets: TargetChannel[] = usable.map((c) => ({
@@ -697,7 +708,7 @@ export const execute = internalAction({
         effort: 'medium',
         maxTokens: STRUCTURED_MAX_TOKENS,
         system: WRITE_SYSTEM,
-        user: writeUserMessage(playbook, keep, targets),
+        user: writeUserMessage(playbook, keep, targets, proven),
         schema: WriteResult,
       })
       await record(ctx, runId, 'write', written.record)

@@ -5,6 +5,7 @@ import {
   limitFor,
   nameMatchesHost,
   overBy,
+  provenPosts,
   withLink,
   withoutLink,
   writeUserMessage,
@@ -209,5 +210,46 @@ describe('crediting the outlet of the link', () => {
     expect(ok('Antonelli won, citing Reuters.')).toBe(false)
     expect(ok('Antonelli won, per aljazeera.com.')).toBe(true)
     expect(ok('He told Reuters he was happy.')).toBe(false)
+  })
+})
+
+describe('learning from posts that did well', () => {
+  const post = (text: string, metrics: { type: string; value: number }[]) => ({
+    service: 'twitter',
+    text,
+    metrics: metrics.map((m) => ({ ...m, unit: 'count' })),
+  })
+
+  it('ranks by interactions, breaks ties on views, and needs three posts with numbers', () => {
+    const posts = [
+      post('quiet', [{ type: 'impressions', value: 900 }]),
+      post('liked', [
+        { type: 'likes', value: 12 },
+        { type: 'impressions', value: 300 },
+        { type: 'engagement_rate', value: 4 },
+      ]),
+      post('shared', [
+        { type: 'reposts', value: 5 },
+        { type: 'likes', value: 7 },
+        { type: 'impressions', value: 500 },
+      ]),
+      post('no numbers', []),
+    ]
+    expect(provenPosts(posts).map((p) => p.text)).toEqual(['shared', 'liked', 'quiet'])
+    expect(provenPosts(posts)[1]).toMatchObject({ engagements: 12, views: 300 })
+    expect(provenPosts(posts.slice(1))).toEqual([])
+  })
+
+  it('shows them to the writer as examples, not as stories', () => {
+    const text = writeUserMessage(
+      playbook,
+      [],
+      [x],
+      [{ service: 'twitter', text: 'Line one\nline two', engagements: 12, views: 300 }],
+    )
+    expect(text).toContain('did well with its audience')
+    expect(text).toContain('Do not copy them')
+    expect(text).toContain('- X, 12 interactions, 300 views: "Line one line two"')
+    expect(writeUserMessage(playbook, [], [x])).not.toContain('did well')
   })
 })
