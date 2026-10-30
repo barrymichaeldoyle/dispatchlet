@@ -11,7 +11,13 @@ import {
 } from './_generated/server'
 import { SetupAnswers, type Service } from './lib/ai/setup'
 import { SERVICE_LIMITS } from './lib/ai/write'
-import { allowanceFor, automationCap, generationsPerDay } from './lib/limits'
+import {
+  allowanceFor,
+  automationCap,
+  generationsPerDay,
+  runsPerMinute,
+  scheduleSpreadMinutes,
+} from './lib/limits'
 import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
 import { nextRunAt, type Cadence } from './lib/schedule'
 import { cadenceValidator, setupValidator } from './schema'
@@ -60,6 +66,36 @@ export async function automationOf(
   return automation
 }
 
+const MINUTE = 60_000
+
+/**
+ * The time a run actually starts. Runs keep their set time unless that minute already holds
+ * `runsPerMinute()` others; then the run takes the next minute with room, up to
+ * `scheduleSpreadMinutes()` later, so a popular time like 08:00 doesn't send every run to the AI
+ * at once. Within a minute, runs are spaced evenly. Exported for tests.
+ */
+export async function spreadStart(
+  ctx: MutationCtx,
+  self: Id<'automations'>,
+  wanted: number,
+): Promise<number> {
+  const perMinute = Math.max(1, runsPerMinute())
+  const spread = scheduleSpreadMinutes()
+  const booked = await ctx.db
+    .query('automations')
+    .withIndex('by_nextRunAt', (q) =>
+      q.gte('nextRunAt', wanted).lt('nextRunAt', wanted + (spread + 1) * MINUTE),
+    )
+    .collect()
+  const others = booked.filter((a) => a._id !== self && a.status === 'active')
+  for (let minute = 0; minute <= spread; minute++) {
+    const from = wanted + minute * MINUTE
+    const taken = others.filter((a) => a.nextRunAt! >= from && a.nextRunAt! < from + MINUTE).length
+    if (taken < perMinute) return from + Math.round((taken * MINUTE) / perMinute)
+  }
+  return wanted + spread * MINUTE
+}
+
 /**
  * Books the next run in the user's zone and remembers the scheduled function so a pause or an
  * edit can cancel it. Only active automations are booked.
@@ -74,7 +110,11 @@ export async function scheduleNext(
     await ctx.db.patch(automation._id, { scheduledFnId: undefined, nextRunAt: undefined })
     return
   }
-  const at = nextRunAt(automation.cadence as Cadence, automation.timezone, after)
+  const at = await spreadStart(
+    ctx,
+    automation._id,
+    nextRunAt(automation.cadence as Cadence, automation.timezone, after),
+  )
   const scheduledFnId = await ctx.scheduler.runAt(at, internal.runs.start, {
     automationId: automation._id,
   })

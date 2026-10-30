@@ -36,3 +36,13 @@ export function generationsPerDay(): number {
 export function globalDailyCapUsd(): number {
   return num('GLOBAL_DAILY_USD_CAP', 15)
 }
+
+/** Scheduled runs that may start in the same minute before later ones move to the next minute. */
+export function runsPerMinute(): number {
+  return num('SCHEDULE_RUNS_PER_MINUTE', 4)
+}
+
+/** The furthest a scheduled run moves from its set time when that time is busy. */
+export function scheduleSpreadMinutes(): number {
+  return num('SCHEDULE_SPREAD_MINUTES', 30)
+}

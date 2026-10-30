@@ -424,3 +424,24 @@ describe('failures on the AI side', () => {
     expect(user?.freeDryRunsUsed).toBe(1)
   })
 })
+
+describe('spreading scheduled runs', () => {
+  it('keeps the set time when nobody else runs then, and spreads a busy minute', async () => {
+    const { scheduleNext } = await import('./automations')
+    const t = convexTest(schema, modules)
+    const ids: Id<'automations'>[] = []
+    for (let i = 0; i < 6; i++) ids.push((await seed(t)).automationId)
+    const book = (id: Id<'automations'>) =>
+      t.run(async (ctx) => {
+        await scheduleNext(ctx, (await ctx.db.get(id))!)
+        return (await ctx.db.get(id))!.nextRunAt!
+      })
+    const first = await book(ids[0]!)
+    expect(new Date(first).toISOString()).toMatch(/T08:00:00\.000Z$/)
+    // Booking it again doesn't count itself.
+    expect(await book(ids[0]!)).toBe(first)
+    const rest = []
+    for (const id of ids.slice(1)) rest.push(((await book(id)) - first) / 1000)
+    expect(rest).toEqual([15, 30, 45, 60, 75])
+  })
+})

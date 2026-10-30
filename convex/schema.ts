@@ -150,7 +150,9 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  }).index('by_user', ['userId']),
+  })
+    .index('by_user', ['userId'])
+    .index('by_nextRunAt', ['nextRunAt']),
   /** Every saved playbook, newest version highest. A run keeps the version it started with. */
   playbookVersions: defineTable({
     automationId: v.id('automations'),
