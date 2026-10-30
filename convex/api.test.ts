@@ -808,10 +808,8 @@ describe('a run whose only channel is locked in Buffer', () => {
     try {
       const { t, userId, automationId, call } = await account(convexTest(schema, modules))
       await t.run(async (ctx) => {
-        const channel = await ctx.db
-          .query('bufferChannels')
-          .withIndex('by_user', (q) => q.eq('userId', userId))
-          .first()
+        const channels = await ctx.db.query('bufferChannels').collect()
+        const channel = channels.find((c) => c.userId === userId)
         await ctx.db.patch(channel!._id, { usable: false, problem: 'locked' })
       })
       const res = await call(`/automations/${automationId}/runs`, {
