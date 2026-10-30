@@ -128,7 +128,7 @@ export function AppHome() {
         </div>
       </dl>
       {drafts.length ? (
-        <section className="app-section">
+        <section className="app-section is-plain">
           <h2>Waiting for a yes</h2>
           <ul className="app-drafts">
             {drafts.slice(0, 6).map((d) => (
@@ -527,7 +527,6 @@ function BufferConnection() {
         : connection.canRefresh
           ? 'Connected with posting access. The access renews itself.'
           : 'Connected with posting access, but Buffer did not issue a refresh token, so it lasts about an hour.'
-  const budget = connection?.budget
   return (
     <section className="app-section app-connection" aria-labelledby="connection-title">
       <h2 id="connection-title">Buffer</h2>
@@ -581,18 +580,6 @@ function BufferConnection() {
           </button>
         </div>
       ) : null}
-      {budget && budget.length > 0 ? (
-        <p className="app-muted app-budget">
-          Buffer API calls left:{' '}
-          {budget
-            .map(
-              (window) =>
-                `${Math.max(window.remaining, 0)} of ${window.limit} per ${WINDOW_NAMES[window.name] ?? window.name}`,
-            )
-            .join(', ')}
-          .
-        </p>
-      ) : null}
       {error ? (
         <p className="app-connection-error" role="alert">
           {error}
@@ -645,6 +632,34 @@ function Usage() {
 }
 
 /** Only the owner sees this: this month across every account. */
+/**
+ * Buffer's call budget for the app, which every account shares (Buffer limits per app client).
+ * An operations figure for the owner, so it lives in the owner-only card.
+ */
+function BufferBudget() {
+  const connection = useQuery(api.buffer.myConnection)
+  const budget = connection?.budget
+  if (!budget?.length) return null
+  return (
+    <>
+      <h3 className="app-subhead">Buffer API calls left</h3>
+      <table className="app-table app-usage app-budget-table">
+        <tbody>
+          {budget.map((w) => (
+            <tr key={w.name}>
+              <th>Per {WINDOW_NAMES[w.name] ?? w.name}</th>
+              <td className="tabular">
+                {Math.max(w.remaining, 0).toLocaleString('en-US')} of{' '}
+                {w.limit.toLocaleString('en-US')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  )
+}
+
 function OwnerTotals() {
   const t = useQuery(api.users.ownerTotals)
   if (!t) return null
@@ -691,6 +706,7 @@ function OwnerTotals() {
           </tr>
         </tbody>
       </table>
+      <BufferBudget />
       <p className="app-muted">Only you see this. It is what pricing will be worked out from.</p>
     </section>
   )

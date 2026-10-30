@@ -5898,3 +5898,144 @@ header nav button {
 .app-gate .setup-hint {
   margin-top: 10px;
 }
+
+/*
+ * Cards (Barry, 2026-10-30): page content sits in cards so sections read as units, instead of
+ * running together between horizontal rules. Rules stay only inside a card, between the rows of
+ * one list. Replaces SPEC §23.3's no-cards rule for the app.
+ */
+:root {
+  --radius-card: 12px;
+  --radius-control: 8px;
+}
+
+.app-gate .app-section {
+  margin: 0 0 16px;
+  padding: 20px 24px 24px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+}
+.app-gate .app-section > h2 {
+  margin-bottom: 12px;
+}
+/* A section whose items are cards already (drafts, posts) keeps its heading on the page. */
+.app-gate .app-section.is-plain {
+  padding: 8px 0 0;
+  border: 0;
+  background: none;
+}
+
+/* The figures at the top of home and an automation: one card, the four values in a row. */
+.app-gate .app-stats {
+  margin: 16px 0 24px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+  overflow: hidden;
+}
+.app-gate .app-stats > div,
+.app-gate .app-stats > div + div {
+  padding: 16px 20px;
+}
+
+/* Lists that live in a card: the last row needs no line under it. */
+.app-gate .app-section .app-rows > li:last-child,
+.app-gate .app-section .app-runs > li:last-child,
+.app-gate .app-section .app-stories > li:last-child,
+.app-gate .app-section .app-choices > li:last-child,
+.app-gate .app-section .app-table tr:last-child > td,
+.app-gate .app-section .app-hooks > li:last-child {
+  border-bottom: 0;
+}
+.app-gate .app-section .app-hooks > li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.app-gate .app-section .app-choices {
+  margin-bottom: 16px;
+}
+.app-gate .app-section .app-choices:last-child {
+  margin-bottom: 0;
+}
+
+/* Tinted rows inside a card are rounded so they sit inside its corners. */
+.app-gate .app-stories li[data-kept='true'],
+.app-gate .app-choices li[data-checked='true'] {
+  border-radius: var(--radius-control);
+}
+
+/* The run log is a card of its own. */
+.app-gate .app-run {
+  padding: 8px 24px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  background: var(--color-card);
+  overflow: hidden;
+}
+
+/* Cards that already were: the same corners. */
+.app-gate .app-draft,
+.app-gate .setup-choice,
+.app-gate .app-reveal {
+  border-radius: var(--radius-card);
+}
+
+/* Controls soften to match the cards. */
+.app-gate-primary,
+.app-gate-secondary,
+.app-gate-danger,
+.app-buffer-link,
+.app-gate .app-select,
+.app-gate input[type='text'],
+.app-gate input[type='url'],
+.app-gate input[type='password'],
+.app-gate input:not([type]),
+.app-gate textarea,
+.app-gate select,
+.app-gate .app-snippet,
+.app-gate pre {
+  border-radius: var(--radius-control);
+}
+
+@media (max-width: 640px) {
+  .app-gate .app-section {
+    padding: 16px;
+  }
+  .app-gate .app-run {
+    padding: 4px 16px;
+  }
+}
+
+/* The owner's view of Buffer's shared call budget, as rows rather than one long sentence. */
+.app-budget-table td.tabular {
+  text-align: right;
+}
+
+.app-gate .app-subhead {
+  margin: 20px 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Usage tables fill their card, figures right-aligned so the columns line up (SPEC §23.6). */
+.app-gate .app-section .app-usage {
+  width: 100%;
+  max-width: none;
+}
+.app-gate .app-section .app-usage td {
+  text-align: right;
+  padding-right: 0;
+}
+
+/* Tinted story rows sit apart, so two kept stories read as two. */
+.app-gate .app-stories li[data-kept='true'] + li[data-kept='true'] {
+  margin-top: 6px;
+}
+.app-gate .app-stories li[data-kept='true'] {
+  border-bottom: 0;
+}
+/* The seven-day strip's days, rounded like everything around them. */
+.app-gate .app-week > * {
+  border-radius: 4px;
+}

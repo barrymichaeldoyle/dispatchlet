@@ -291,7 +291,7 @@ function RunView({
         </section>
       ) : null}
       {run.posts.length ? (
-        <section className="app-section">
+        <section className="app-section is-plain">
           <h2>Posts</h2>
           <ul className="app-drafts">
             {run.posts.map((p) => {
