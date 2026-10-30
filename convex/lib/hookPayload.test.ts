@@ -23,7 +23,19 @@ describe('inbound hook bodies', () => {
         },
       },
     })
-    expect(mapHookBody('release', { action: 'created', release: {} }).ok).toBe(false)
+    expect(mapHookBody('release', { action: 'created', release: {} })).toEqual({
+      ok: true,
+      body: {},
+      ack: true,
+    })
+    expect(mapHookBody('release', { action: 'released', release: { name: 'v1' } })).toEqual({
+      ok: true,
+      body: {},
+      ack: true,
+    })
+    expect(
+      mapHookBody('release', { action: 'published', release: { name: 'v2-rc', prerelease: true } }),
+    ).toEqual({ ok: true, body: {}, ack: true })
     expect(mapHookBody('push', {}).ok).toBe(false)
     expect(mapHookBody('ping', { zen: 'x' })).toEqual({ ok: true, body: {}, ack: true })
   })

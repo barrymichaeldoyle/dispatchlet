@@ -38,15 +38,15 @@ export function mapHookBody(githubEvent: string | null, body: unknown): Mapped {
         ok: false,
         message: `GitHub event "${githubEvent}" is not handled. Send only release events.`,
       }
-    if (obj.action !== 'published' && obj.action !== 'released')
-      return {
-        ok: false,
-        message: `Release "${String(obj.action)}" is ignored. Only published releases start a run.`,
-      }
+    // One release sends created, published and (for a full release) released. Only published
+    // starts a run; the others are answered quietly so GitHub's delivery log stays green.
+    if (obj.action !== 'published') return { ok: true, body: {}, ack: true }
     const release =
       obj.release !== null && typeof obj.release === 'object'
         ? (obj.release as Record<string, unknown>)
         : {}
+    // Pre-releases are not announcements; the docs promise they start nothing.
+    if (release.prerelease === true) return { ok: true, body: {}, ack: true }
     const repo =
       obj.repository !== null && typeof obj.repository === 'object'
         ? (obj.repository as Record<string, unknown>)
