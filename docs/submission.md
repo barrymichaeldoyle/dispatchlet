@@ -43,20 +43,23 @@ writing: what is new, what is a repeat from another outlet, and when to post not
 
 **Next.** Images for visual channels, metrics feeding back into the playbook, team approvals.
 
-## Demo video (target 1:55)
+## Demo video (target 1:45, hard limit 2:00)
+
+Aim for 1:45 so a slow take still lands under 2:00. Cut the sped-up setup first if it runs long.
 
 0:00 Title card: Dispatchlet. "An agent that researches and writes your Buffer posts."
-0:05 Over the GrandPrixPicks X account: "I post F1 news every day. I didn't want to research it
+0:04 Over the GrandPrixPicks X account: "I post F1 news every day. I didn't want to research it
 every day, so I wrote a script. This is that script for anyone with Buffer."
-0:15 Sign in with Buffer, Buffer's consent screen, back in Dispatchlet with channels listed.
-0:25 The seven questions for Good News Today (sped up 2x). Create playbook; it appears with the
+0:12 Sign in with Buffer, Buffer's consent screen, back in Dispatchlet with channels listed.
+0:20 The seven questions for Good News Today (sped up 3x). Create playbook; it appears with the
 sources it found, and a dry run starts on its own.
-0:45 The live log: stories found, one already covered, posts written for X and LinkedIn.
-1:05 Enable: daily at 08:00. Run now. Cut to Buffer: the drafts are there with the Dispatchlet tag.
-1:20 Back in Dispatchlet: edit a draft, approve it; Buffer shows it in the queue.
-1:30 claude.ai with the Dispatchlet connector: "What did Good News Today post this week, and is
-anything waiting?" Claude lists the draft; "Approve it." It moves into the queue.
-1:48 End card: "Built on the Buffer API: OAuth, channels, createPost, editPost, tags, posting
+0:35 The live log: stories found, one already covered, posts written for X and LinkedIn.
+0:52 Enable: daily at 08:00. Run now. Cut to Buffer: the drafts are there with the Dispatchlet tag.
+1:05 Back in Dispatchlet: edit a draft, approve it; Buffer shows it in the queue.
+1:15 claude.ai with the Dispatchlet connector: "Is anything waiting for Good News Today?" Claude
+lists the draft; "Approve it." It moves into the queue.
+1:38 End card: "Built on the Buffer API: OAuth, channels, createPost, editPost, tags, posting
 limits, metrics. Works in claude.ai through MCP."
+1:45 End.
 
 Record at 1440x900 in light mode, with the Good News Today account on a personal X and LinkedIn.
