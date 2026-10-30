@@ -158,4 +158,21 @@ export const FIXTURES: Fixture[] = [
     mustGetRight:
       'Slow-news check: most days nothing new; the run should post 0 or 1, say why, and not repeat or pad',
   },
+  {
+    id: 11,
+    answers: {
+      research:
+        "Other builders' Buffer Commit hackathon projects: build-in-public posts, demos and write-ups about what they are making with the Buffer API",
+      services: ['twitter', 'linkedin'],
+      avoid:
+        'Dispatchlet itself, guesses about judging or winners, posts that do not name the builder',
+      sources: ['buffer.com', 'bsky.app', 'dev.to', 'github.com', 'linkedin.com'],
+      onlyTheseSources: false,
+      cadence: { preset: 'daily', time: '09:00', weekday: null },
+      maxStories: 3,
+      postingMode: 'draft',
+    },
+    mustGetRight:
+      'Credits the builder by name and links their own post or repo; never presents their project as Dispatchlet; nothing about judging',
+  },
 ]
