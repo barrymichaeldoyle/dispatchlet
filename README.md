@@ -67,7 +67,8 @@ refresh token revokes the grant. `account`, `channels`,
 `configuration` and `dailyPostingLimits` for setup and pre-flight. `createPost`
 with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for X
 threads and LinkedIn, Threads and Bluesky link cards. `editPost` to change a
-draft's text and to promote it into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `posts`
+draft's text and to promote it into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `createIdea` to save a story that
+missed the cut to the Ideas board. `posts`
 for status once an hour and `post` for metrics once a day. Every call is
 reserved against the rate-limit budget Buffer reports in its headers.
 

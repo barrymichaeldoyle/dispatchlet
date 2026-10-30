@@ -27,11 +27,12 @@ software company, a charity.
 dry run straight away. On schedule it reads your sources, searches the web, skips what you have
 already posted, writes a post for each channel within its limit, credits the outlet it links to,
 and puts the posts in Buffer as drafts or in your queue. You can edit and approve drafts from the
-app, the email or a chat. Every run logs what it searched, kept and skipped, and why.
+app, the email or a chat. Every run logs what it searched, kept and skipped, and why. Stories that missed the cut can go to
+your Buffer Ideas, and the writer learns from your best-performing posts.
 
 **Built on the Buffer API.** OAuth with rotating refresh tokens, `channels` and
 `dailyPostingLimits` before every run, `createPost` in its three modes, `editPost` to change and
-approve drafts, `createTag`, and `posts` for status, deletions and metrics. Every call is reserved
+approve drafts, `createTag`, `createIdea`, and `posts` for status, deletions and metrics. Every call is reserved
 against Buffer's rate limits.
 
 **Open to other tools.** A REST API, signed webhooks (Buffer has none, so they also tell
@@ -41,7 +42,7 @@ Claude can run research and approve drafts beside Buffer's own connector.
 **What I learned.** A run costs about 6 cents and two minutes. The hard part is judgement, not
 writing: what is new, what is a repeat from another outlet, and when to post nothing.
 
-**Next.** Images for visual channels, metrics feeding back into the playbook, team approvals.
+**Next.** Images for visual channels, team approvals.
 
 ## Demo video (target 1:45, hard limit 2:00)
 

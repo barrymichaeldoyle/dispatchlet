@@ -319,6 +319,16 @@ function Home() {
               </p>
             </details>
             <details>
+              <summary>Does it get better over time?</summary>
+              <p>
+                <BrandText>
+                  Yes. Once a few posts have gone out, it reads how each did in Buffer and writes
+                  more like the ones your audience liked. Good stories it didn’t post can go to your
+                  Buffer Ideas board, so you can use them later.
+                </BrandText>
+              </p>
+            </details>
+            <details>
               <summary>Which channels does it support?</summary>
               <p>
                 <BrandText>

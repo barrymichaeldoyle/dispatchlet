@@ -721,3 +721,55 @@ describe('editing a draft', () => {
     expect((await res.json()).error.message).toContain('Only a draft')
   })
 })
+
+describe('saving a story to Buffer Ideas', () => {
+  async function withStory(decision: string) {
+    const ctx = await account(convexTest(schema, modules))
+    const storyId = await ctx.t.run(async (db) => {
+      const runId = await db.db.insert('runs', {
+        userId: ctx.userId,
+        automationId: ctx.automationId,
+        kind: 'dry',
+        status: 'done',
+        startedAt: Date.now(),
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      })
+      return await db.db.insert('stories', {
+        automationId: ctx.automationId,
+        runId,
+        title: 'A story',
+        canonicalUrl: 'https://example.com/a',
+        source: 'example.com',
+        publishedAt: '2026-10-30',
+        summary: 's',
+        whyItMatters: 'w',
+        keyFacts: [],
+        confidence: 0.9,
+        decision,
+        reason: 'r',
+        createdAt: Date.now(),
+      })
+    })
+    return { ...ctx, storyId }
+  }
+
+  it('refuses a story that was posted', async () => {
+    const { call, storyId } = await withStory('kept')
+    const res = await call(`/stories/${storyId}/idea`, { method: 'POST' })
+    expect(res.status).toBe(400)
+  })
+
+  it('asks for a reconnect when the Buffer connection has no Ideas access', async () => {
+    const { call, storyId } = await withStory('dry')
+    const res = await call(`/stories/${storyId}/idea`, { method: 'POST' })
+    expect(res.status).toBe(403)
+    expect((await res.json()).error.message).toMatch(/Reconnect Buffer/)
+  })
+
+  it('answers 404 for an unknown story', async () => {
+    const { call } = await withStory('dry')
+    expect((await call('/stories/nope/idea', { method: 'POST' })).status).toBe(404)
+  })
+})

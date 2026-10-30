@@ -37,7 +37,7 @@ function siteUrl(): string {
   return process.env.SITE_URL ?? 'https://dispatchlet.com'
 }
 
-function idOf<T extends 'automations' | 'runs' | 'posts' | 'webhooks' | 'inboundHooks'>(
+function idOf<T extends 'automations' | 'runs' | 'posts' | 'stories' | 'webhooks' | 'inboundHooks'>(
   raw: string,
   table: T,
 ): Id<T> {
@@ -327,6 +327,14 @@ route('POST', '/posts/:id/approve', 'write', async (ctx, caller, { id }) => {
   })
   const post = await ctx.runQuery(internal.api.fns.post, { userId: caller.userId, postId })
   return jsonResponse(200, { post, message }, { rate: caller.rate })
+})
+
+route('POST', '/stories/:id/idea', 'write', async (ctx, caller, { id }) => {
+  const ideaId = await ctx.runAction(internal.runs.saveIdeaForUser, {
+    userId: caller.userId,
+    storyId: idOf(id!, 'stories'),
+  })
+  return jsonResponse(200, { ideaId, message: 'Saved to Buffer Ideas.' }, { rate: caller.rate })
 })
 
 // --- webhooks (SPEC §44.4)

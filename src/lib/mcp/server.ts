@@ -12,6 +12,7 @@ How to work with it:
 - Runs are started and then polled: run_automation returns at once, get_run with wait_seconds follows it. A run takes one to three minutes.
 - run_automation defaults to a dry run, which sends nothing to Buffer. Pass dry=false only when the person wants posts created.
 - Drafts sit in Buffer until approved; approve_post moves one into the queue. Buffer's own MCP shows the queue itself.
+- A run's stories that were skipped (over the limit or not sure enough) or picked on a dry run can go to the person's Buffer Ideas board with save_idea, to post later.
 - Playbook text has fixed headings (About, Sources, Searches, Post about, Skip, Tone, Formats). update_playbook returns the failing line on a parse error.
 - Everything counts like it does in the app: one run at a time per automation, the person's run allowance, Buffer's limits.`
 
@@ -294,6 +295,17 @@ export function createDispatchletServer(
     },
     ({ post_id, text: body }) =>
       guarded(() => api.send('PATCH', `/posts/${e(post_id)}`, { text: body })),
+  )
+
+  server.registerTool(
+    'save_idea',
+    {
+      title: 'Save a story to Buffer Ideas',
+      description:
+        "Save a story from a run to the person's Ideas board in Buffer, to post later. Only for stories that were skipped or picked on a dry run; story ids come from get_run.",
+      inputSchema: { story_id: z.string() },
+    },
+    ({ story_id }) => guarded(() => api.send('POST', `/stories/${e(story_id)}/idea`, {})),
   )
 
   server.registerTool(

@@ -200,6 +200,7 @@ export const Run = {
             enum: ['kept', 'skipped_dup', 'skipped_quality', 'skipped_limit', 'dry'],
           },
           reason: { type: 'string' },
+          savedAsIdea: { type: 'boolean' },
         },
       },
     },
@@ -569,6 +570,23 @@ export const ROUTES: RouteRef[] = [
         'curl -X POST https://dispatchlet.com/api/v1/posts/k9a…/approve -H "Authorization: Bearer dl_…"',
       response:
         '{ "post": { "_id": "k9a…", "status": "queued", … }, "message": "Added to your Buffer queue." }',
+    },
+  },
+  {
+    method: 'POST',
+    path: '/stories/{id}/idea',
+    scope: 'write',
+    summary: 'Save a story to Buffer Ideas',
+    description:
+      "For a story that was skipped or picked on a dry run. Calls Buffer's createIdea in the automation's organization, with the Dispatchlet tag. Saving twice returns the same idea. Needs a Buffer connection that allowed Ideas; a 403 forbidden means sign in with Buffer again.",
+    response: {
+      type: 'object',
+      properties: { ideaId: { type: 'string' }, message: { type: 'string' } },
+    },
+    example: {
+      request:
+        'curl -X POST https://dispatchlet.com/api/v1/stories/m97…/idea -H "Authorization: Bearer dl_…"',
+      response: '{ "ideaId": "6721…", "message": "Saved to Buffer Ideas." }',
     },
   },
   {

@@ -99,7 +99,10 @@ export function fromAppError(error: unknown): ApiError {
   if (/No (free |dry )?runs left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/Buffer/.test(text) && /did not|refused|lost|ended|Sign in with Buffer/i.test(text))
     return new ApiError(502, 'buffer', text)
-  if (/Too long for|needs some text|Only a draft/i.test(text))
+  if (/Reconnect Buffer in settings/i.test(text)) return new ApiError(403, 'forbidden', text)
+  if (/Ideas board in Buffer is full|Sync your Buffer channels/i.test(text))
+    return new ApiError(409, 'conflict', text)
+  if (/Too long for|needs some text|Only a draft|Only stories that/i.test(text))
     return new ApiError(400, 'invalid', text)
   if (
     /not ready|Pick at least|Between 1 and 3|one short sentence|not a time zone|not one of/i.test(
