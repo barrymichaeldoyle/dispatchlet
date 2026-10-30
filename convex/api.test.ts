@@ -630,8 +630,24 @@ describe('rules from the security review', () => {
   it('deleting an account removes automations, runs, posts and playbooks', async () => {
     const { t, userId, automationId, call } = await account(convexTest(schema, modules))
     await call(`/automations/${automationId}/runs`, { method: 'POST', body: '{"dry":true}' })
+    await t.run((ctx) =>
+      ctx.db.insert('pushSubscriptions', {
+        userId,
+        endpoint: 'https://push.example.com/1',
+        keys: { p256dh: 'p', auth: 'a' },
+        createdAt: Date.now(),
+      }),
+    )
     await t.mutation(internal.users.deleteUserData, { userId })
-    for (const table of ['automations', 'playbookVersions', 'runs', 'posts', 'apiTokens'] as const)
+    const tables = [
+      'automations',
+      'playbookVersions',
+      'runs',
+      'posts',
+      'apiTokens',
+      'pushSubscriptions',
+    ] as const
+    for (const table of tables)
       expect(await t.run((ctx) => ctx.db.query(table).collect()), table).toHaveLength(0)
   })
 })

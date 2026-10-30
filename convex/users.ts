@@ -218,7 +218,13 @@ export const deleteUserData = internalMutation({
     )
     await deleteAll(runs)
     await deleteAll(automations)
-    for (const table of ['apiTokens', 'webhooks', 'webhookDeliveries', 'inboundHooks'] as const)
+    for (const table of [
+      'apiTokens',
+      'webhooks',
+      'webhookDeliveries',
+      'inboundHooks',
+      'pushSubscriptions',
+    ] as const)
       await deleteAll(
         await ctx.db
           .query(table)
