@@ -36,7 +36,7 @@ export const Route = createRootRoute({
           <Wordmark size="md" />
         </a>
         <p className="app-gate-note not-found-code">404</p>
-        <h1>This page isn’t here.</h1>
+        <h1>This page isn’t here</h1>
         <p>
           <BrandText>
             Head back to Dispatchlet to see how a few answers become a day of posts in Buffer.
@@ -52,9 +52,9 @@ export const Route = createRootRoute({
 
 /** Pages that render only in the browser, and what the server shows until their script runs. */
 const CLIENT_ONLY: [RegExp, string][] = [
-  [/^\/app(\/|$)/, 'Signing you in.'],
-  [/^\/oauth\/consent/, 'One moment.'],
-  [/^\/r\//, 'Opening the run.'],
+  [/^\/app(\/|$)/, 'Signing you in'],
+  [/^\/oauth\/consent/, 'One moment'],
+  [/^\/r\//, 'Opening the run'],
 ]
 
 /**

@@ -21,14 +21,11 @@ export function Wordmark({
       width={inline ? undefined : (height * 100) / 24}
       height={inline ? undefined : height}
     >
+      {/* The D's middle is a hole, so the page shows through in light and dark mode alike. */}
       <path
         fill="var(--color-pine)"
-        d="M3 3h11l7 9-7 9H3z"
-        transform="translate(-2.4 1.7) scale(.8)"
-      />
-      <path
-        fill="#fff"
-        d="M6.5 6.5h5.8l4.3 5.5-4.3 5.5H6.5z"
+        fillRule="evenodd"
+        d="M3 3h11l7 9-7 9H3zM6.5 6.5v11h5.8l4.3-5.5-4.3-5.5z"
         transform="translate(-2.4 1.7) scale(.8)"
       />
       <path fill="var(--color-ink)" d="M13.2 7.953h2.412V18.5H13.2v-5.1l1.65-2.1-1.65-2.1z" />

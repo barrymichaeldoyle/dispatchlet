@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test('the app page offers Buffer sign-in and stays out of search', async ({ page, request }) => {
   await page.goto('/app')
-  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toBeEnabled()
   await expect(page.getByText('your Buffer email goes on the launch list')).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
@@ -25,7 +25,7 @@ test('while sign-in finishes, the page names each step', async ({ page }) => {
     }
   })
   await page.goto('/app')
-  await expect(page.getByRole('heading', { name: 'Signing you in.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Signing you in' })).toBeVisible()
   const steps = page.locator('.signin-steps [data-active="true"]')
   await expect(steps).toHaveText('Checking with Buffer.')
   await expect(steps).toHaveText('Reading your account.', { timeout: 3000 })
@@ -41,12 +41,12 @@ test('the launch-list link opens the landing page straight into the demo', async
 
 test('settings sits behind the same sign-in and stays out of search', async ({ page }) => {
   await page.goto('/app/settings')
-  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet' })).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
 })
 
 test('after deleting an account, the sign-in page says so', async ({ page }) => {
   await page.goto('/app?deleted')
-  await expect(page.getByRole('heading', { name: 'Your account is deleted.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your account is deleted' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toBeEnabled()
 })

@@ -177,7 +177,7 @@ test('search and social metadata are rendered on the server', async ({
 test('missing pages return a real 404 and are not indexed', async ({ page }) => {
   const response = await page.goto('/this-page-does-not-exist')
   expect(response?.status()).toBe(404)
-  await expect(page.getByRole('heading', { name: 'This page isn’t here.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'This page isn’t here' })).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0)
   await page.getByRole('link', { name: 'Back to Dispatchlet' }).click()

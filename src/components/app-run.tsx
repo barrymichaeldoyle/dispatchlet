@@ -116,7 +116,7 @@ function SharedRunInner({ token }: { token: string }) {
           <RunView run={run} shared />
         ) : (
           <>
-            <h1>This link is not valid.</h1>
+            <h1>This link is not valid</h1>
             <p>The run may have been unshared, or the link was copied wrongly.</p>
           </>
         )}

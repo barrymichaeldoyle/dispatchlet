@@ -14,7 +14,7 @@ const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
 
 export function AppGate() {
   useEffect(() => registerServiceWorker(), [])
-  if (!convex) return <Screen title="Sign-in is not set up here." />
+  if (!convex) return <Screen title="Sign-in is not set up here" />
   return (
     <ConvexAuthProvider client={convex}>
       <Gate />
@@ -67,11 +67,14 @@ function SigningIn() {
     setShots((value) => [...value, id])
   }
   return (
-    <Screen title="Signing you in.">
+    <Screen title="Signing you in">
       <div className="signin-dispatch" aria-hidden="true" onPointerDown={dispatch}>
         <svg className="signin-mark" width="56" height="56" viewBox="0 0 24 24">
-          <path d="M3 3h11l7 9-7 9H3z" fill="var(--color-pine)" />
-          <path d="M6.5 6.5h5.8l4.3 5.5-4.3 5.5H6.5z" fill="#fff" />
+          <path
+            fillRule="evenodd"
+            d="M3 3h11l7 9-7 9H3zM6.5 6.5v11h5.8l4.3-5.5-4.3-5.5z"
+            fill="var(--color-pine)"
+          />
         </svg>
         <div className="signin-lane">
           {[0, 1, 2].map((index) => (
@@ -129,7 +132,7 @@ function SignIn() {
   const deleted = new URLSearchParams(window.location.search).has('deleted')
   const open = useQuery(api.users.signupOpen)
   return (
-    <Screen title={deleted ? 'Your account is deleted.' : 'Sign in to Dispatchlet.'}>
+    <Screen title={deleted ? 'Your account is deleted' : 'Sign in to Dispatchlet'}>
       {deleted ? (
         <p>
           Everything Dispatchlet held for it is gone, and its access to your Buffer account is
@@ -162,7 +165,7 @@ function SignIn() {
 
 function Waitlisted({ email }: { email: string | null }) {
   return (
-    <Screen title="You’re on the launch list.">
+    <Screen title="You’re on the launch list">
       {email ? (
         <p>
           Thanks for signing in. Dispatchlet isn’t open yet. We’ll email <strong>{email}</strong>{' '}

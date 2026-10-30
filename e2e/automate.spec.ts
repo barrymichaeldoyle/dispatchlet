@@ -53,7 +53,7 @@ test('the consent page asks a signed-out person to sign in, and stays out of sea
   page,
 }) => {
   await page.goto('/oauth/consent?handle=x&client=Claude&redirect=claude.ai')
-  await expect(page.getByRole('heading', { name: 'Sign in to connect Claude.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sign in to connect Claude' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toBeEnabled()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
 })

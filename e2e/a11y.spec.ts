@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test'
 
 // The screens a judge meets before they have an account, in both themes, phone and desktop.
 const PAGES: [string, string][] = [
-  ['/app', 'Sign in to Dispatchlet.'],
-  ['/oauth/consent?handle=x&client=Claude&redirect=claude.ai', 'Sign in to connect Claude.'],
+  ['/app', 'Sign in to Dispatchlet'],
+  ['/oauth/consent?handle=x&client=Claude&redirect=claude.ai', 'Sign in to connect Claude'],
   ['/docs', 'How Dispatchlet works'],
   ['/docs/api', 'The Dispatchlet API'],
   ['/docs/webhooks', 'Webhooks'],

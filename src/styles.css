@@ -19,7 +19,7 @@
   --color-pine: #0f6e56;
   --color-tint: #e3f0eb;
   --color-on-pine: #f4f4f1;
-  --color-card: #fbfbf9;
+  --color-card: #ffffff;
   --color-danger: #a8261c;
   --color-on-danger: #fff;
 }
@@ -33,7 +33,7 @@
     --color-pine: #5cc9a8;
     --color-tint: #1a2a25;
     --color-on-pine: #161616;
-    --color-card: #1d1d1c;
+    --color-card: #1f1f1e;
     --color-danger: #ff8a7f;
     --color-on-danger: #161616;
     color-scheme: dark;
@@ -52,7 +52,7 @@
   --color-pine: #5cc9a8;
   --color-tint: #1a2a25;
   --color-on-pine: #161616;
-  --color-card: #1d1d1c;
+  --color-card: #1f1f1e;
   --color-danger: #ff8a7f;
   --color-on-danger: #161616;
   color-scheme: dark;
@@ -5924,9 +5924,43 @@ header nav button {
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-card);
   background: var(--color-card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
 }
 .app-gate .app-section > h2 {
   margin-bottom: 12px;
+  color: var(--color-pine);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+/* Delete account: the one section that removes everything, set apart in the danger colour. */
+.app-gate .app-section.is-danger {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-rule));
+}
+.app-gate .app-section.is-danger > h2 {
+  color: var(--color-danger);
+}
+.app-gate-danger-outline {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 15px;
+  font-weight: 500;
+  transition: background-color 150ms ease-out;
+}
+.app-gate-danger-outline:hover {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+.app-danger-note {
+  flex-basis: 100%;
+  margin: 0 0 4px;
+  color: var(--color-danger);
+  font-weight: 500;
 }
 /* A section whose items are cards already (drafts, posts) keeps its heading on the page. */
 .app-gate .app-section.is-plain {

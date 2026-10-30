@@ -1,7 +1,7 @@
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Link } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { describeCadence } from '../../convex/lib/schedule'
@@ -24,6 +24,7 @@ import {
   whenIn,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
+import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
 
 export function SignOut() {
   const { signOut } = useAuthActions()
@@ -107,7 +108,7 @@ export function AppHome() {
   return (
     <>
       <div className="app-home-head">
-        <h1>{firstName ? `Welcome back, ${firstName}.` : 'Welcome back.'}</h1>
+        <h1>{firstName ? `Welcome back, ${firstName}` : 'Welcome back'}</h1>
         <Link to="/app/new" className="app-gate-primary">
           New automation
         </Link>
@@ -415,7 +416,7 @@ type Viewer = NonNullable<ReturnType<typeof useQuery<typeof api.users.viewer>>>
 function EmptyHome({ firstName, viewer }: { firstName: string | undefined; viewer: Viewer }) {
   return (
     <div className="app-empty">
-      <h1>{firstName ? `Welcome, ${firstName}.` : 'Welcome.'}</h1>
+      <h1>{firstName ? `Welcome, ${firstName}` : 'Welcome'}</h1>
       <p className="app-empty-lead">Your first automation takes about three minutes.</p>
       <ol className="app-empty-steps">
         <li>
@@ -453,6 +454,7 @@ const SETTINGS_SECTIONS = [
   ['buffer', 'Buffer'],
   ['usage', 'Usage'],
   ['notifications', 'Notifications'],
+  ['appearance', 'Appearance'],
   ['anthropic', 'Anthropic key'],
   ['timezone', 'Time zone'],
   ['api', 'API tokens'],
@@ -557,7 +559,7 @@ export function AppSettings() {
   if (!viewer) return null
   return (
     <>
-      <h1>Settings.</h1>
+      <h1>Settings</h1>
       <div className="settings-layout">
         <SettingsIndex />
         <div className="settings-main">
@@ -586,6 +588,9 @@ export function AppSettings() {
           </Anchor>
           <Anchor id="notifications">
             <EmailPrefs />
+          </Anchor>
+          <Anchor id="appearance">
+            <Appearance />
           </Anchor>
           <Anchor id="anthropic">
             <AnthropicKey
@@ -1173,6 +1178,40 @@ function TimezoneSetting({ value }: { value: string | null }) {
 }
 
 /** Deletes the account after a second, explicit click. No browser dialog. */
+const THEMES: [ThemePreference, string, string][] = [
+  ['system', 'Match this device', 'Light or dark, following your system setting.'],
+  ['light', 'Light', ''],
+  ['dark', 'Dark', ''],
+]
+
+/** Light, dark or the device's choice. Saved in this browser only, like on the home page. */
+function Appearance() {
+  const preference = useSyncExternalStore(subscribeTheme, getPreference, () => null)
+  return (
+    <section className="app-section" aria-labelledby="appearance-title">
+      <h2 id="appearance-title">Appearance</h2>
+      <ul className="app-choices">
+        {THEMES.map(([value, title, detail]) => (
+          <li key={value} data-checked={preference === value}>
+            <label>
+              <input
+                type="radio"
+                name="appearance"
+                checked={preference === value}
+                disabled={preference === null}
+                onChange={() => setTheme(value)}
+              />
+              <span>{title}</span>
+              {detail ? <span className="app-muted">{detail}</span> : null}
+            </label>
+          </li>
+        ))}
+      </ul>
+      <p className="app-muted">Saved in this browser.</p>
+    </section>
+  )
+}
+
 function DeleteAccount() {
   const remove = useAction(api.users.deleteAccount)
   const { signOut } = useAuthActions()
@@ -1180,7 +1219,7 @@ function DeleteAccount() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   return (
-    <section className="app-section" aria-labelledby="delete-title">
+    <section className="app-section is-danger" aria-labelledby="delete-title">
       <h2 id="delete-title">Delete account</h2>
       <p>
         Deletes your Dispatchlet account and everything it holds, and removes Dispatchlet’s access
@@ -1188,6 +1227,9 @@ function DeleteAccount() {
       </p>
       {confirming ? (
         <div className="app-gate-actions">
+          <p className="app-danger-note" role="alert">
+            This can’t be undone. Your automations, runs and settings are deleted for good.
+          </p>
           <button
             type="button"
             className="app-gate-danger"
@@ -1216,7 +1258,11 @@ function DeleteAccount() {
           </button>
         </div>
       ) : (
-        <button type="button" className="app-gate-secondary" onClick={() => setConfirming(true)}>
+        <button
+          type="button"
+          className="app-gate-danger-outline"
+          onClick={() => setConfirming(true)}
+        >
           Delete account
         </button>
       )}

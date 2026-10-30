@@ -424,7 +424,7 @@ export function NewAutomation() {
       <p className="app-crumbs">
         <Link to="/app">Home</Link>
       </p>
-      <h1>New automation.</h1>
+      <h1>New automation</h1>
       <form
         className="setup-form"
         onSubmit={(e) => {
@@ -465,7 +465,7 @@ export function NewAutomation() {
             </div>
           ) : (
             <div className="setup-question setup-done" key="done">
-              <h2 className="setup-title">That’s everything.</h2>
+              <h2 className="setup-title">That’s everything</h2>
               <p className="setup-hint">
                 Check your answers, then create the playbook. It takes about a minute: it reads your
                 sources before it writes.

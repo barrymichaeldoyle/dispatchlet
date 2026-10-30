@@ -10,7 +10,7 @@ const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
 
 export function OAuthConsent() {
-  if (!convex) return <Frame title="Sign-in is not set up here." />
+  if (!convex) return <Frame title="Sign-in is not set up here" />
   return (
     <ConvexAuthProvider client={convex}>
       <Consent />
@@ -49,14 +49,14 @@ function Consent() {
 
   if (!handle)
     return (
-      <Frame title="This link is not complete.">
+      <Frame title="This link is not complete">
         <p>Start connecting again from the app that sent you here.</p>
       </Frame>
     )
-  if (isLoading || (isAuthenticated && viewer === undefined)) return <Frame title="One moment." />
+  if (isLoading || (isAuthenticated && viewer === undefined)) return <Frame title="One moment" />
   if (!isAuthenticated || !viewer)
     return (
-      <Frame title={`Sign in to connect ${client}.`}>
+      <Frame title={`Sign in to connect ${client}`}>
         <p>Use your Buffer account. You will come back here to say yes or no.</p>
         <button
           type="button"
@@ -73,7 +73,7 @@ function Consent() {
     )
   if (!viewer.allowed)
     return (
-      <Frame title="Dispatchlet is not open yet.">
+      <Frame title="Dispatchlet is not open yet">
         <p>You are on the launch list. Connecting an assistant works once your account is in.</p>
       </Frame>
     )
