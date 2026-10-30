@@ -27,7 +27,9 @@ export type Effort = 'low' | 'medium' | 'high'
 
 export function anthropicClient(apiKey = process.env.ANTHROPIC_API_KEY): Anthropic {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
-  return new Anthropic({ apiKey, maxRetries: 2, timeout: 8 * 60_000 })
+  // Busy and rate-limit replies (429, 529) are retried with backoff, which rides out a spike of
+  // runs starting at once; a run that still fails gives its free run back (runs.aiServiceFailure).
+  return new Anthropic({ apiKey, maxRetries: 4, timeout: 8 * 60_000 })
 }
 
 /** What every call records, whatever it was for. */
@@ -47,6 +49,7 @@ export type StructuredCall<T extends z.ZodType> = {
   user: string
   schema: T
   effort: Effort
+  /** Thinking counts against this, so high-effort calls need room: 8,000 cut a research reply mid-JSON. */
   maxTokens: number
   tools?: Anthropic.Beta.BetaToolUnion[]
 }
@@ -119,6 +122,9 @@ function parse<T extends z.ZodType>(client: Anthropic, call: StructuredCall<T>) 
     ...(call.tools ? { tools: call.tools } : {}),
   })
 }
+
+/** Room for thinking plus the JSON on the research, playbook and write calls. Under 21,333, past which the SDK insists on streaming. */
+export const STRUCTURED_MAX_TOKENS = 16_000
 
 /**
  * One model call that must come back as JSON matching `schema`. The system prompt is cached, so

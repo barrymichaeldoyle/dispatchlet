@@ -16,7 +16,13 @@ import {
 } from '../lib/push'
 import { Automate } from './app-api'
 import { StepArt } from './step-art'
-import { bufferChannelUrl, errorText as message, whenIn } from '../lib/format'
+import {
+  bufferChannelUrl,
+  channelProblem,
+  errorText as message,
+  serviceList,
+  whenIn,
+} from '../lib/format'
 import { BusyLabel } from './busy-label'
 
 export function SignOut() {
@@ -646,13 +652,18 @@ function BufferConnection() {
               <ChannelMark channel={SERVICE_NAMES[channel.service] ?? channel.service} size={14} />
               <span>{channel.name}</span>
               {channel.usable ? null : (
-                <span className="app-connection-note">Needs attention in Buffer</span>
+                <span className="app-connection-note">{channelProblem(channel.problem)}</span>
               )}
             </li>
           ))}
         </ul>
       ) : connection ? (
-        <p className="app-muted">No channels synced yet.</p>
+        <p className="app-muted">No text channels synced yet.</p>
+      ) : null}
+      {connection?.otherServices.length ? (
+        <p className="app-muted">
+          {`Dispatchlet can’t post to ${serviceList(connection.otherServices)} yet, so ${connection.otherServices.length === 1 ? 'that channel is' : 'those channels are'} not listed.`}
+        </p>
       ) : null}
       {connection ? (
         <div className="app-gate-actions">

@@ -105,6 +105,7 @@ How to work:
 - You have a small budget of searches and page opens, stated in the brief. Spend it one or two at a time and read what comes back before going on. Do not fire every search at once.
 - Start by opening the source pages marked [open first]: a publisher's own latest-news page lists today's stories with dates, which search engines rarely do. Then run the brief's searches, then anything else reliable the brief allows.
 - When a preferred source does not show up in results, search it directly with site:host and the topic.
+- web_search takes a query, such as site:host and the topic. web_fetch takes a full URL that already appears in this brief, in a search result or in a page you opened. A guessed URL fails, and a query in the wrong tool fails, and both still use up the budget.
 - Open the article itself, not a tag or archive page, when a snippet is not enough to be sure of the facts or the date. A page that fails to open still costs an open; move on rather than retry it.
 - A candidate must be a specific story published or materially updated inside the freshness window. Previews, evergreen explainers, listicles, press releases dressed as news and "sources say" rumours do not count unless the brief asks for them.
 - Prefer primary sources and named journalists. Give the page's own URL, never a search or home page, and never a URL you did not see.

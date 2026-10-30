@@ -381,3 +381,46 @@ describe('the first dry run', () => {
     expect(await t.run((ctx) => ctx.db.query('runs').collect())).toHaveLength(1)
   })
 })
+
+describe('failures on the AI side', () => {
+  it('tells busy and broken replies apart from other errors', async () => {
+    const { aiServiceFailure } = await import('./runs')
+    const withStatus = (status: number, message = 'x') =>
+      Object.assign(new Error(message), { status })
+    expect(aiServiceFailure(withStatus(529))).toMatch(/too busy/)
+    expect(aiServiceFailure(withStatus(429))).toMatch(/too busy/)
+    expect(aiServiceFailure(withStatus(500))).toMatch(/had a problem/)
+    expect(aiServiceFailure(new Error('Failed to parse structured output: x'))).toMatch(/problem/)
+    expect(aiServiceFailure(withStatus(401))).toBeNull()
+    expect(aiServiceFailure(new Error('Buffer said no'))).toBeNull()
+  })
+
+  it('gives a free dry run back once', async () => {
+    const t = convexTest(schema, modules)
+    const { runId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert('users', { email: 'a@example.com', freeDryRunsUsed: 2 })
+      const runId = await ctx.db.insert('runs', {
+        userId,
+        kind: 'dry',
+        status: 'failed',
+        startedAt: 0,
+        steps: [],
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+          webSearches: 0,
+          webFetches: 0,
+        },
+        costUsd: 0,
+        freeRun: true,
+      })
+      return { runId, userId }
+    })
+    await t.mutation(internal.runs.refundFreeRun, { runId })
+    await t.mutation(internal.runs.refundFreeRun, { runId })
+    const user = await t.run((ctx) => ctx.db.get(userId))
+    expect(user?.freeDryRunsUsed).toBe(1)
+  })
+})

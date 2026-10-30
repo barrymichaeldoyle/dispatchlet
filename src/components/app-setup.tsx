@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ChannelMark } from './brand-icons'
 import { TEMPLATES } from '../../convex/lib/templates'
-import { errorText, serviceName } from '../lib/format'
+import { channelProblem, errorText, serviceList, serviceName } from '../lib/format'
 import { BusyLabel } from './busy-label'
 
 const WEEKDAYS = [
@@ -109,6 +109,9 @@ export function NewAutomation() {
   const [error, setError] = useState<string | null>(null)
   const id = useId()
   const channels = (connection?.channels ?? []).filter((c) => c.usable)
+  const blocked = (connection?.channels ?? []).filter((c) => !c.usable)
+  const others = connection?.otherServices ?? []
+  const othersLine = others.length ? `Dispatchlet can’t post to ${serviceList(others)} yet.` : ''
   const set = <K extends keyof Answers>(key: K, value: Answers[K]) =>
     setA((prev) => ({ ...prev, [key]: value }))
 
@@ -168,11 +171,13 @@ export function NewAutomation() {
     {
       label: 'Where should it post?',
       hint: channels.length
-        ? 'Text channels in your Buffer account. Pick as many as you like.'
+        ? `Text channels in your Buffer account. Pick as many as you like. ${othersLine}`.trim()
         : syncing
           ? 'Reading your channels from Buffer.'
           : (syncError ??
-            'No text channels found. Connect X, LinkedIn, Threads, Bluesky or Mastodon in Buffer, then sync again.'),
+            (blocked.length
+              ? 'Buffer won’t let Dispatchlet use these channels yet. Fix them in Buffer, then sync again.'
+              : `${othersLine} Connect X, LinkedIn, Threads, Bluesky or Mastodon in Buffer, then sync again.`.trim())),
       valid: a.channelIds.length > 0,
       body: (
         <div className="setup-blocks">
@@ -206,6 +211,15 @@ export function NewAutomation() {
               <ChannelMark channel={serviceName(c.service)} size={20} />
               {c.name}
             </Block>
+          ))}
+          {blocked.map((c) => (
+            <div key={c.channelId} className="setup-block is-channel" aria-disabled="true">
+              <span className="setup-block-title">
+                <ChannelMark channel={serviceName(c.service)} size={20} />
+                {c.name}
+              </span>
+              <span className="setup-block-detail">{channelProblem(c.problem)}</span>
+            </div>
           ))}
         </div>
       ),

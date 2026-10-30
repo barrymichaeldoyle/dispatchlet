@@ -87,6 +87,8 @@ export default defineSchema({
     lastRateLimitAt: v.optional(v.number()),
     /** Buffer's `pk` for this grant's budget: the same for two accounts if the budget is shared. */
     ratePartition: v.optional(v.string()),
+    /** Networks in the Buffer account that Dispatchlet cannot post to, such as instagram. */
+    otherServices: v.optional(v.array(v.string())),
     /** The "Dispatchlet" tag id in each Buffer organization, created on first publish. */
     tags: v.optional(
       v.array(
@@ -105,6 +107,8 @@ export default defineSchema({
     displayName: v.optional(v.string()),
     avatar: v.optional(v.string()),
     usable: v.boolean(),
+    /** Why it is not usable, from Buffer: disconnected or locked (over the plan's channel limit). */
+    problem: v.optional(v.string()),
     /** The channel's own post limit when Buffer reports one (Premium X, a Mastodon server). */
     maxLength: v.optional(v.number()),
     syncedAt: v.number(),
@@ -189,6 +193,8 @@ export default defineSchema({
     startedBy: v.optional(v.string()),
     /** A story the caller asked this run to cover (API, inbound hook, MCP). */
     hint: v.optional(hintValidator),
+    /** Charged to the free allowance, so a failure on Dispatchlet's side can give it back. */
+    freeRun: v.optional(v.boolean()),
   })
     .index('by_user', ['userId'])
     .index('by_automation_startedAt', ['automationId', 'startedAt'])

@@ -31,8 +31,33 @@ const SERVICE_NAMES: Record<string, string> = {
   mastodon: 'Mastodon',
 }
 
+/** Networks Buffer supports that Dispatchlet cannot post to yet. */
+const OTHER_SERVICE_NAMES: Record<string, string> = {
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  pinterest: 'Pinterest',
+  tiktok: 'TikTok',
+  googlebusiness: 'Google Business Profile',
+  youtube: 'YouTube',
+  startPage: 'Start Page',
+}
+
 export function serviceName(service: string): string {
-  return SERVICE_NAMES[service] ?? service
+  return SERVICE_NAMES[service] ?? OTHER_SERVICE_NAMES[service] ?? service
+}
+
+/** "Instagram", "Instagram or TikTok", "Facebook, Instagram or TikTok". */
+export function serviceList(services: string[]): string {
+  const names = services.map(serviceName)
+  if (names.length < 2) return names.join('')
+  return `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
+}
+
+/** Why Buffer will not let a channel be used, in words. */
+export function channelProblem(problem: string | null): string {
+  if (problem === 'disconnected') return 'Disconnected in Buffer. Reconnect it there, then sync.'
+  if (problem === 'locked') return 'Locked in Buffer, usually by the plan’s channel limit.'
+  return 'Needs attention in Buffer.'
 }
 
 export function errorText(reason: unknown, fallback: string): string {

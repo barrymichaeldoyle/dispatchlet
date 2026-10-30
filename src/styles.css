@@ -3752,6 +3752,15 @@ header nav button {
   outline-color: var(--color-pine);
   background: var(--color-tint);
 }
+/* A channel Buffer won't let Dispatchlet use: shown so its absence isn't a mystery. */
+.setup-block[aria-disabled='true'] {
+  border-style: dashed;
+  background: transparent;
+  cursor: default;
+}
+.setup-block[aria-disabled='true'] .setup-block-title {
+  color: var(--color-muted);
+}
 .setup-block-title {
   display: inline-flex;
   align-items: center;

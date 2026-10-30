@@ -37,15 +37,16 @@ the window, in the commits after it.
    stories to post. Dispatchlet turns the answers into a playbook: sources,
    what counts as news, what to skip, tone, formats and a schedule. Edit it as
    a form or as text.
-3. Dry-run it to see what it would post. Enable it.
+3. A dry run starts on its own, so you see what it would post before anything
+   reaches Buffer. Enable it when you like what you see.
 4. On schedule, it opens the playbook's sources, searches the web, drops
    anything it has already covered or is not sure about, writes a post per
    channel within that channel's limit (and asks once for a shorter version
    when one misses), and creates them in Buffer as drafts, in the queue, or
    spread through the day, with a Dispatchlet tag. Every run is logged live:
    what it searched, what it found, what it skipped and why, and what it cost.
-5. Drafts can be approved from the home page, the run page or with one click
-   from the digest email. Buffer's status and metrics for each post come back
+5. Drafts can be edited and approved from the home page or the run page, or
+   approved with one click from the digest email. Buffer's status and metrics for each post come back
    into the log, and any run can be shared by link.
 
 The app is a sidebar of your automations and channels with the work beside it,
@@ -54,7 +55,8 @@ Screenshots are in `docs/screenshots`.
 
 Every account gets 10 free runs and 3 dry runs on Dispatchlet's Anthropic key.
 Adding your own key in settings lifts the count. Three failed runs in a row
-pause an automation and send an email.
+pause an automation and send an email. A run that fails because the AI service
+was busy or broke gives its free run back.
 
 ## Buffer API surface
 
@@ -63,8 +65,8 @@ time per connection, guarded by a lock in Convex, because reusing a spent
 refresh token revokes the grant. `account`, `channels`,
 `configuration` and `dailyPostingLimits` for setup and pre-flight. `createPost`
 with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for X
-threads and LinkedIn, Threads and Bluesky link cards. `editPost` to promote a
-draft into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `posts`
+threads and LinkedIn, Threads and Bluesky link cards. `editPost` to change a
+draft's text and to promote it into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `posts`
 for status once an hour and `post` for metrics once a day. Every call is
 reserved against the rate-limit budget Buffer reports in its headers.
 

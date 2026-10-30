@@ -22,7 +22,13 @@ import {
   ensureTag,
 } from './buffer'
 import { BufferApiError } from './lib/buffer'
-import { anthropicClient, callStructured, modelFor, type CallRecord } from './lib/ai/client'
+import {
+  anthropicClient,
+  callStructured,
+  modelFor,
+  STRUCTURED_MAX_TOKENS,
+  type CallRecord,
+} from './lib/ai/client'
 import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
   allowedDomains,
@@ -247,6 +253,7 @@ async function beginRun(
     costUsd: 0,
     startedBy: from.startedBy,
     hint: from.hint,
+    freeRun: allowance.ownKey ? undefined : true,
   })
   await ctx.db.patch(automation._id, { lastRunAt: now, updatedAt: now })
   await ctx.scheduler.runAfter(0, internal.runs.execute, { runId })
@@ -533,7 +540,7 @@ export const execute = internalAction({
       const research = await callStructured(client, {
         model: modelFor('research'),
         effort: 'high',
-        maxTokens: 8_000,
+        maxTokens: STRUCTURED_MAX_TOKENS,
         system: RESEARCH_SYSTEM,
         user: researchUserMessage(brief, {
           now: new Date(),
@@ -679,7 +686,7 @@ export const execute = internalAction({
       const written = await callStructured(client, {
         model: modelFor('write'),
         effort: 'medium',
-        maxTokens: 8_000,
+        maxTokens: STRUCTURED_MAX_TOKENS,
         system: WRITE_SYSTEM,
         user: writeUserMessage(playbook, keep, targets),
         schema: WriteResult,
@@ -878,13 +885,13 @@ export const execute = internalAction({
             thread: draft.thread ?? undefined,
             linkAttachment: draft.linkAttachment ?? undefined,
             status: 'held',
-            reason: 'Waiting for Buffer’s API allowance to reset.',
+            reason: 'Waiting for Buffer to accept more posts.',
           })
         }
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'done',
-          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest waited for Buffer’s API allowance, which resets at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}; they will be sent then.`,
+          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting because Buffer is busy, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
         })
         await ctx.scheduler.runAt(held.retryAt + 30_000, internal.runs.sendHeld, { runId })
         return null
@@ -900,7 +907,23 @@ export const execute = internalAction({
       const message = error instanceof Error ? error.message : String(error)
       if (/401|invalid x-api-key|authentication/i.test(message) && user.anthropicKeyEnc)
         await ctx.runMutation(internal.users.markKeyInvalid, { userId: user._id })
-      await fail(message)
+      const ours = aiServiceFailure(error)
+      if (ours && run.freeRun) {
+        await ctx.runMutation(internal.runs.refundFreeRun, { runId })
+        await ctx.runMutation(internal.runs.finish, {
+          runId,
+          status: 'failed',
+          note: `${ours} This run did not use one of your free runs.`,
+          error: message,
+        })
+      } else if (ours) {
+        await ctx.runMutation(internal.runs.finish, {
+          runId,
+          status: 'failed',
+          note: ours,
+          error: message,
+        })
+      } else await fail(message)
     }
     return null
   },
@@ -1254,5 +1277,44 @@ export const approve = action({
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
     return await ctx.runAction(internal.approvals.approveForUser, { userId, postId })
+  },
+})
+
+/**
+ * A failure on the AI side rather than the person's: Anthropic busy, rate limited or down, or a
+ * reply that would not parse. Returns the note to show, or null when the error is something else.
+ */
+export function aiServiceFailure(error: unknown): string | null {
+  const status =
+    typeof error === 'object' && error !== null && 'status' in error
+      ? Number((error as { status: unknown }).status)
+      : NaN
+  const message = error instanceof Error ? error.message : String(error)
+  if (status === 401 || status === 403) return null
+  if (status === 429 || status === 529 || /overloaded/i.test(message))
+    return 'The AI service was too busy to finish this run. Try again in a few minutes.'
+  if (status >= 500 || /Failed to parse structured output/.test(message))
+    return 'The AI service had a problem and the run stopped. Try again in a few minutes.'
+  return null
+}
+
+/** Gives back the free run a failed run was charged, once. */
+export const refundFreeRun = internalMutation({
+  args: { runId: v.id('runs') },
+  returns: v.null(),
+  handler: async (ctx, { runId }) => {
+    const run = await ctx.db.get(runId)
+    if (!run?.freeRun || !run.userId) return null
+    const user = await ctx.db.get(run.userId)
+    if (user) {
+      await ctx.db.patch(
+        user._id,
+        run.kind === 'dry'
+          ? { freeDryRunsUsed: Math.max(0, (user.freeDryRunsUsed ?? 0) - 1) }
+          : { freeRunsUsed: Math.max(0, (user.freeRunsUsed ?? 0) - 1) },
+      )
+    }
+    await ctx.db.patch(runId, { freeRun: undefined })
+    return null
   },
 })

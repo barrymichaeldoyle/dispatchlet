@@ -4,7 +4,7 @@ import type { Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { FIXTURES } from './evals/setupAnswers'
 import { usageValidator } from './schema'
-import { anthropicClient, callStructured, modelFor } from './lib/ai/client'
+import { anthropicClient, callStructured, modelFor, STRUCTURED_MAX_TOKENS } from './lib/ai/client'
 import { addUsage, EMPTY_USAGE } from './lib/ai/pricing'
 import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import {
@@ -58,7 +58,7 @@ export const researchEval = internalAction({
     fixtureId: v.number(),
     timezone: v.optional(v.string()),
     full: v.optional(v.boolean()),
-    /** Also write the posts for the kept candidates, against an X and a LinkedIn channel. */
+    /** Also write the posts for the kept candidates, one test channel per fixture network. */
     write: v.optional(v.boolean()),
   },
   returns: v.object({
@@ -92,7 +92,7 @@ export const researchEval = internalAction({
         const generated = await callStructured(client, {
           model: modelFor('playbook'),
           effort: 'high',
-          maxTokens: 8_000,
+          maxTokens: STRUCTURED_MAX_TOKENS,
           system: GENERATE_SYSTEM,
           user: generateUserMessage(
             fixture.answers,
@@ -125,7 +125,7 @@ export const researchEval = internalAction({
       const { output, record, toolErrors } = await callStructured(client, {
         model: modelFor('research'),
         effort: 'high',
-        maxTokens: 8_000,
+        maxTokens: STRUCTURED_MAX_TOKENS,
         system: RESEARCH_SYSTEM,
         user: researchUserMessage(brief, { now: new Date(), timezone, covered: [] }),
         schema: ResearchResult,
@@ -140,14 +140,17 @@ export const researchEval = internalAction({
         const kept = output.candidates
           .filter((c) => c.confidence >= 0.5)
           .slice(0, fixture.answers.maxStories)
-        const targets: TargetChannel[] = [
-          { channelId: 'x', service: 'twitter', name: 'X test', maxLength: null },
-          { channelId: 'li', service: 'linkedin', name: 'LinkedIn test', maxLength: null },
-        ]
+        // One test channel per network the fixture posts to, so length and style rules are real.
+        const targets: TargetChannel[] = fixture.answers.services.map((service) => ({
+          channelId: service,
+          service,
+          name: `${service} test`,
+          maxLength: null,
+        }))
         const written = await callStructured(client, {
           model: modelFor('write'),
           effort: 'medium',
-          maxTokens: 8_000,
+          maxTokens: STRUCTURED_MAX_TOKENS,
           system: WRITE_SYSTEM,
           user: writeUserMessage(playbook, kept, targets),
           schema: WriteResult,

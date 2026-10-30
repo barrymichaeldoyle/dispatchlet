@@ -212,3 +212,40 @@ describe('losing Buffer access', () => {
     }
   })
 })
+
+describe('channel sync results', () => {
+  it('keeps why a channel is unusable and which networks Dispatchlet cannot post to', async () => {
+    const { t, userId } = await setup()
+    const channel = {
+      organizationId: 'org',
+      channelId: 'c1',
+      service: 'twitter',
+      name: 'locked one',
+      usable: false,
+      problem: 'locked',
+    }
+    await t.mutation(internal.buffer.saveChannels, {
+      userId,
+      channels: [channel],
+      otherServices: ['instagram'],
+    })
+    let state = await t.run(async (ctx) => ({
+      channels: await ctx.db.query('bufferChannels').collect(),
+      connection: await ctx.db.query('bufferConnections').first(),
+    }))
+    expect(state.channels[0]).toMatchObject({ usable: false, problem: 'locked' })
+    expect(state.connection?.otherServices).toEqual(['instagram'])
+    // Unlocked in Buffer: the next sync clears the problem.
+    await t.mutation(internal.buffer.saveChannels, {
+      userId,
+      channels: [{ ...channel, usable: true, problem: undefined }],
+      otherServices: [],
+    })
+    state = await t.run(async (ctx) => ({
+      channels: await ctx.db.query('bufferChannels').collect(),
+      connection: await ctx.db.query('bufferConnections').first(),
+    }))
+    expect(state.channels[0]?.problem).toBeUndefined()
+    expect(state.connection?.otherServices).toEqual([])
+  })
+})

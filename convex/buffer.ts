@@ -156,8 +156,9 @@ export const reserveCalls = internalMutation({
 /** Thrown when Buffer's budget has no room; `retryAt` is when the tightest window resets. */
 export class BufferBudgetError extends Error {
   constructor(readonly retryAt: number) {
+    const minutes = Math.max(1, Math.ceil((retryAt - Date.now()) / 60_000))
     super(
-      `Dispatchlet has used its Buffer API allowance for now. Try again after ${new Date(retryAt).toISOString()}.`,
+      `Buffer is busy with Dispatchlet’s requests right now. Try again in ${minutes === 1 ? 'a minute' : minutes < 60 ? `${minutes} minutes` : `${Math.ceil(minutes / 60)} hours`}.`,
     )
   }
 }
@@ -355,6 +356,7 @@ type ChannelRow = {
   displayName?: string
   avatar?: string
   usable: boolean
+  problem?: string
   maxLength?: number
 }
 
@@ -370,12 +372,19 @@ export const saveChannels = internalMutation({
         displayName: v.optional(v.string()),
         avatar: v.optional(v.string()),
         usable: v.boolean(),
+        problem: v.optional(v.string()),
         maxLength: v.optional(v.number()),
       }),
     ),
+    otherServices: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { userId, channels }) => {
+  handler: async (ctx, { userId, channels, otherServices }) => {
     const now = Date.now()
+    const connection = await ctx.db
+      .query('bufferConnections')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    if (connection && otherServices) await ctx.db.patch(connection._id, { otherServices })
     const existing = await ctx.db
       .query('bufferChannels')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -384,7 +393,16 @@ export const saveChannels = internalMutation({
     for (const row of existing) if (!keep.has(row.channelId)) await ctx.db.delete(row._id)
     for (const channel of channels) {
       const row = existing.find((r) => r.channelId === channel.channelId)
-      if (row) await ctx.db.patch(row._id, { ...channel, syncedAt: now })
+      // Optional fields are named so a value Buffer stopped sending is cleared, not kept.
+      const fields = {
+        ...channel,
+        displayName: channel.displayName,
+        avatar: channel.avatar,
+        problem: channel.problem,
+        maxLength: channel.maxLength,
+        syncedAt: now,
+      }
+      if (row) await ctx.db.patch(row._id, fields)
       else await ctx.db.insert('bufferChannels', { userId, ...channel, syncedAt: now })
     }
   },
@@ -421,6 +439,7 @@ export async function syncChannelsFor(
       'query DispatchletOrganizations { account { organizations { id } } }',
     )
     const channels: ChannelRow[] = []
+    const otherServices = new Set<string>()
     for (const organization of account.organizations) {
       const data = await callBuffer<{
         channels: {
@@ -449,7 +468,10 @@ export async function syncChannelsFor(
         { orgId: organization.id },
       )
       for (const channel of data.channels) {
-        if (!TEXT_SERVICES.has(channel.service)) continue
+        if (!TEXT_SERVICES.has(channel.service)) {
+          otherServices.add(channel.service)
+          continue
+        }
         channels.push({
           organizationId: organization.id,
           channelId: channel.id,
@@ -458,11 +480,20 @@ export async function syncChannelsFor(
           displayName: channel.displayName ?? undefined,
           avatar: channel.avatar ?? undefined,
           usable: !channel.isDisconnected && !channel.isLocked,
+          problem: channel.isDisconnected
+            ? 'disconnected'
+            : channel.isLocked
+              ? 'locked'
+              : undefined,
           maxLength: channelLimit(channel.service, channel.metadata),
         })
       }
     }
-    await ctx.runMutation(internal.buffer.saveChannels, { userId, channels })
+    await ctx.runMutation(internal.buffer.saveChannels, {
+      userId,
+      channels,
+      otherServices: [...otherServices].sort(),
+    })
     return { channels: channels.length }
   }
 }
@@ -537,11 +568,13 @@ export const myConnection = query({
       expiresAt: connection.expiresAt,
       lastRefreshedAt: connection.lastRefreshedAt ?? null,
       lastRateLimit: connection.lastRateLimit ?? null,
+      otherServices: connection.otherServices ?? [],
       channels: channels.map((channel) => ({
         channelId: channel.channelId,
         service: channel.service,
         name: channel.displayName ?? channel.name,
         usable: channel.usable,
+        problem: channel.problem ?? null,
         syncedAt: channel.syncedAt,
       })),
     }
