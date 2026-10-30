@@ -5,18 +5,23 @@ import { internalAction, internalMutation, internalQuery } from './_generated/se
 import { postMetrics, postStatuses } from './buffer'
 import { emitPostEvent } from './runs'
 
-const TWO_DAYS = 2 * 86_400_000
+/** The home page lists a week of drafts, so a week of open posts is checked, with a day spare. */
+const OPEN_WINDOW = 8 * 86_400_000
+/** Buffer's page size for the status query; a full page means there may be more. */
+export const STATUS_PAGE = 50
 
-/** Posts that reached Buffer in the last two days and are not yet sent or failed, by user. */
+/** Posts that reached Buffer in the last week and are not yet sent, failed or deleted, by user. */
 export const pending = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const since = Date.now() - TWO_DAYS
+    const since = Date.now() - OPEN_WINDOW
     const posts = await ctx.db
       .query('posts')
       .withIndex('by_createdAt', (q) => q.gt('createdAt', since))
       .collect()
-    const open = posts.filter((p) => p.bufferPostId && !['sent', 'failed'].includes(p.status))
+    const open = posts.filter(
+      (p) => p.bufferPostId && !['sent', 'failed', 'deleted'].includes(p.status),
+    )
     const byUser = new Map<Id<'users'>, typeof open>()
     for (const p of open) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), p])
     const out = []
@@ -25,14 +30,19 @@ export const pending = internalQuery({
         .query('bufferChannels')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
-      const orgs = new Map<string, string[]>()
-      for (const c of channels)
-        if (rows.some((r) => r.channelId === c.channelId))
-          orgs.set(c.organizationId, [...(orgs.get(c.organizationId) ?? []), c.channelId])
+      const orgs = new Map<string, { channelIds: string[]; expected: string[] }>()
+      for (const c of channels) {
+        const mine = rows.filter((r) => r.channelId === c.channelId)
+        if (!mine.length) continue
+        const org = orgs.get(c.organizationId) ?? { channelIds: [], expected: [] }
+        org.channelIds.push(c.channelId)
+        org.expected.push(...mine.map((r) => r.bufferPostId!))
+        orgs.set(c.organizationId, org)
+      }
       out.push({
         userId,
         since,
-        orgs: [...orgs].map(([organizationId, channelIds]) => ({ organizationId, channelIds })),
+        orgs: [...orgs].map(([organizationId, o]) => ({ organizationId, ...o })),
       })
     }
     return out
@@ -50,9 +60,24 @@ export const apply = internalMutation({
         error: v.union(v.string(), v.null()),
       }),
     ),
+    /** Posts Buffer was asked about and did not return: deleted there, so marked deleted here. */
+    missing: v.optional(v.array(v.string())),
   },
   returns: v.null(),
-  handler: async (ctx, { updates }) => {
+  handler: async (ctx, { updates, missing }) => {
+    for (const id of missing ?? []) {
+      const post = await ctx.db
+        .query('posts')
+        .withIndex('by_bufferPostId', (q) => q.eq('bufferPostId', id))
+        .first()
+      if (post && !['sent', 'failed', 'deleted'].includes(post.status))
+        await ctx.db.patch(post._id, {
+          status: 'deleted',
+          bufferStatus: 'deleted',
+          approveToken: undefined,
+          reason: 'Deleted in Buffer.',
+        })
+    }
     for (const u of updates) {
       const post = await ctx.db
         .query('posts')
@@ -99,8 +124,13 @@ export const poll = internalAction({
             org.channelIds,
             group.since,
           )
+          // A full page may have left some out, so only a short page says what is gone.
+          const seen = new Set(rows.map((r) => r.id))
+          const missing =
+            rows.length < STATUS_PAGE ? org.expected.filter((id) => !seen.has(id)) : []
           await ctx.runMutation(internal.status.apply, {
             updates: rows.map(({ id, ...r }) => ({ bufferPostId: id, ...r })),
+            missing,
           })
         } catch (error) {
           console.log(

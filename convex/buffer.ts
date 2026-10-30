@@ -814,7 +814,7 @@ export async function postStatuses(
     ctx,
     userId,
     `query DispatchletStatus($orgId: OrganizationId!, $ids: [ChannelId!], $since: DateTime!) {
-      posts(first: 50, input: {
+      posts(first: 50, input: { # keep in step with STATUS_PAGE in status.ts
         organizationId: $orgId,
         filter: { channelIds: $ids, createdAt: { start: $since } },
         sort: [{ field: createdAt, direction: desc }]

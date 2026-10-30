@@ -123,6 +123,8 @@ async function approve(
   from: ApprovedFrom,
 ): Promise<string> {
   if (!post.bufferPostId) throw new Error('This post never reached Buffer.')
+  if (post.status === 'deleted')
+    return 'This post was deleted in Buffer, so there is nothing to approve.'
   if (post.status !== 'draft') return 'This post is already in the queue.'
   try {
     const status = await approveBufferPost(ctx, post.userId, post.bufferPostId)

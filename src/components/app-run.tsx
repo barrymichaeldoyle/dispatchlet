@@ -27,6 +27,7 @@ const POST_WORDS: Record<string, string> = {
   draft: 'draft',
   queued: 'queued',
   scheduled: 'scheduled',
+  deleted: 'deleted in Buffer',
   sent: 'sent',
   failed: 'failed',
 }

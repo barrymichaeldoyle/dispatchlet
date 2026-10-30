@@ -267,3 +267,61 @@ describe('telling the person after a run', () => {
     expect(names).not.toContain('push:notify')
   })
 })
+
+describe('posts deleted in Buffer', () => {
+  it('are marked deleted when Buffer no longer returns them, and leave the drafts list', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await t.run((ctx) =>
+      ctx.db.insert('stories', {
+        automationId,
+        runId,
+        title: 'T',
+        canonicalUrl: 'https://x.y/z',
+        source: 'x',
+        publishedAt: '',
+        summary: '',
+        whyItMatters: '',
+        keyFacts: [],
+        confidence: 1,
+        decision: 'kept',
+        reason: '',
+        createdAt: Date.now(),
+      }),
+    )
+    const postId = await t.run((ctx) =>
+      ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'hello',
+        status: 'draft',
+        bufferPostId: 'b-gone',
+        approveToken: 'tok',
+        createdAt: Date.now(),
+      }),
+    )
+    await t.run((ctx) =>
+      ctx.db.insert('bufferChannels', {
+        userId,
+        organizationId: 'o1',
+        channelId: 'c1',
+        service: 'twitter',
+        name: 'GPP',
+        usable: true,
+        syncedAt: Date.now(),
+      }),
+    )
+    const pending = await t.query(internal.status.pending, {})
+    expect(pending[0]!.orgs[0]!.expected).toEqual(['b-gone'])
+    await t.mutation(internal.status.apply, { updates: [], missing: ['b-gone'] })
+    const post = await t.run((ctx) => ctx.db.get(postId))
+    expect(post?.status).toBe('deleted')
+    expect(post?.approveToken).toBeUndefined()
+    expect(await t.query(internal.status.pending, {})).toEqual([])
+  })
+})

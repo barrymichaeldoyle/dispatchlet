@@ -134,7 +134,17 @@ export const Post = {
     linkAttachment: nullable({ type: 'object' }),
     status: {
       type: 'string',
-      enum: ['dry', 'rejected', 'held', 'draft', 'queued', 'scheduled', 'sent', 'failed'],
+      enum: [
+        'dry',
+        'rejected',
+        'held',
+        'draft',
+        'queued',
+        'scheduled',
+        'sent',
+        'failed',
+        'deleted',
+      ],
     },
     reason: nullable({ type: 'string' }),
     bufferPostId: nullable({ type: 'string' }),

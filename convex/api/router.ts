@@ -268,7 +268,17 @@ route('GET', '/posts', 'read', async (ctx, caller, _p, req) => {
   const q = parse(
     z.object({
       status: z
-        .enum(['dry', 'rejected', 'held', 'draft', 'queued', 'scheduled', 'sent', 'failed'])
+        .enum([
+          'dry',
+          'rejected',
+          'held',
+          'draft',
+          'queued',
+          'scheduled',
+          'sent',
+          'failed',
+          'deleted',
+        ])
         .optional(),
       automation: z.string().optional(),
       since: z.coerce.number().optional(),
