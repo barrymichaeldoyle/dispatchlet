@@ -1,6 +1,7 @@
 import { BrandText } from '../components/brand-text'
 import { Wordmark } from '../components/wordmark'
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
+import { useSyncExternalStore } from 'react'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
@@ -49,6 +50,45 @@ export const Route = createRootRoute({
   ),
 })
 
+/** Pages that render only in the browser, and what the server shows until their script runs. */
+const CLIENT_ONLY: [RegExp, string][] = [
+  [/^\/app(\/|$)/, 'Signing you in.'],
+  [/^\/oauth\/consent/, 'One moment.'],
+  [/^\/r\//, 'Opening the run.'],
+]
+
+/**
+ * A client-only page sends an empty body from the server, a blank screen until the script runs.
+ * This sends a placeholder instead and removes it once the page has mounted in the browser. It
+ * is rendered the same on the server and on the first browser render, so hydration matches.
+ * (A route pendingComponent did this before, and could leave the router pending for good when
+ * several pages loaded at once.)
+ */
+const noSubscription = () => () => {}
+
+function BootPlaceholder() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  // False on the server and while hydrating, true straight after: React's own way to tell.
+  const mounted = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  )
+  if (mounted) return null
+  const title = CLIENT_ONLY.find(([pattern]) => pattern.test(pathname))?.[1]
+  if (!title) return null
+  return (
+    <div className="app-gate boot-placeholder" aria-busy="true">
+      <div className="app-gate-inner">
+        <span className="app-gate-home">
+          <Wordmark size="md" />
+        </span>
+        <h1>{title}</h1>
+      </div>
+    </div>
+  )
+}
+
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -64,6 +104,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <PostHogProvider>
+          <BootPlaceholder />
           {children}
           {import.meta.env.DEV ? (
             <TanStackDevtools
