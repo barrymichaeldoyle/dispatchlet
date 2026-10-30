@@ -142,7 +142,7 @@ type DigestPost = {
   externalLink: string | null
 }
 
-/** After a run with posts: what went where, with a one-click approve for each draft. */
+/** After a run with posts: what went where, with an approve link for each draft. */
 export function digestMessage(
   to: string,
   run: { automationName: string; automationId: string; note: string },

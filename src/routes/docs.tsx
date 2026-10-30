@@ -100,10 +100,10 @@ LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source articl
       <h2>Posting modes</h2>
       <p>
         <strong>Drafts</strong> wait in Buffer until you approve them, from the run page, the home
-        page or a one-click link in the email after each run. <strong>Queue</strong> adds posts to
-        the channel’s next free slots. <strong>Spread</strong> schedules them from ten minutes after
-        the run, two hours apart. If a channel is at Buffer’s daily posting limit, its posts are
-        skipped and the log says so.
+        page or from a link in the email after each run. <strong>Queue</strong> adds posts to the
+        channel’s next free slots. <strong>Spread</strong> schedules them from ten minutes after the
+        run, two hours apart. If a channel is at Buffer’s daily posting limit, its posts are skipped
+        and the log says so.
       </p>
 
       <h2>Channels and limits</h2>

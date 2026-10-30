@@ -720,3 +720,60 @@ describe('a fair share of the Buffer budget', () => {
     }
   })
 })
+
+describe('the approve link in the digest email', () => {
+  it('only shows the draft when opened, so a link scanner cannot approve it', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const postId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'now',
+        status: 'done',
+        startedAt: 0,
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      })
+      const storyId = await ctx.db.insert('stories', {
+        automationId,
+        runId,
+        title: 't',
+        canonicalUrl: 'https://e.com/a',
+        source: 'e.com',
+        publishedAt: '',
+        summary: '',
+        whyItMatters: '',
+        keyFacts: [],
+        confidence: 1,
+        decision: 'kept',
+        reason: '',
+        createdAt: 0,
+      })
+      return await ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'Lions <b>back</b> in Kunene',
+        status: 'draft',
+        bufferPostId: 'b-1',
+        approveToken: 'tok-1',
+        createdAt: 0,
+      })
+    })
+    const res = await t.fetch('/approve?token=tok-1')
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    expect(html).toContain('Approve and add to the queue')
+    expect(html).toContain('Lions &lt;b&gt;back&lt;/b&gt; in Kunene')
+    expect(html).toContain('method="post"')
+    const post = await t.run((ctx) => ctx.db.get(postId))
+    expect(post?.status).toBe('draft')
+    expect(post?.approveToken).toBe('tok-1')
+    expect((await t.fetch('/approve?token=nope', { method: 'POST' })).status).toBe(404)
+  })
+})

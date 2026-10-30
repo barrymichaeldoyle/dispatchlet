@@ -411,7 +411,7 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           [
             'draft',
             'Save as drafts',
-            'They wait in Buffer for your approval. Each run emails you a one-click approve link.',
+            'They wait in Buffer for your approval. Each run emails you an approve link for each draft.',
           ],
           ['queue', 'Add to the queue', 'Into the next free slots on each channel.'],
           [

@@ -46,7 +46,7 @@ the window, in the commits after it.
    spread through the day, with a Dispatchlet tag. Every run is logged live:
    what it searched, what it found, what it skipped and why, and what it cost.
 5. Drafts can be edited and approved from the home page or the run page, or
-   approved with one click from the digest email. Buffer's status and metrics
+   approved from a link in the digest email. Buffer's status and metrics
    for each post come back into the log. Once an automation has a few sent
    posts, the writer learns from its best ones. Any run can be shared by link.
 
