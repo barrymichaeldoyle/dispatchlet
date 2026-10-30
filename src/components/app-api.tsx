@@ -255,7 +255,7 @@ function ConfirmLink({
         }}
       >
         {confirm}
-      </button>{' '}
+      </button>
       <button type="button" className="app-link" onClick={() => setAsking(false)}>
         Keep
       </button>
@@ -662,7 +662,7 @@ function InboundHooks({ timezone }: { timezone: string }) {
                 <td>
                   <ConfirmLink
                     label="Delete"
-                    confirm="Delete the hook"
+                    confirm="Delete it"
                     onConfirm={() => void run(() => remove({ id: h._id }))}
                   />
                 </td>

@@ -5685,8 +5685,11 @@ header nav button {
   margin-top: 8px;
   font-size: 14px;
 }
+/* The confirm and Keep links wrap onto two lines in a narrow table cell rather than overflow. */
 .app-confirm {
-  white-space: nowrap;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
 }
 
 /* Docs: the API reference. */
