@@ -631,3 +631,14 @@ describe('when the status poll asks Buffer about a post', () => {
     }
   })
 })
+
+describe('a run whose channels are all locked', () => {
+  it('is skipped, says why, and does not count as a failure', async () => {
+    const { channelIssue } = await import('./runs')
+    expect(channelIssue({ problem: 'locked' })).toBe(
+      'it is locked in Buffer, usually by the plan’s channel limit',
+    )
+    expect(channelIssue({ problem: 'disconnected' })).toBe('it is disconnected in Buffer')
+    expect(channelIssue({})).toBe('it needs attention in Buffer')
+  })
+})

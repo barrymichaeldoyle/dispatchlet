@@ -6,7 +6,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { parsePlaybook, renderPlaybook, type Playbook } from '../../convex/lib/playbook'
 import { describeCadence } from '../../convex/lib/schedule'
 import { ChannelMark } from './brand-icons'
-import { errorText, serviceName, usd, whenIn } from '../lib/format'
+import { channelProblem, errorText, serviceName, usd, whenIn } from '../lib/format'
 import { BusyLabel } from './busy-label'
 
 const STATUS_WORDS: Record<string, string> = {
@@ -385,9 +385,7 @@ function ScheduleEditor({ a }: { a: Loaded }) {
               <ChannelMark channel={serviceName(c.service)} size={14} />
               <span>{c.name}</span>
               {c.usable ? null : (
-                <span className="app-muted">
-                  {c.problem === 'unsupported' ? 'not supported yet' : 'needs attention in Buffer'}
-                </span>
+                <span className="app-muted">{channelProblem(c.problem, c.service)}</span>
               )}
             </label>
           </li>

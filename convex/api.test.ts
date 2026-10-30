@@ -1,5 +1,5 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { generateSecret, hashSecret, HOOK_PREFIX } from './lib/apiToken'
@@ -799,5 +799,38 @@ describe('channels Dispatchlet cannot post to', () => {
       channelIds: ['ig1'],
     })
     expect((await call('/automations', { method: 'POST', body })).status).toBe(400)
+  })
+})
+
+describe('a run whose only channel is locked in Buffer', () => {
+  it('is skipped with the reason, gives the free run back and is not a failure', async () => {
+    vi.useFakeTimers()
+    try {
+      const { t, userId, automationId, call } = await account(convexTest(schema, modules))
+      await t.run(async (ctx) => {
+        const channel = await ctx.db
+          .query('bufferChannels')
+          .withIndex('by_user', (q) => q.eq('userId', userId))
+          .first()
+        await ctx.db.patch(channel!._id, { usable: false, problem: 'locked' })
+      })
+      const res = await call(`/automations/${automationId}/runs`, {
+        method: 'POST',
+        body: '{"dry":true}',
+      })
+      expect(res.status).toBe(202)
+      await t.finishAllScheduledFunctions(vi.runAllTimers)
+      const run = await t.run(async (ctx) => (await ctx.db.query('runs').collect())[0]!)
+      expect(run.status).toBe('skipped')
+      expect(run.steps.at(-1)?.note).toMatch(
+        /locked in Buffer, usually by the plan’s channel limit/,
+      )
+      const user = await t.run((ctx) => ctx.db.get(userId))
+      expect(user?.freeDryRunsUsed ?? 0).toBe(0)
+      const automation = await t.run((ctx) => ctx.db.get(automationId))
+      expect(automation?.consecutiveFailures ?? 0).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

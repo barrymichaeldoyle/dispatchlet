@@ -543,13 +543,19 @@ export const execute = internalAction({
       }
       const usable = channels.filter((c) => c.usable)
       if (!usable.length) {
-        await fail(
-          'None of the channels can post right now. Check them in Buffer, then sync channels in settings.',
-        )
+        // Locked or disconnected channels are a Buffer setting, not a broken run: skip without
+        // counting a failure (three pause the automation) and give a free run back.
+        const why = channels.map((c) => `${c.name}: ${channelIssue(c)}`).join('. ')
+        if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
+        await ctx.runMutation(internal.runs.finish, {
+          runId,
+          status: 'skipped',
+          note: `Nothing to post to. ${why}. Fix it in Buffer, then sync channels in settings.${run.freeRun ? ' This run did not use one of your free runs.' : ''}`,
+        })
         return null
       }
       for (const c of channels)
-        if (!c.usable) await say('channels', `${c.name} skipped: it needs attention in Buffer.`)
+        if (!c.usable) await say('channels', `${c.name} skipped: ${channelIssue(c)}.`)
 
       const client = anthropicClient(await keyFor(user))
       const brief = briefFromPlaybook(playbook, {
@@ -1440,3 +1446,12 @@ export const saveIdea = action({
     return await ctx.runAction(internal.runs.saveIdeaForUser, { userId, storyId })
   },
 })
+
+/** Why a channel was left out of a run, as the end of a sentence. */
+export function channelIssue(channel: { problem?: string }): string {
+  if (channel.problem === 'locked')
+    return 'it is locked in Buffer, usually by the plan’s channel limit'
+  if (channel.problem === 'disconnected') return 'it is disconnected in Buffer'
+  if (channel.problem === 'unsupported') return 'Dispatchlet can’t post to that network yet'
+  return 'it needs attention in Buffer'
+}

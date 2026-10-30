@@ -85,6 +85,7 @@ export const Channel = {
     name: { type: 'string' },
     usable: { type: 'boolean' },
     supported: { type: 'boolean' },
+    problem: nullable({ type: 'string', enum: ['locked', 'disconnected', 'unsupported'] }),
     maxLength: nullable({ type: 'integer' }),
     syncedAt: ms,
   },

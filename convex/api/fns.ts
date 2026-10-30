@@ -52,6 +52,8 @@ function channelView(c: Doc<'bufferChannels'>) {
     usable: c.usable,
     /** False for networks Dispatchlet cannot post to yet, such as Instagram. */
     supported: c.problem !== 'unsupported',
+    /** Why it is not usable: locked (Buffer plan limit), disconnected or unsupported. */
+    problem: c.problem ?? null,
     maxLength: c.maxLength ?? null,
     syncedAt: c.syncedAt,
   }

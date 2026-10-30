@@ -6,6 +6,7 @@ import { api } from '../../convex/_generated/api'
 import { ConnectionBanner, SignOut } from './app-pages'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { Wordmark } from './wordmark'
+import { channelProblem } from '../lib/format'
 import { registerServiceWorker } from '../lib/service-worker'
 import { BusyLabel } from './busy-label'
 
@@ -242,10 +243,19 @@ function AppShell({
             <h2>Channels</h2>
             <ul>
               {channels.map((c) => (
-                <li key={c.channelId} data-usable={c.usable}>
+                <li
+                  key={c.channelId}
+                  data-usable={c.usable}
+                  title={c.usable ? undefined : channelProblem(c.problem, c.service)}
+                >
                   <span className="app-side-channel">
                     <ChannelMark channel={SERVICE_NAMES[c.service] ?? c.service} size={14} />
                     <span className="app-side-name">{c.name}</span>
+                    {c.usable ? null : (
+                      <span className="visually-hidden">
+                        {` (${channelProblem(c.problem, c.service)})`}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
