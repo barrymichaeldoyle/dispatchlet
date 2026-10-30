@@ -28,7 +28,7 @@ export type Effort = 'low' | 'medium' | 'high'
 export function anthropicClient(apiKey = process.env.ANTHROPIC_API_KEY): Anthropic {
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
   // Busy and rate-limit replies (429, 529) are retried with backoff, which rides out a spike of
-  // runs starting at once; a run that still fails gives its free run back (runs.aiServiceFailure).
+  // runs starting at once; a run that still fails gives its free run back (runs.serviceFailure).
   return new Anthropic({ apiKey, maxRetries: 4, timeout: 8 * 60_000 })
 }
 

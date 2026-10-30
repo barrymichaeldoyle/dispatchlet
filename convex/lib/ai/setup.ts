@@ -15,7 +15,7 @@ export const SetupAnswers = z.object({
   /** 3. Anything to avoid? */
   avoid: z.string().trim().max(500).default(''),
   /** 4. Sources you prefer? URLs or site names, one per entry. */
-  sources: z.array(z.string().trim().min(1)).max(10).default([]),
+  sources: z.array(z.string().trim().min(1).max(300)).max(10).default([]),
   onlyTheseSources: z.boolean().default(false),
   /** 5. When should it run? Local time in the user's zone. */
   cadence: z.object({

@@ -405,9 +405,11 @@ export const finish = internalMutation({
     status: v.string(),
     note: v.string(),
     error: v.optional(v.string()),
+    /** False when the failure was on Dispatchlet's side, so it never pauses the automation. */
+    counts: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { runId, status, note, error }) => {
+  handler: async (ctx, { runId, status, note, error, counts }) => {
     const run = await ctx.db.get(runId)
     if (!run) return null
     await ctx.db.patch(runId, {
@@ -419,7 +421,7 @@ export const finish = internalMutation({
     if (!run.automationId) return null
     const automation = await ctx.db.get(run.automationId)
     if (!automation) return null
-    const countsAsFailure = status === 'failed' && run.kind !== 'dry'
+    const countsAsFailure = status === 'failed' && run.kind !== 'dry' && counts !== false
     const failures = countsAsFailure
       ? (automation.consecutiveFailures ?? 0) + 1
       : status === 'done'
@@ -530,10 +532,11 @@ export const execute = internalAction({
         spentTodayUsd >= globalDailyCapUsd() &&
         (run.kind === 'scheduled' || (run.startedBy !== undefined && run.startedBy !== 'app'))
       ) {
+        if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'skipped',
-          note: 'Dispatchlet has used its daily AI budget. The run will go ahead tomorrow.',
+          note: `Dispatchlet has used its AI budget for today, so this run was skipped.${run.freeRun ? ' It did not use one of your free runs.' : ''} The next one goes ahead as scheduled.`,
         })
         await ctx.runMutation(internal.alerts.notifyOwner, {
           kind: 'spend-cap',
@@ -782,6 +785,21 @@ export const execute = internalAction({
             drafts = drafts.map((d, i) => (i === index ? withLink(fix, channel) : d))
         }
       }
+      // Deleted or paused while this run was researching and writing: send nothing to Buffer.
+      if (!dry) {
+        const current = await ctx.runQuery(internal.runs.automationState, {
+          automationId: automation._id,
+        })
+        const pausedSince = automation.status === 'active' && current?.status !== 'active'
+        if (!current || current.deletedAt || pausedSince) {
+          await ctx.runMutation(internal.runs.finish, {
+            runId,
+            status: 'skipped',
+            note: `This automation was ${!current || current.deletedAt ? 'deleted' : 'paused'} while the run was going, so nothing was sent to Buffer.`,
+          })
+          return null
+        }
+      }
       const atLimit = dry
         ? new Set<string>()
         : await channelsAtLimit(
@@ -792,7 +810,7 @@ export const execute = internalAction({
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let published = 0
-      let held: { retryAt: number; from: number } | null = null
+      let held: { retryAt: number; from: number; share: boolean } | null = null
       for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
@@ -884,7 +902,11 @@ export const execute = internalAction({
           if (rateLimited) {
             const retryAt =
               error instanceof BufferBudgetError ? error.retryAt : Date.now() + 15 * 60_000
-            held = { retryAt, from: drafts.indexOf(draft) }
+            held = {
+              retryAt,
+              from: drafts.indexOf(draft),
+              share: error instanceof BufferBudgetError && error.reason === 'share',
+            }
             break
           }
           const reason = error instanceof Error ? error.message : String(error)
@@ -917,7 +939,7 @@ export const execute = internalAction({
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'done',
-          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting because Buffer is busy, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
+          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting ${held.share ? 'for your account’s daily share of Buffer requests to free up' : 'because Buffer is busy'}, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
         })
         await ctx.scheduler.runAt(held.retryAt + 30_000, internal.runs.sendHeld, { runId })
         return null
@@ -933,21 +955,17 @@ export const execute = internalAction({
       const message = error instanceof Error ? error.message : String(error)
       if (/401|invalid x-api-key|authentication/i.test(message) && user.anthropicKeyEnc)
         await ctx.runMutation(internal.users.markKeyInvalid, { userId: user._id })
-      const ours = aiServiceFailure(error)
-      if (ours && run.freeRun) {
-        await ctx.runMutation(internal.runs.refundFreeRun, { runId })
+      const ours = serviceFailure(error)
+      if (ours) {
+        // Dispatchlet's side (the AI, Buffer or the network): the person keeps their free run and
+        // the automation keeps its standing.
+        if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'failed',
-          note: `${ours} This run did not use one of your free runs.`,
+          note: `${ours}${run.freeRun ? ' This run did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
           error: message,
-        })
-      } else if (ours) {
-        await ctx.runMutation(internal.runs.finish, {
-          runId,
-          status: 'failed',
-          note: ours,
-          error: message,
+          counts: false,
         })
       } else await fail(message)
     }
@@ -1308,20 +1326,29 @@ export const approve = action({
 })
 
 /**
- * A failure on the AI side rather than the person's: Anthropic busy, rate limited or down, or a
- * reply that would not parse. Returns the note to show, or null when the error is something else.
+ * A failure on Dispatchlet's side rather than the person's: the AI busy, rate limited, down or
+ * unreadable; Buffer down or rate limiting us; or a service not answering at all. Returns the note
+ * to show, or null for anything else (a bad key, lost Buffer access, a real problem with the run).
  */
-export function aiServiceFailure(error: unknown): string | null {
+export function serviceFailure(error: unknown): string | null {
   const status =
     typeof error === 'object' && error !== null && 'status' in error
       ? Number((error as { status: unknown }).status)
       : NaN
   const message = error instanceof Error ? error.message : String(error)
+  if (error instanceof BufferBudgetError) return error.message
+  if (error instanceof BufferApiError) {
+    if (status === 429 || status >= 500)
+      return 'Buffer was not answering properly, so the run stopped. Try again in a few minutes.'
+    return null
+  }
   if (status === 401 || status === 403) return null
   if (status === 429 || status === 529 || /overloaded/i.test(message))
     return 'The AI service was too busy to finish this run. Try again in a few minutes.'
   if (status >= 500 || /Failed to parse structured output/.test(message))
     return 'The AI service had a problem and the run stopped. Try again in a few minutes.'
+  if (/fetch failed|network|ECONNRESET|ETIMEDOUT|timed out|aborted/i.test(message))
+    return 'A service Dispatchlet relies on did not answer, so the run stopped. Try again in a few minutes.'
   return null
 }
 
@@ -1455,3 +1482,60 @@ export function channelIssue(channel: { problem?: string }): string {
   if (channel.problem === 'unsupported') return 'Dispatchlet can’t post to that network yet'
   return 'it needs attention in Buffer'
 }
+
+/** How long a run can go unfinished before it is taken as stopped (a Convex action lasts 10 minutes at most). */
+const ABANDONED_AFTER = 15 * 60_000
+
+/**
+ * Every 10 minutes: closes runs that stopped part way, such as an action that hit its time limit,
+ * so their pages stop showing "Researching" for ever. They give back their free run and do not
+ * count toward pausing the automation, since stopping was on Dispatchlet's side.
+ */
+export const abandonedRuns = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    const out: { _id: Id<'runs'>; freeRun: boolean }[] = []
+    for (const kind of ['scheduled', 'now', 'dry']) {
+      const rows = await ctx.db
+        .query('runs')
+        .withIndex('by_kind_startedAt', (q) =>
+          q
+            .eq('kind', kind)
+            .gt('startedAt', now - 2 * 86_400_000)
+            .lt('startedAt', now - ABANDONED_AFTER),
+        )
+        .collect()
+      for (const run of rows)
+        if (!run.finishedAt) out.push({ _id: run._id, freeRun: Boolean(run.freeRun) })
+    }
+    return out
+  },
+})
+
+export const sweepAbandoned = internalAction({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx): Promise<number> => {
+    const runs = await ctx.runQuery(internal.runs.abandonedRuns, { now: Date.now() })
+    for (const run of runs) {
+      if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId: run._id })
+      await ctx.runMutation(internal.runs.finish, {
+        runId: run._id,
+        status: 'failed',
+        note: `This run stopped before it finished, on Dispatchlet’s side.${run.freeRun ? ' It did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
+        error: 'abandoned',
+        counts: false,
+      })
+    }
+    return runs.length
+  },
+})
+
+/** An automation's status and deletion, read fresh just before a run sends anything. */
+export const automationState = internalQuery({
+  args: { automationId: v.id('automations') },
+  handler: async (ctx, { automationId }) => {
+    const a = await ctx.db.get(automationId)
+    return a ? { status: a.status, deletedAt: a.deletedAt ?? null } : null
+  },
+})

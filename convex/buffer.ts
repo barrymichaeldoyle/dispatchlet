@@ -14,6 +14,7 @@ import {
 import { isAllowlisted } from './lib/allowlist'
 import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
 import { operationName, serverEvent } from './lib/serverEvents'
+import { take } from './api/rate'
 import { parseRateLimit, reserve, type Priority } from './lib/budget'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { emit } from './webhooks'
@@ -133,9 +134,15 @@ export const reserveCalls = internalMutation({
   args: { userId: v.id('users'), calls: v.number(), priority: priorityValidator },
   returns: v.union(
     v.object({ ok: v.literal(true) }),
-    v.object({ ok: v.literal(false), retryAt: v.number() }),
+    v.object({ ok: v.literal(false), retryAt: v.number(), share: v.optional(v.boolean()) }),
   ),
   handler: async (ctx, { userId, calls, priority }) => {
+    // Background work (runs, status checks) also has a daily share per person, so one account
+    // starting runs in a loop cannot spend the budget every account shares. App clicks don't.
+    if (priority === 'background') {
+      const share = await take(ctx, `buffer-share:${userId}`, DAY_MS, backgroundCallsPerUser())
+      if (!share.ok) return { ok: false as const, retryAt: share.resetAt, share: true }
+    }
     const connection = await ctx.db
       .query('bufferConnections')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -154,12 +161,34 @@ export const reserveCalls = internalMutation({
   },
 })
 
+const DAY_MS = 86_400_000
+
+/**
+ * Background Buffer calls one account may make in a day. A daily run with two channels uses about
+ * ten, so 80 covers several automations while 525 a day is shared by everyone.
+ */
+export function backgroundCallsPerUser(): number {
+  const raw = Number(process.env.BUFFER_BACKGROUND_CALLS_PER_USER)
+  return Number.isFinite(raw) && raw > 0 ? raw : 80
+}
+
 /** Thrown when Buffer's budget has no room; `retryAt` is when the tightest window resets. */
 export class BufferBudgetError extends Error {
-  constructor(readonly retryAt: number) {
+  constructor(
+    readonly retryAt: number,
+    readonly reason: 'budget' | 'share' = 'budget',
+  ) {
     const minutes = Math.max(1, Math.ceil((retryAt - Date.now()) / 60_000))
+    const wait =
+      minutes === 1
+        ? 'a minute'
+        : minutes < 60
+          ? `${minutes} minutes`
+          : `${Math.ceil(minutes / 60)} hours`
     super(
-      `Buffer is busy with Dispatchlet’s requests right now. Try again in ${minutes === 1 ? 'a minute' : minutes < 60 ? `${minutes} minutes` : `${Math.ceil(minutes / 60)} hours`}.`,
+      reason === 'share'
+        ? `Your account has used today’s share of Buffer requests for runs. It frees up in ${wait}.`
+        : `Buffer is busy with Dispatchlet’s requests right now. Try again in ${wait}.`,
     )
   }
 }
@@ -183,8 +212,9 @@ async function callBuffer<T>(
   })
   const operation = operationName(document)
   if (!reserved.ok) {
-    await serverEvent('buffer_call_refused', { operation, priority })
-    throw new BufferBudgetError(reserved.retryAt)
+    const reason = 'share' in reserved && reserved.share ? 'share' : 'budget'
+    await serverEvent('buffer_call_refused', { operation, priority, reason })
+    throw new BufferBudgetError(reserved.retryAt, reason)
   }
   const startedAt = Date.now()
   try {
@@ -1027,6 +1057,7 @@ export async function createBufferIdea(
         },
       },
     },
+    'interactive',
   )
   const id = createIdea.id ?? createIdea.idea?.id
   if (id) return id

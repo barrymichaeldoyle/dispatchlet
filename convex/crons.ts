@@ -21,5 +21,6 @@ crons.daily(
   internal.waitlist.purgeClosed,
   {},
 )
+crons.interval('close abandoned runs', { minutes: 10 }, internal.runs.sweepAbandoned, {})
 
 export default crons

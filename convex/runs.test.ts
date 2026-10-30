@@ -384,7 +384,7 @@ describe('the first dry run', () => {
 
 describe('failures on the AI side', () => {
   it('tells busy and broken replies apart from other errors', async () => {
-    const { aiServiceFailure } = await import('./runs')
+    const { serviceFailure: aiServiceFailure } = await import('./runs')
     const withStatus = (status: number, message = 'x') =>
       Object.assign(new Error(message), { status })
     expect(aiServiceFailure(withStatus(529))).toMatch(/too busy/)
@@ -640,5 +640,83 @@ describe('a run whose channels are all locked', () => {
     )
     expect(channelIssue({ problem: 'disconnected' })).toBe('it is disconnected in Buffer')
     expect(channelIssue({})).toBe('it needs attention in Buffer')
+  })
+})
+
+describe('fair to the person when Dispatchlet is the one at fault', () => {
+  it('treats Buffer and network trouble as ours, but not lost access or a bad key', async () => {
+    const { serviceFailure } = await import('./runs')
+    const { BufferApiError } = await import('./lib/buffer')
+    const { BufferBudgetError } = await import('./buffer')
+    expect(serviceFailure(new BufferApiError('down', 503))).toMatch(/Buffer was not answering/)
+    expect(serviceFailure(new BufferApiError('slow down', 429))).toMatch(/Buffer/)
+    expect(serviceFailure(new BufferApiError('Sign in with Buffer again', 401))).toBeNull()
+    expect(serviceFailure(new TypeError('fetch failed'))).toMatch(/did not answer/)
+    expect(serviceFailure(new BufferBudgetError(Date.now() + 60_000, 'share'))).toMatch(
+      /today’s share/,
+    )
+    expect(serviceFailure(Object.assign(new Error('bad key'), { status: 401 }))).toBeNull()
+  })
+
+  it('a failure on our side does not count toward pausing the automation', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t, 2)
+    const runId = await run(t, userId, automationId, 'scheduled')
+    await t.mutation(internal.runs.finish, {
+      runId,
+      status: 'failed',
+      note: 'The AI service was too busy.',
+      counts: false,
+    })
+    const a = await t.run((ctx) => ctx.db.get(automationId))
+    expect(a?.consecutiveFailures).toBe(2)
+    expect(a?.status).toBe('active')
+  })
+
+  it('closes a run that stopped part way, and gives its free run back', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { freeRunsUsed: 1 })
+      return await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'scheduled',
+        status: 'researching',
+        startedAt: Date.now() - 20 * 60_000,
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+        freeRun: true,
+      })
+    })
+    const fresh = await run(t, userId, automationId, 'now')
+    expect(await t.action(internal.runs.sweepAbandoned, {})).toBe(1)
+    const stopped = await t.run((ctx) => ctx.db.get(runId))
+    expect(stopped?.status).toBe('failed')
+    expect(stopped?.steps.at(-1)?.note).toMatch(/does not count toward pausing/)
+    expect((await t.run((ctx) => ctx.db.get(fresh)))?.finishedAt).toBeUndefined()
+    const user = await t.run((ctx) => ctx.db.get(userId))
+    expect(user?.freeRunsUsed).toBe(0)
+    const a = await t.run((ctx) => ctx.db.get(automationId))
+    expect(a?.consecutiveFailures ?? 0).toBe(0)
+  })
+})
+
+describe('a fair share of the Buffer budget', () => {
+  it('caps background calls per account a day, never app clicks', async () => {
+    const t = convexTest(schema, modules)
+    const { userId } = await seed(t)
+    process.env.BUFFER_BACKGROUND_CALLS_PER_USER = '2'
+    try {
+      const reserve = (priority: 'background' | 'interactive') =>
+        t.mutation(internal.buffer.reserveCalls, { userId, calls: 1, priority })
+      expect((await reserve('background')).ok).toBe(true)
+      expect((await reserve('background')).ok).toBe(true)
+      expect(await reserve('background')).toMatchObject({ ok: false, share: true })
+      expect((await reserve('interactive')).ok).toBe(true)
+    } finally {
+      delete process.env.BUFFER_BACKGROUND_CALLS_PER_USER
+    }
   })
 })
