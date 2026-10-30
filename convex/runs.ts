@@ -103,8 +103,12 @@ export const start = internalMutation({
   handler: async (ctx, { automationId }) => {
     const automation = await ctx.db.get(automationId)
     if (!automation || automation.deletedAt || automation.status !== 'active') return null
+    const setFor = automation.nextRunSetFor
     await scheduleNext(ctx, { ...automation, scheduledFnId: undefined })
-    await beginRun(ctx, automation, 'scheduled')
+    await beginRun(ctx, automation, 'scheduled', {
+      startedBy: 'schedule',
+      late: setFor ? Date.now() - setFor : undefined,
+    })
     return null
   },
 })
@@ -179,12 +183,16 @@ const STARTED_FROM: Record<StartedBy, string> = {
   first: ' on its own, to show what the playbook finds',
 }
 
-function startNote(kind: Kind, from: { hint?: Hint; startedBy: StartedBy }): string {
+function startNote(
+  kind: Kind,
+  from: { hint?: Hint; startedBy: StartedBy; late?: number },
+  timezone: string,
+): string {
   const where = STARTED_FROM[from.startedBy]
   const head =
     kind === 'dry'
       ? `Dry run started${where}. Nothing will be sent to Buffer.`
-      : `Run started${where}.`
+      : `Run started${where}.${lateNote(from.late, timezone)}`
   return from.hint ? `${head} Asked to cover: ${from.hint.title}` : head
 }
 
@@ -196,7 +204,7 @@ async function beginRun(
   ctx: Parameters<typeof scheduleNext>[0],
   automation: Doc<'automations'>,
   kind: Kind,
-  from: { hint?: Hint; startedBy: StartedBy } = { startedBy: 'schedule' },
+  from: { hint?: Hint; startedBy: StartedBy; late?: number } = { startedBy: 'schedule' },
 ): Promise<Id<'runs'> | null> {
   const user = await ctx.db.get(automation.userId)
   if (!user) return null
@@ -246,7 +254,7 @@ async function beginRun(
       {
         step: 'research',
         at: now,
-        note: startNote(kind, from),
+        note: startNote(kind, from, automation.timezone),
       },
     ],
     usage: EMPTY_USAGE,
@@ -1318,3 +1326,19 @@ export const refundFreeRun = internalMutation({
     return null
   },
 })
+
+/**
+ * Says why a scheduled run started after its set time, when spreadStart moved it out of a busy
+ * minute. Under 10 seconds is just the scheduler and says nothing.
+ */
+export function lateNote(late: number | undefined, timezone: string, now = Date.now()): string {
+  if (late === undefined || late < 10_000 || late > 60 * 60_000) return ''
+  const setFor = new Date(now - late).toLocaleTimeString('en-GB', {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  const minutes = Math.round(late / 60_000)
+  const gap = late < 60_000 ? 'A few seconds' : minutes === 1 ? '1 minute' : `${minutes} minutes`
+  return ` ${gap} after ${setFor}, because a lot of runs were set for then.`
+}

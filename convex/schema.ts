@@ -143,7 +143,10 @@ export default defineSchema({
     playbookVersionId: v.optional(v.id('playbookVersions')),
     /** Why generation failed, shown on the setup screen. */
     generationError: v.optional(v.string()),
+    /** When the next run really starts, after spreading a busy minute (automations.spreadStart). */
     nextRunAt: v.optional(v.number()),
+    /** The time the person set for it, which is what the app shows. */
+    nextRunSetFor: v.optional(v.number()),
     scheduledFnId: v.optional(v.id('_scheduled_functions')),
     lastRunAt: v.optional(v.number()),
     consecutiveFailures: v.optional(v.number()),

@@ -73,6 +73,9 @@ const MINUTE = 60_000
  * `runsPerMinute()` others; then the run takes the next minute with room, up to
  * `scheduleSpreadMinutes()` later, so a popular time like 08:00 doesn't send every run to the AI
  * at once. Within a minute, runs are spaced evenly. Exported for tests.
+ *
+ * Later (SPEC §41.2): once paid plans exist, paid automations keep their minute and a free one
+ * is the run that moves.
  */
 export async function spreadStart(
   ctx: MutationCtx,
@@ -107,18 +110,24 @@ export async function scheduleNext(
 ) {
   if (automation.scheduledFnId) await ctx.scheduler.cancel(automation.scheduledFnId)
   if (automation.status !== 'active') {
-    await ctx.db.patch(automation._id, { scheduledFnId: undefined, nextRunAt: undefined })
+    await ctx.db.patch(automation._id, {
+      scheduledFnId: undefined,
+      nextRunAt: undefined,
+      nextRunSetFor: undefined,
+    })
     return
   }
-  const at = await spreadStart(
-    ctx,
-    automation._id,
-    nextRunAt(automation.cadence as Cadence, automation.timezone, after),
-  )
+  const wanted = nextRunAt(automation.cadence as Cadence, automation.timezone, after)
+  const at = await spreadStart(ctx, automation._id, wanted)
   const scheduledFnId = await ctx.scheduler.runAt(at, internal.runs.start, {
     automationId: automation._id,
   })
-  await ctx.db.patch(automation._id, { scheduledFnId, nextRunAt: at, updatedAt: Date.now() })
+  await ctx.db.patch(automation._id, {
+    scheduledFnId,
+    nextRunAt: at,
+    nextRunSetFor: wanted,
+    updatedAt: Date.now(),
+  })
 }
 
 /** Starts an automation from the setup answers and the chosen channels; the playbook follows. */
@@ -218,7 +227,8 @@ function summary(a: Doc<'automations'>, version: number) {
     postingMode: a.postingMode,
     maxPostsPerRun: a.maxPostsPerRun,
     channelIds: a.channelIds,
-    nextRunAt: a.nextRunAt ?? null,
+    // The time the person set; a busy minute may start it a little later (spreadStart).
+    nextRunAt: a.nextRunSetFor ?? a.nextRunAt ?? null,
     lastRunAt: a.lastRunAt ?? null,
     generationError: a.generationError ?? null,
     version,
@@ -483,6 +493,7 @@ export async function removeFor(
       deletedAt: Date.now(),
       scheduledFnId: undefined,
       nextRunAt: undefined,
+      nextRunSetFor: undefined,
     })
     return null
   }
@@ -536,7 +547,7 @@ export const dashboard = query({
         status: a.status,
         cadence: a.cadence,
         timezone: a.timezone,
-        nextRunAt: a.nextRunAt ?? null,
+        nextRunAt: a.nextRunSetFor ?? a.nextRunAt ?? null,
         lastRun: last
           ? {
               _id: last._id,

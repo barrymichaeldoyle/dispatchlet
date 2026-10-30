@@ -445,3 +445,29 @@ describe('spreading scheduled runs', () => {
     expect(rest).toEqual([15, 30, 45, 60, 75])
   })
 })
+
+describe('the note on a run that started late', () => {
+  it('explains a moved start and stays quiet for scheduler jitter', async () => {
+    const { lateNote } = await import('./runs')
+    const now = Date.parse('2026-11-10T08:02:00Z')
+    expect(lateNote(undefined, 'UTC', now)).toBe('')
+    expect(lateNote(3_000, 'UTC', now)).toBe('')
+    expect(lateNote(30_000, 'UTC', now)).toBe(
+      ' A few seconds after 08:01, because a lot of runs were set for then.',
+    )
+    expect(lateNote(120_000, 'Africa/Johannesburg', now)).toBe(
+      ' 2 minutes after 10:00, because a lot of runs were set for then.',
+    )
+  })
+
+  it('keeps showing the set time when a busy minute moves the start', async () => {
+    const { scheduleNext } = await import('./automations')
+    const t = convexTest(schema, modules)
+    const ids: Id<'automations'>[] = []
+    for (let i = 0; i < 5; i++) ids.push((await seed(t)).automationId)
+    for (const id of ids) await t.run(async (ctx) => scheduleNext(ctx, (await ctx.db.get(id))!))
+    const last = await t.run((ctx) => ctx.db.get(ids[4]!))
+    expect(last!.nextRunAt! - last!.nextRunSetFor!).toBe(60_000)
+    expect(new Date(last!.nextRunSetFor!).toISOString()).toMatch(/T08:00:00\.000Z$/)
+  })
+})
