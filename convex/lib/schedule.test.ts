@@ -36,6 +36,17 @@ describe('next run time', () => {
     expect(new Date(next).toISOString()).toBe('2026-10-25T08:00:00.000Z') // 08:00 GMT, not BST
   })
 
+  it('still runs once on the day the clocks jump past the set time', () => {
+    // 14 Mar 2027 in New York: 02:00 jumps to 03:00, so 02:30 never happens that day.
+    const cadence = { preset: 'daily' as const, time: '02:30', weekday: null }
+    const after = Date.UTC(2027, 2, 13, 12, 0)
+    const gapDay = nextRunAt(cadence, 'America/New_York', after)
+    expect(gapDay).toBeGreaterThan(Date.UTC(2027, 2, 14, 6, 0)) // after the jump
+    expect(gapDay).toBeLessThanOrEqual(Date.UTC(2027, 2, 14, 8, 0)) // still that morning
+    const nextDay = nextRunAt(cadence, 'America/New_York', gapDay + 60_000)
+    expect(new Date(nextDay).toISOString()).toBe('2027-03-15T06:30:00.000Z') // 02:30 EDT
+  })
+
   it('describes itself', () => {
     expect(describeCadence({ preset: 'daily', time: '08:00', weekday: null })).toBe(
       'Daily at 08:00',
