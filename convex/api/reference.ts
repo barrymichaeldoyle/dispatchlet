@@ -84,6 +84,7 @@ export const Channel = {
     service: { type: 'string', enum: ['twitter', 'linkedin', 'threads', 'bluesky', 'mastodon'] },
     name: { type: 'string' },
     usable: { type: 'boolean' },
+    supported: { type: 'boolean' },
     maxLength: nullable({ type: 'integer' }),
     syncedAt: ms,
   },
@@ -333,7 +334,7 @@ export const ROUTES: RouteRef[] = [
     method: 'GET',
     path: '/channels',
     scope: 'read',
-    summary: 'Your usable Buffer channels',
+    summary: 'Your Buffer channels, with which ones Dispatchlet can post to',
     response: list('channels', 'Channel'),
   },
   {

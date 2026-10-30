@@ -110,7 +110,10 @@ export function NewAutomation() {
   const id = useId()
   const channels = (connection?.channels ?? []).filter((c) => c.usable)
   const blocked = (connection?.channels ?? []).filter((c) => !c.usable)
-  const others = connection?.otherServices ?? []
+  const needsAttention = blocked.filter((c) => c.problem !== 'unsupported')
+  const others = [
+    ...new Set(blocked.filter((c) => c.problem === 'unsupported').map((c) => c.service)),
+  ]
   const set = <K extends keyof Answers>(key: K, value: Answers[K]) =>
     setA((prev) => ({ ...prev, [key]: value }))
 
@@ -171,7 +174,7 @@ export function NewAutomation() {
       label: 'Where should it post?',
       hint: channelHint({
         usable: channels.length,
-        blocked: blocked.length,
+        blocked: needsAttention.length,
         others,
         syncing,
         syncError,
@@ -216,7 +219,7 @@ export function NewAutomation() {
                 <ChannelMark channel={serviceName(c.service)} size={20} />
                 {c.name}
               </span>
-              <span className="setup-block-detail">{channelProblem(c.problem)}</span>
+              <span className="setup-block-detail">{channelProblem(c.problem, c.service)}</span>
             </div>
           ))}
         </div>

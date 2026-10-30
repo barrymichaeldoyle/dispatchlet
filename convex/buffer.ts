@@ -437,7 +437,12 @@ function channelLimit(
   return undefined
 }
 
-/** Reads the user's organizations and their text channels from Buffer and stores them. */
+/** Whether Dispatchlet can write for a Buffer service: text networks only, for now. */
+export function isTextService(service: string): boolean {
+  return TEXT_SERVICES.has(service)
+}
+
+/** Reads the user's organizations and every channel from Buffer and stores them. */
 export const syncChannels = action({
   args: {},
   returns: v.object({ channels: v.number() }),
@@ -487,10 +492,9 @@ export async function syncChannelsFor(
         { orgId: organization.id },
       )
       for (const channel of data.channels) {
-        if (!TEXT_SERVICES.has(channel.service)) {
-          otherServices.add(channel.service)
-          continue
-        }
+        // Every channel is stored, so none looks missing; ones Dispatchlet can't post to are marked.
+        const supported = TEXT_SERVICES.has(channel.service)
+        if (!supported) otherServices.add(channel.service)
         channels.push({
           organizationId: organization.id,
           channelId: channel.id,
@@ -498,12 +502,14 @@ export async function syncChannelsFor(
           name: channel.name,
           displayName: channel.displayName ?? undefined,
           avatar: channel.avatar ?? undefined,
-          usable: !channel.isDisconnected && !channel.isLocked,
-          problem: channel.isDisconnected
-            ? 'disconnected'
-            : channel.isLocked
-              ? 'locked'
-              : undefined,
+          usable: supported && !channel.isDisconnected && !channel.isLocked,
+          problem: !supported
+            ? 'unsupported'
+            : channel.isDisconnected
+              ? 'disconnected'
+              : channel.isLocked
+                ? 'locked'
+                : undefined,
           maxLength: channelLimit(channel.service, channel.metadata),
         })
       }

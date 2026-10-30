@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { channelHint, channelProblem, ideaLinkState, serviceList } from './format'
+import { bufferChannelUrl, channelHint, channelProblem, ideaLinkState, serviceList } from './format'
 
 const none = { usable: 0, blocked: 0, others: [] as string[], syncing: false, syncError: null }
 
@@ -38,5 +38,22 @@ describe('the Buffer Ideas link on a story', () => {
     expect(ideaLinkState(false, 'reconnect')).toBe('reconnect')
     expect(ideaLinkState(false, 'ready')).toBe('save')
     expect(ideaLinkState(true, 'off')).toBe('saved')
+  })
+})
+
+describe('channels Dispatchlet cannot post to', () => {
+  it('are named, not hidden', () => {
+    expect(channelProblem('unsupported', 'instagram')).toBe(
+      'Dispatchlet can’t post to Instagram yet.',
+    )
+    expect(channelProblem('unsupported', 'tiktok')).toBe('Dispatchlet can’t post to TikTok yet.')
+  })
+})
+
+describe('links into Buffer', () => {
+  it('open drafts on the drafts tab and other posts on their channel', () => {
+    expect(bufferChannelUrl('c1', 'draft')).toBe('https://publish.buffer.com/schedule?tab=drafts')
+    expect(bufferChannelUrl('c1', 'queued')).toBe('https://publish.buffer.com/channel/c1/tab/queue')
+    expect(bufferChannelUrl('c1', 'sent')).toBe('https://publish.buffer.com/channel/c1/tab/sent')
   })
 })

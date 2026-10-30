@@ -246,9 +246,23 @@ export function runsUsedUpMessage(to: string): Message {
   }
 }
 
-async function resend(path: string, body: unknown): Promise<void> {
+/** A deployment whose site runs on this machine, such as the dev backend behind localhost:3131. */
+function isLocalSite(): boolean {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(process.env.SITE_URL ?? '')
+}
+
+/**
+ * Sends through Resend and returns whether it did. Without a key it throws, so a missing key on
+ * the live site is an error people see; a local dev backend logs and skips instead, since e2e
+ * runs there send confirmation emails nobody needs.
+ */
+async function resend(path: string, body: unknown): Promise<boolean> {
   const key = process.env.RESEND_API_KEY
   if (!key) {
+    if (isLocalSite()) {
+      console.log(`No RESEND_API_KEY on this local deployment; skipped ${path}.`)
+      return false
+    }
     throw new Error('RESEND_API_KEY is not set; no email was sent')
   }
   const res = await fetch(`${RESEND}${path}`, {
@@ -259,6 +273,7 @@ async function resend(path: string, body: unknown): Promise<void> {
   if (!res.ok) {
     throw new Error(`Resend ${path} failed: ${res.status} ${await res.text()}`)
   }
+  return true
 }
 
 export const sendConfirm = internalAction({
@@ -316,10 +331,12 @@ export const sendLaunch = internalAction({
     for (;;) {
       const batch = await ctx.runQuery(internal.waitlist.nextLaunchBatch, { limit: 50 })
       if (batch.length === 0) break
-      await resend(
+      // Never mark people as sent when nothing went out, even on a local deployment.
+      const delivered = await resend(
         '/emails/batch',
         batch.map((r) => launchMessage(r.email, r.token)),
       )
+      if (!delivered) throw new Error('RESEND_API_KEY is not set; the launch email was not sent')
       await ctx.runMutation(internal.waitlist.markLaunchSent, { ids: batch.map((r) => r._id) })
       sent += batch.length
       await new Promise((resolve) => setTimeout(resolve, 1000))

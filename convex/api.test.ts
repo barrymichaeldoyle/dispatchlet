@@ -773,3 +773,31 @@ describe('saving a story to Buffer Ideas', () => {
     expect((await call('/stories/nope/idea', { method: 'POST' })).status).toBe(404)
   })
 })
+
+describe('channels Dispatchlet cannot post to', () => {
+  it('are listed, but an automation cannot use one', async () => {
+    const { t, userId, call } = await account(convexTest(schema, modules))
+    await t.run((ctx) =>
+      ctx.db.insert('bufferChannels', {
+        userId,
+        organizationId: 'o1',
+        channelId: 'ig1',
+        service: 'instagram',
+        name: 'Photos',
+        usable: false,
+        problem: 'unsupported',
+        syncedAt: Date.now(),
+      }),
+    )
+    const listed = (await (await call('/channels')).json()).channels
+    expect(listed.find((c: { id: string }) => c.id === 'ig1')).toMatchObject({
+      usable: false,
+      supported: false,
+    })
+    const body = JSON.stringify({
+      setup: { research: 'F1', cadence: { preset: 'daily', time: '08:00', weekday: null } },
+      channelIds: ['ig1'],
+    })
+    expect((await call('/automations', { method: 'POST', body })).status).toBe(400)
+  })
+})

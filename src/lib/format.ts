@@ -53,8 +53,10 @@ export function serviceList(services: string[]): string {
   return `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`
 }
 
-/** Why Buffer will not let a channel be used, in words. */
-export function channelProblem(problem: string | null): string {
+/** Why a channel cannot be used, in words. */
+export function channelProblem(problem: string | null, service?: string): string {
+  if (problem === 'unsupported')
+    return `Dispatchlet can’t post to ${service ? serviceName(service) : 'this network'} yet.`
   if (problem === 'disconnected') return 'Disconnected in Buffer. Reconnect it there, then sync.'
   if (problem === 'locked') return 'Locked in Buffer, usually by the plan’s channel limit.'
   return 'Needs attention in Buffer.'
@@ -64,9 +66,13 @@ export function errorText(reason: unknown, fallback: string): string {
   return reason instanceof Error ? reason.message.replace(/^.*Uncaught Error: /s, '') : fallback
 }
 
-/** Buffer's web app, at the channel's drafts or queue tab; the API gives no per-post page. */
+/**
+ * Buffer's web app where the post is; the API gives no per-post page. Drafts open on Buffer's
+ * drafts tab, which lists every channel's drafts; other posts open on their channel's tab.
+ */
 export function bufferChannelUrl(channelId: string, status: string): string {
-  const tab = status === 'draft' ? 'drafts' : status === 'sent' ? 'sent' : 'queue'
+  if (status === 'draft') return 'https://publish.buffer.com/schedule?tab=drafts'
+  const tab = status === 'sent' ? 'sent' : 'queue'
   return `https://publish.buffer.com/channel/${channelId}/tab/${tab}`
 }
 

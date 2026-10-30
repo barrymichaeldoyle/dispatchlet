@@ -4366,6 +4366,13 @@ header nav button {
 .app-connection li[data-usable='false'] {
   color: var(--color-muted);
 }
+/* Channel marks keep their size beside a long note; the note wraps instead. */
+.app-connection li > svg {
+  flex-shrink: 0;
+}
+.app-gate .app-connection li > .app-connection-note {
+  text-align: right;
+}
 .app-gate .app-connection-note {
   margin-left: auto;
   font-size: 13px;

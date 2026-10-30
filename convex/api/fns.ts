@@ -50,6 +50,8 @@ function channelView(c: Doc<'bufferChannels'>) {
     service: c.service,
     name: c.displayName ?? c.name,
     usable: c.usable,
+    /** False for networks Dispatchlet cannot post to yet, such as Instagram. */
+    supported: c.problem !== 'unsupported',
     maxLength: c.maxLength ?? null,
     syncedAt: c.syncedAt,
   }

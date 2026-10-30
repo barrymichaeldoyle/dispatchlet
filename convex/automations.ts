@@ -9,6 +9,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
+import { isTextService } from './buffer'
 import { SetupAnswers, type Service } from './lib/ai/setup'
 import { SERVICE_LIMITS } from './lib/ai/write'
 import {
@@ -158,7 +159,9 @@ export async function createFor(
       .query('bufferChannels')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
-    const chosen = channels.filter((c) => args.channelIds.includes(c.channelId))
+    const chosen = channels.filter(
+      (c) => args.channelIds.includes(c.channelId) && isTextService(c.service),
+    )
     if (!chosen.length) throw new Error('Pick at least one channel')
     const setup = SetupAnswers.parse({
       ...args.setup,
@@ -303,6 +306,7 @@ export async function getFor(ctx: QueryCtx, userId: Id<'users'>, id: Id<'automat
           service: c.service,
           name: c.name,
           usable: c.usable,
+          problem: c.problem ?? null,
         })),
       allowance: user ? allowanceFor(user) : null,
     }
@@ -435,7 +439,9 @@ export async function updateConfigFor(
         .query('bufferChannels')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
-      const known = new Set(channels.map((c) => c.channelId))
+      const known = new Set(
+        channels.filter((c) => isTextService(c.service)).map((c) => c.channelId),
+      )
       if (!changes.channelIds.length || changes.channelIds.some((c) => !known.has(c)))
         throw new Error('Pick at least one channel, from your Buffer channels')
     }

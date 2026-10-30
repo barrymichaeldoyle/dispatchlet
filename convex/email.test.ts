@@ -83,3 +83,18 @@ describe('the launch email', () => {
     }
   })
 })
+
+describe('email on a local deployment', () => {
+  it('skips a confirmation quietly, but never marks the launch email as sent', async () => {
+    vi.stubEnv('RESEND_API_KEY', '')
+    vi.stubEnv('SITE_URL', 'http://localhost:3131')
+    const tc = convexTest(schema, modules)
+    await tc.action(internal.email.sendConfirm, { email: 'a@example.com', token: 'test' })
+    const { token } = await tc.mutation(internal.waitlist.add, {
+      email: 'b@example.com',
+      source: 'direct',
+    })
+    await tc.mutation(internal.waitlist.confirm, { token })
+    await expect(tc.action(internal.email.sendLaunch, {})).rejects.toThrow('launch email')
+  })
+})

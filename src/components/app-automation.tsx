@@ -384,7 +384,11 @@ function ScheduleEditor({ a }: { a: Loaded }) {
               />
               <ChannelMark channel={serviceName(c.service)} size={14} />
               <span>{c.name}</span>
-              {c.usable ? null : <span className="app-muted">needs attention in Buffer</span>}
+              {c.usable ? null : (
+                <span className="app-muted">
+                  {c.problem === 'unsupported' ? 'not supported yet' : 'needs attention in Buffer'}
+                </span>
+              )}
             </label>
           </li>
         ))}
