@@ -771,6 +771,7 @@ describe('the approve link in the digest email', () => {
     expect(html).toContain('Approve and add to the queue')
     expect(html).toContain('Lions &lt;b&gt;back&lt;/b&gt; in Kunene')
     expect(html).toContain('method="post"')
+    expect(html).toContain('b.disabled=true')
     const post = await t.run((ctx) => ctx.db.get(postId))
     expect(post?.status).toBe('draft')
     expect(post?.approveToken).toBe('tok-1')

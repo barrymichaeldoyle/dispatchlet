@@ -45,7 +45,7 @@ function escapeHtml(text: string): string {
 /** `text` is trusted HTML; `extra` is more trusted HTML placed after it, such as a form. */
 function page(status: number, text: string, extra = ''): Response {
   const site = siteUrl()
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dispatchlet</title><link rel="icon" href="${site}/favicon.svg"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f1;color:#1a1a1a;font:15px/1.55 system-ui,sans-serif}main{max-width:48ch;padding:32px}blockquote{margin:0 0 16px;padding:12px 16px;border-left:3px solid #0f6e56;background:#fff;white-space:pre-wrap}button{font:inherit;font-weight:500;min-height:44px;padding:0 20px;border:0;border-radius:8px;background:#0f6e56;color:#f4f4f1;cursor:pointer}form{margin:0 0 16px}@media(prefers-color-scheme:dark){blockquote{background:#1f1f1e;border-color:#5cc9a8}button{background:#5cc9a8;color:#161616}}p{margin:0 0 16px}a{color:#0f6e56}@media(prefers-color-scheme:dark){body{background:#161616;color:#ededea}a{color:#5cc9a8}}</style></head><body><main><p>${text}</p>${extra}<p><a href="${site}/">Back to dispatchlet.com</a></p></main></body></html>`
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dispatchlet</title><link rel="icon" href="${site}/favicon.svg"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f1;color:#1a1a1a;font:15px/1.55 system-ui,sans-serif}main{max-width:48ch;padding:32px}blockquote{margin:0 0 16px;padding:12px 16px;border-left:3px solid #0f6e56;background:#fff;white-space:pre-wrap}button{font:inherit;min-width:16em;font-weight:500;min-height:44px;padding:0 20px;border:0;border-radius:8px;background:#0f6e56;color:#f4f4f1;cursor:pointer}button:disabled{opacity:.7;cursor:progress}form{margin:0 0 16px}@media(prefers-color-scheme:dark){blockquote{background:#1f1f1e;border-color:#5cc9a8}button{background:#5cc9a8;color:#161616}}p{margin:0 0 16px}a{color:#0f6e56}@media(prefers-color-scheme:dark){body{background:#161616;color:#ededea}a{color:#5cc9a8}}</style></head><body><main><p>${text}</p>${extra}<p><a href="${site}/">Back to dispatchlet.com</a></p></main></body></html>`
   return new Response(body, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
@@ -219,7 +219,7 @@ http.route({
     return page(
       200,
       'Approve this draft and add it to your Buffer queue?',
-      `<blockquote>${escapeHtml(post.text)}</blockquote><form method="post" action="?token=${encodeURIComponent(token)}"><button type="submit">Approve and add to the queue</button></form>`,
+      `<blockquote>${escapeHtml(post.text)}</blockquote><form method="post" action="?token=${encodeURIComponent(token)}" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Approving';"><button type="submit">Approve and add to the queue</button></form>`,
     )
   }),
 })
