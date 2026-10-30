@@ -37,7 +37,7 @@ function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) 
         })
       }}
     >
-      {done ? 'Copied' : label}
+      <BusyLabel busy={done} idle={label} working="Copied" />
     </button>
   )
 }
@@ -487,7 +487,7 @@ function Webhooks({ timezone }: { timezone: string }) {
                   className="app-link"
                   onClick={() => void run(() => setActive({ id: w._id, active: !w.active }))}
                 >
-                  {w.active ? 'Turn off' : 'Turn on'}
+                  <BusyLabel busy={w.active} idle="Turn on" working="Turn off" />
                 </button>
                 <ConfirmLink
                   label="Delete"

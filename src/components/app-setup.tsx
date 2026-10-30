@@ -462,7 +462,11 @@ export function NewAutomation() {
                   </button>
                 ) : null}
                 <button type="submit" className="app-gate-primary" disabled={!q.valid}>
-                  {index === questions.length - 1 ? 'Check answers' : 'Next'}
+                  <BusyLabel
+                    busy={index === questions.length - 1}
+                    idle="Next"
+                    working="Check answers"
+                  />
                 </button>
               </div>
             </div>

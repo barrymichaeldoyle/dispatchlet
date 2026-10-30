@@ -5757,6 +5757,10 @@ header nav button {
   grid-area: 1 / 1;
   text-align: center;
 }
+/* Text links keep their words at the start; only buttons centre them. */
+.app-link .busy-label > span {
+  text-align: start;
+}
 .busy-label[data-busy='true'] > span:first-child,
 .busy-label[data-busy='false'] > span:last-child {
   visibility: hidden;

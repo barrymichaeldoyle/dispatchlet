@@ -482,7 +482,7 @@ function LogNote({ text }: { text: string }) {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        {open ? 'Show less' : 'Show the whole note'}
+        <BusyLabel busy={open} idle="Show the whole note" working="Show less" />
       </button>
     </div>
   )
