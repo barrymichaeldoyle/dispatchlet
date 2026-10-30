@@ -221,6 +221,8 @@ export default defineSchema({
     decision: v.string(),
     reason: v.string(),
     dupOf: v.optional(v.id('stories')),
+    /** Buffer's idea id once the person saved this story to their Ideas board. */
+    ideaId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])

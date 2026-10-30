@@ -6122,3 +6122,12 @@ header nav button {
 .landing-tools li + li {
   margin-top: 6px;
 }
+
+/* A story's own actions, such as saving it to Buffer Ideas, on one wrapping line. */
+.app-story-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  margin: 0;
+}

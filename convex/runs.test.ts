@@ -471,3 +471,68 @@ describe('the note on a run that started late', () => {
     expect(new Date(last!.nextRunSetFor!).toISOString()).toMatch(/T08:00:00\.000Z$/)
   })
 })
+
+describe('saving a story to Buffer Ideas', () => {
+  it('asks Buffer for ideas access only when switched on', async () => {
+    const { bufferScopes } = await import('./auth')
+    expect(bufferScopes()).not.toContain('ideas:write')
+    process.env.BUFFER_IDEAS = 'true'
+    try {
+      expect(bufferScopes()).toBe('account:read posts:read posts:write ideas:write offline_access')
+    } finally {
+      delete process.env.BUFFER_IDEAS
+    }
+  })
+
+  it('turns a story into idea text with its source', async () => {
+    const { ideaText } = await import('./runs')
+    expect(
+      ideaText({
+        summary: 'Kenya launched a programme.',
+        whyItMatters: 'It funds 2.7m hectares.',
+        source: 'kbc.co.ke',
+        canonicalUrl: 'https://kbc.co.ke/a',
+      }),
+    ).toBe(
+      'Kenya launched a programme.\n\nIt funds 2.7m hectares.\n\nSource: kbc.co.ke, https://kbc.co.ke/a',
+    )
+  })
+
+  it('refuses kept and duplicate stories, and connections without ideas access', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const story = (decision: string) =>
+      t.run(async (ctx) => {
+        const runId = await ctx.db.insert('runs', {
+          userId,
+          automationId,
+          kind: 'now',
+          status: 'done',
+          startedAt: 0,
+          steps: [],
+          usage: EMPTY,
+          costUsd: 0,
+        })
+        return await ctx.db.insert('stories', {
+          automationId,
+          runId,
+          title: 'A story',
+          canonicalUrl: 'https://example.com/a',
+          source: 'example.com',
+          publishedAt: '2026-10-30',
+          summary: 's',
+          whyItMatters: 'w',
+          keyFacts: [],
+          confidence: 0.9,
+          decision,
+          reason: 'r',
+          createdAt: 0,
+        })
+      })
+    const save = async (storyId: Id<'stories'>) =>
+      t.action(internal.runs.saveIdeaForUser, { userId, storyId })
+    await expect(save(await story('kept'))).rejects.toThrow('Only stories')
+    await expect(save(await story('skipped_dup'))).rejects.toThrow('Only stories')
+    await expect(save(await story('skipped_limit'))).rejects.toThrow('Reconnect Buffer')
+  })
+})

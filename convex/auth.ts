@@ -17,6 +17,16 @@ import { addSignInToWaitlist } from './waitlist'
  * what makes the provider issue one). The user is identified by their Buffer account ID.
  * `issuer` is set because Buffer returns an `iss` parameter that is checked.
  */
+/**
+ * The access Dispatchlet asks Buffer for. `ideas:write` (saving stories to Buffer Ideas) is only
+ * requested when BUFFER_IDEAS is true: Buffer refuses it with invalid_scope for an app client that
+ * hasn't been allowed it, and that refusal would stop every sign-in.
+ */
+export function bufferScopes(): string {
+  const ideas = process.env.BUFFER_IDEAS?.trim().toLowerCase() === 'true' ? ' ideas:write' : ''
+  return `account:read posts:read posts:write${ideas} offline_access`
+}
+
 const Buffer: OAuthConfig<BufferAccount> = {
   id: 'buffer',
   name: 'Buffer',
@@ -26,7 +36,7 @@ const Buffer: OAuthConfig<BufferAccount> = {
   clientSecret: process.env.BUFFER_CLIENT_SECRET,
   authorization: {
     url: 'https://auth.buffer.com/auth',
-    params: { scope: 'account:read posts:read posts:write offline_access', prompt: 'consent' },
+    params: { scope: bufferScopes(), prompt: 'consent' },
   },
   token: 'https://auth.buffer.com/token',
   userinfo: {

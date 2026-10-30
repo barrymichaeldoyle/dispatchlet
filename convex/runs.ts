@@ -18,6 +18,7 @@ import {
   BufferBudgetError,
   BufferPostError,
   channelsAtLimit,
+  createBufferIdea,
   createBufferPost,
   ensureTag,
 } from './buffer'
@@ -1238,6 +1239,7 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
         confidence: s.confidence,
         decision: s.decision,
         reason: s.reason,
+        savedAsIdea: Boolean(s.ideaId),
       })),
       posts: posts.map((p) => ({
         _id: p._id,
@@ -1342,3 +1344,88 @@ export function lateNote(late: number | undefined, timezone: string, now = Date.
   const gap = late < 60_000 ? 'A few seconds' : minutes === 1 ? '1 minute' : `${minutes} minutes`
   return ` ${gap} after ${setFor}, because a lot of runs were set for then.`
 }
+
+/** Stories worth keeping for later: good ones that missed the cut, and a dry run's picks. */
+export const IDEA_DECISIONS = new Set(['skipped_limit', 'skipped_quality', 'dry'])
+
+export const ideaContext = internalQuery({
+  args: { userId: v.id('users'), storyId: v.id('stories') },
+  handler: async (ctx, { userId, storyId }) => {
+    const story = await ctx.db.get(storyId)
+    const automation = story ? await ctx.db.get(story.automationId) : null
+    if (!story || !automation || automation.userId !== userId) return null
+    const channels = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    const mine = channels.filter((c) => automation.channelIds.includes(c.channelId))
+    const connection = await ctx.db
+      .query('bufferConnections')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    return {
+      story,
+      canWriteIdeas: connection?.scope.split(' ').includes('ideas:write') ?? false,
+      organizationId: mine[0]?.organizationId ?? channels[0]?.organizationId ?? null,
+      services: [...new Set(mine.map((c) => c.service))],
+    }
+  },
+})
+
+export const markIdea = internalMutation({
+  args: { storyId: v.id('stories'), ideaId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { storyId, ideaId }) => {
+    await ctx.db.patch(storyId, { ideaId })
+    return null
+  },
+})
+
+/** The text of an idea: what happened, why it matters, and where it came from. */
+export function ideaText(story: {
+  summary: string
+  whyItMatters: string
+  source: string
+  canonicalUrl: string
+}): string {
+  return [story.summary, story.whyItMatters, `Source: ${story.source}, ${story.canonicalUrl}`]
+    .filter((part) => part.trim())
+    .join('\n\n')
+}
+
+/** Saves one story to Buffer Ideas for the person, once. Shared by the app, the API and MCP. */
+export const saveIdeaForUser = internalAction({
+  args: { userId: v.id('users'), storyId: v.id('stories') },
+  returns: v.string(),
+  handler: async (ctx, { userId, storyId }): Promise<string> => {
+    const found = await ctx.runQuery(internal.runs.ideaContext, { userId, storyId })
+    if (!found) throw new Error('Story not found')
+    const { story, organizationId, services, canWriteIdeas } = found
+    if (story.ideaId) return story.ideaId
+    if (!IDEA_DECISIONS.has(story.decision))
+      throw new Error(
+        'Only stories that were skipped or picked on a dry run can be saved as ideas.',
+      )
+    if (!canWriteIdeas)
+      throw new Error('Reconnect Buffer in settings to let Dispatchlet save ideas.')
+    if (!organizationId) throw new Error('Sync your Buffer channels first.')
+    const ideaId = await createBufferIdea(ctx, userId, organizationId, {
+      title: story.title.slice(0, 200),
+      text: ideaText(story),
+      services,
+    })
+    await ctx.runMutation(internal.runs.markIdea, { storyId, ideaId })
+    return ideaId
+  },
+})
+
+/** From the run page: saves a story that missed the cut to Buffer Ideas. */
+export const saveIdea = action({
+  args: { storyId: v.id('stories') },
+  returns: v.string(),
+  handler: async (ctx, { storyId }): Promise<string> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    return await ctx.runAction(internal.runs.saveIdeaForUser, { userId, storyId })
+  },
+})

@@ -20,6 +20,48 @@ const DECISION_WORDS: Record<string, string> = {
   skipped_limit: 'Over the limit',
 }
 
+/** Matches runs.IDEA_DECISIONS: good stories that missed the cut, and a dry run's picks. */
+const IDEA_DECISIONS = new Set(['skipped_limit', 'skipped_quality', 'dry'])
+
+/** Saves a story to the Ideas board in Buffer, so it can be posted later by hand. */
+function SaveIdea({ storyId, saved }: { storyId: Id<'stories'>; saved: boolean }) {
+  const save = useAction(api.runs.saveIdea)
+  const ideas = useQuery(api.buffer.myConnection)?.ideas ?? 'off'
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  if (saved) return <p className="app-muted">Saved to your Ideas in Buffer.</p>
+  if (ideas === 'off') return null
+  if (ideas === 'reconnect')
+    return (
+      <p className="app-muted">
+        To save stories to Buffer Ideas, <Link to="/app/settings">reconnect Buffer</Link> once.
+      </p>
+    )
+  return (
+    <p className="app-story-actions">
+      <button
+        type="button"
+        className="app-link"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true)
+          setError(null)
+          save({ storyId })
+            .catch((reason: unknown) => setError(errorText(reason, 'Not saved. Try again.')))
+            .finally(() => setBusy(false))
+        }}
+      >
+        <BusyLabel busy={busy} idle="Save to Buffer Ideas" working="Saving to Buffer" />
+      </button>
+      {error ? (
+        <span className="app-muted" role="status">
+          {error}
+        </span>
+      ) : null}
+    </p>
+  )
+}
+
 const POST_WORDS: Record<string, string> = {
   dry: 'would be sent',
   rejected: 'not used',
@@ -286,6 +328,9 @@ function RunView({
                     )
                   ) : null}
                   {ruleNote[s._id] ? <p className="app-muted">{ruleNote[s._id]}</p> : null}
+                  {!shared && id && IDEA_DECISIONS.has(s.decision) ? (
+                    <SaveIdea storyId={s._id} saved={s.savedAsIdea} />
+                  ) : null}
                 </li>
               )
             })}

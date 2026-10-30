@@ -561,6 +561,13 @@ export const myConnection = query({
       : null
     return {
       scope: connection.scope,
+      /** Saving to Buffer Ideas: off, needs a reconnect to grant it, or ready. */
+      ideas:
+        process.env.BUFFER_IDEAS?.trim().toLowerCase() !== 'true'
+          ? ('off' as const)
+          : connection.scope.split(' ').includes('ideas:write')
+            ? ('ready' as const)
+            : ('reconnect' as const),
       // Windows past their reset are full again, so only current ones are worth showing.
       budget: budget ? budget.windows.filter((window) => window.resetAt > Date.now()) : null,
       canRefresh: Boolean(connection.refreshTokenEnc),
@@ -952,3 +959,50 @@ export const probeThread = internalAction({
     return { id: created.id, status: created.status }
   },
 })
+
+/**
+ * Saves a story to the organization's Ideas board in Buffer, tagged like the posts, so a good
+ * story that missed the cut is still there to post later. Returns Buffer's idea id.
+ */
+export async function createBufferIdea(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  organizationId: string,
+  content: { title: string; text: string; services: string[] },
+): Promise<string> {
+  const tagId = await ensureTag(ctx, userId, organizationId)
+  const { createIdea } = await bufferCallFor<{
+    createIdea: { __typename: string; id?: string; idea?: { id: string } | null; message?: string }
+  }>(
+    ctx,
+    userId,
+    `mutation DispatchletIdea($input: CreateIdeaInput!) {
+      createIdea(input: $input) {
+        __typename
+        ... on Idea { id }
+        ... on IdeaResponse { idea { id } }
+        ... on InvalidInputError { message }
+        ... on UnauthorizedError { message }
+        ... on UnexpectedError { message }
+        ... on LimitReachedError { message }
+      }
+    }`,
+    {
+      input: {
+        organizationId,
+        content: {
+          ...content,
+          aiAssisted: true,
+          ...(tagId ? { tags: [{ id: tagId, name: tagName(), color: '#0F6E56' }] } : {}),
+        },
+      },
+    },
+  )
+  const id = createIdea.id ?? createIdea.idea?.id
+  if (id) return id
+  if (createIdea.__typename === 'LimitReachedError')
+    throw new Error(
+      'Your Ideas board in Buffer is full on its current plan. Make room there first.',
+    )
+  throw new Error(createIdea.message ?? 'Buffer did not save the idea. Try again.')
+}
