@@ -18,7 +18,7 @@ export function OAuthConsent() {
   )
 }
 
-export function Frame({ title, children }: { title: string; children?: React.ReactNode }) {
+function Frame({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <main className="app-gate">
       <div className="app-gate-inner">
