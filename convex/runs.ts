@@ -38,6 +38,7 @@ import {
   checkPost,
   overBy,
   repairUserMessage,
+  SERVICE_LIMITS,
   textLimitFor,
   withLink,
   withoutLink,
@@ -67,6 +68,28 @@ const SPREAD_FIRST_MS = 10 * 60_000
 
 type Kind = 'scheduled' | 'now' | 'dry'
 
+/**
+ * The dry run a new automation starts by itself once its first playbook is written. Only when it
+ * has never run and the account has a dry run left; otherwise nothing happens.
+ */
+export const firstDryRun = internalMutation({
+  args: { automationId: v.id('automations') },
+  returns: v.null(),
+  handler: async (ctx, { automationId }) => {
+    const automation = await ctx.db.get(automationId)
+    if (!automation || automation.deletedAt || !automation.playbookVersionId) return null
+    const ran = await ctx.db
+      .query('runs')
+      .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
+      .first()
+    if (ran) return null
+    const user = await ctx.db.get(automation.userId)
+    if (!user || allowanceFor(user).dryRunsLeft === 0) return null
+    await beginRun(ctx, automation, 'dry', { startedBy: 'first' })
+    return null
+  },
+})
+
 /** The scheduled entry point: books the run and starts it. Never throws, so the chain goes on. */
 export const start = internalMutation({
   args: { automationId: v.id('automations') },
@@ -92,7 +115,7 @@ export const trigger = mutation({
 })
 
 export type Hint = { title: string; url?: string; notes?: string }
-export type StartedBy = 'schedule' | 'app' | 'api' | 'hook' | 'mcp'
+export type StartedBy = 'schedule' | 'app' | 'api' | 'hook' | 'mcp' | 'first'
 
 /** Starts a run for a person from the app, the API, an inbound hook or MCP. Same rules for all. */
 export async function triggerFor(
@@ -147,6 +170,7 @@ const STARTED_FROM: Record<StartedBy, string> = {
   api: ' from the API',
   hook: ' from a hook',
   mcp: ' from an assistant',
+  first: ' on its own, to show what the playbook finds',
 }
 
 function startNote(kind: Kind, from: { hint?: Hint; startedBy: StartedBy }): string {
@@ -1154,6 +1178,7 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
     const names = new Map(channels.map((c) => [c.channelId, c.name]))
+    const limits = new Map(channels.map((c) => [c.channelId, c.maxLength] as const))
     return {
       _id: run._id,
       automationId: run.automationId!,
@@ -1193,6 +1218,7 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
         thread: p.thread ?? null,
         linkAttachment: p.linkAttachment ?? null,
         status: p.status,
+        limit: limits.get(p.channelId) ?? SERVICE_LIMITS[p.service as Service]?.maxLength ?? 280,
         reason: p.reason ?? null,
         bufferStatus: p.bufferStatus ?? null,
         externalLink: p.externalLink ?? null,
@@ -1203,6 +1229,22 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
     }
   }
 }
+
+/** Changes one of this person's drafts before approving it, from the home or run page. */
+export const editDraft = action({
+  args: { postId: v.id('posts'), text: v.string() },
+  returns: v.string(),
+  handler: async (ctx, { postId, text }): Promise<string> => {
+    const userId = await getAuthUserId(ctx)
+    if (!userId) throw new Error('Not signed in')
+    return await ctx.runAction(internal.approvals.editForUser, {
+      userId,
+      postId,
+      text,
+      from: 'app',
+    })
+  },
+})
 
 /** Moves one of this person's drafts into the queue, from the run page. */
 export const approve = action({

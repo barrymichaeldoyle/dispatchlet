@@ -305,6 +305,19 @@ route('GET', '/posts/:id', 'read', async (ctx, caller, { id }) => {
   return jsonResponse(200, { post }, { rate: caller.rate })
 })
 
+route('PATCH', '/posts/:id', 'write', async (ctx, caller, { id }, req) => {
+  const { text } = parse(z.object({ text: z.string().min(1).max(30_000) }), await readJson(req))
+  const postId = idOf(id!, 'posts')
+  const message = await ctx.runAction(internal.approvals.editForUser, {
+    userId: caller.userId,
+    postId,
+    text,
+    from: 'api',
+  })
+  const post = await ctx.runQuery(internal.api.fns.post, { userId: caller.userId, postId })
+  return jsonResponse(200, { post, message }, { rate: caller.rate })
+})
+
 route('POST', '/posts/:id/approve', 'write', async (ctx, caller, { id }) => {
   const postId = idOf(id!, 'posts')
   const message = await ctx.runAction(internal.approvals.approveForUser, {

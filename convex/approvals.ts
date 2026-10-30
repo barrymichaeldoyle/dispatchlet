@@ -7,7 +7,9 @@ import {
   internalQuery,
   type ActionCtx,
 } from './_generated/server'
-import { approveBufferPost, BufferPostError } from './buffer'
+import { approveBufferPost, BufferPostError, editBufferPostText } from './buffer'
+import { measuredLength, SERVICE_LIMITS } from './lib/ai/write'
+import type { Service } from './lib/ai/setup'
 import { emitPostEvent } from './runs'
 
 /** What the digest email needs: the person, the run's closing line, and each post. */
@@ -177,5 +179,88 @@ export const approveForUser = internalAction({
     const post: Doc<'posts'> | null = await ctx.runQuery(internal.approvals.postById, { postId })
     if (!post || post.userId !== userId) throw new Error('Post not found')
     return await approve(ctx, post, from ?? 'app')
+  },
+})
+
+/** What editing a draft needs: the post and the limit of its channel. */
+export const draftForEdit = internalQuery({
+  args: { userId: v.id('users'), postId: v.id('posts') },
+  handler: async (ctx, { userId, postId }) => {
+    const post = await ctx.db.get(postId)
+    if (!post || post.userId !== userId) return null
+    const channel = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user_channel', (q) => q.eq('userId', userId).eq('channelId', post.channelId))
+      .first()
+    const limits = SERVICE_LIMITS[post.service as Service]
+    return {
+      post,
+      channelName: channel?.displayName ?? channel?.name ?? post.service,
+      limit: channel?.maxLength ?? limits?.maxLength ?? 280,
+    }
+  },
+})
+
+export const saveEditedText = internalMutation({
+  args: { postId: v.id('posts'), text: v.string(), channelName: v.string(), from: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { postId, text, channelName, from }) => {
+    const post = await ctx.db.get(postId)
+    if (!post) return null
+    await ctx.db.patch(postId, { text })
+    const run = await ctx.db.get(post.runId)
+    if (run)
+      await ctx.db.patch(run._id, {
+        steps: [
+          ...run.steps,
+          {
+            step: 'edit',
+            at: Date.now(),
+            note: `${channelName}: draft edited ${from === 'app' ? 'in Dispatchlet' : `from ${APPROVED_FROM[from] ?? from}`}.`,
+          },
+        ],
+      })
+    return null
+  },
+})
+
+/**
+ * Changes a draft's text before it is approved, in Buffer and here. The text must fit the channel
+ * as the service counts it (a link is 23 characters on X).
+ */
+export const editForUser = internalAction({
+  args: {
+    userId: v.id('users'),
+    postId: v.id('posts'),
+    text: v.string(),
+    from: v.union(v.literal('app'), v.literal('api'), v.literal('mcp')),
+  },
+  returns: v.string(),
+  handler: async (ctx, { userId, postId, text, from }): Promise<string> => {
+    const found = await ctx.runQuery(internal.approvals.draftForEdit, { userId, postId })
+    if (!found) throw new Error('Post not found')
+    const { post, channelName, limit } = found
+    if (post.status !== 'draft' || !post.bufferPostId)
+      throw new Error('Only a draft waiting in Buffer can be edited here.')
+    const clean = text.replace(/\r\n/g, '\n').trim()
+    if (!clean) throw new Error('A post needs some text.')
+    const length = measuredLength(clean, post.service as Service)
+    if (length > limit)
+      throw new Error(`Too long for ${channelName}: ${length} characters, the limit is ${limit}.`)
+    if (clean === post.text) return 'Nothing changed.'
+    try {
+      await editBufferPostText(ctx, userId, post.bufferPostId, clean)
+    } catch (error) {
+      if (error instanceof BufferPostError)
+        throw new Error(`Buffer did not save the change. ${error.message}`, { cause: error })
+      throw error
+    }
+    await ctx.runMutation(internal.approvals.saveEditedText, {
+      postId,
+      text: clean,
+      channelName,
+      from,
+    })
+    return 'Saved in Buffer as a draft.'
   },
 })

@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useMemo, useState } from 'react'
 import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { PostText } from './post-text'
@@ -150,10 +151,112 @@ export function AppHome() {
 }
 
 /** A draft as it will look on its channel, with Approve right there. */
+/**
+ * Edits a draft's text in place before it is approved. The count follows the service's own rules
+ * (a link is 23 characters on X), so what fits here fits in Buffer.
+ */
+export function DraftEditor({
+  postId,
+  text,
+  service,
+  limit,
+  onDone,
+}: {
+  postId: Id<'posts'>
+  text: string
+  service: string
+  limit: number
+  onDone: () => void
+}) {
+  const id = useId()
+  const edit = useAction(api.runs.editDraft)
+  const [value, setValue] = useState(text)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const length = draftLength(value, service)
+  const over = length > limit
+  const unchanged = value.trim() === text.trim()
+  return (
+    <form
+      className="app-draft-editor"
+      onSubmit={(e) => {
+        e.preventDefault()
+        setBusy(true)
+        setError(null)
+        edit({ postId, text: value })
+          .then(() => onDone())
+          .catch((reason: unknown) => {
+            setError(message(reason, 'Not saved.'))
+            setBusy(false)
+          })
+      }}
+    >
+      <label htmlFor={id} className="visually-hidden">
+        Post text
+      </label>
+      <textarea
+        id={id}
+        className="app-select"
+        rows={Math.min(10, Math.max(3, Math.ceil(value.length / 60) + 1))}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        autoFocus
+      />
+      <p className="app-muted tabular" data-over={over} aria-live="polite">
+        {length} of {limit} characters{over ? `, ${length - limit} too many` : ''}
+      </p>
+      <div className="app-gate-actions">
+        <button
+          type="submit"
+          className="app-gate-primary"
+          disabled={busy || over || unchanged || !value.trim()}
+        >
+          <BusyLabel busy={busy} idle="Save" working="Saving" />
+        </button>
+        <button type="button" className="app-gate-secondary" disabled={busy} onClick={onDone}>
+          Cancel
+        </button>
+      </div>
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  )
+}
+
+/** The length a service counts: X wraps every link in a 23-character t.co link. */
+function draftLength(text: string, service: string): number {
+  const trimmed = text.trim()
+  if (service === 'twitter') return [...trimmed.replace(/https?:\/\/\S+/g, 'x'.repeat(23))].length
+  return [...trimmed].length
+}
+
 function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
   const approve = useAction(api.runs.approve)
   const [state, setState] = useState<'idle' | 'working' | 'done' | 'failed'>('idle')
   const [note, setNote] = useState('')
+  const [editing, setEditing] = useState(false)
+  if (editing)
+    return (
+      <li className="app-draft">
+        <p className="app-draft-head">
+          <span className="app-draft-avatar" aria-hidden="true">
+            <ChannelMark channel={SERVICE_NAMES[draft.service] ?? draft.service} size={14} />
+          </span>
+          <strong>{draft.channelName}</strong>
+          <span className="app-muted">editing the draft</span>
+        </p>
+        <DraftEditor
+          postId={draft._id}
+          text={draft.text}
+          service={draft.service}
+          limit={draft.limit}
+          onDone={() => setEditing(false)}
+        />
+      </li>
+    )
   return (
     <li className="app-draft">
       <p className="app-draft-head">
@@ -197,6 +300,11 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
           <BufferMark size={14} />
           Open in Buffer
         </a>
+        {state === 'done' ? null : (
+          <button type="button" className="app-link" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        )}
         <Link
           to="/app/a/$id/runs/$runId"
           params={{ id: draft.automationId, runId: draft.runId }}

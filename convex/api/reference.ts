@@ -168,7 +168,7 @@ export const Run = {
     status: { type: 'string' },
     startedAt: ms,
     finishedAt: nullable(ms),
-    startedBy: { type: 'string', enum: ['schedule', 'app', 'api', 'hook', 'mcp'] },
+    startedBy: { type: 'string', enum: ['schedule', 'app', 'api', 'hook', 'mcp', 'first'] },
     hint: nullable(Hint),
     steps: {
       type: 'array',
@@ -546,6 +546,16 @@ export const ROUTES: RouteRef[] = [
     scope: 'read',
     summary: 'One post',
     response: wrap('post', ref('Post')),
+  },
+  {
+    method: 'PATCH',
+    path: '/posts/{id}',
+    scope: 'write',
+    summary: 'Change a draft\u2019s text before approving it',
+    description:
+      'Drafts only. The text must fit the channel as the service counts it; it is saved in Buffer as a draft.',
+    body: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } },
+    response: { type: 'object', properties: { post: ref('Post'), message: { type: 'string' } } },
   },
   {
     method: 'POST',

@@ -75,6 +75,7 @@ describe('the MCP server', () => {
       'list_runs',
       'list_drafts',
       'approve_post',
+      'edit_post',
       'get_post',
       'list_channels',
       'share_run',

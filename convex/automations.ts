@@ -10,6 +10,7 @@ import {
   type QueryCtx,
 } from './_generated/server'
 import { SetupAnswers, type Service } from './lib/ai/setup'
+import { SERVICE_LIMITS } from './lib/ai/write'
 import { allowanceFor, automationCap, generationsPerDay } from './lib/limits'
 import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
 import { nextRunAt, type Cadence } from './lib/schedule'
@@ -338,6 +339,9 @@ export const storeGenerated = internalMutation({
     })
     const user = await ctx.db.get(automation.userId)
     if (user && !user.firstPlaybookAt) await ctx.db.patch(user._id, { firstPlaybookAt: Date.now() })
+    // A new automation's first playbook goes straight into a dry run, so the first thing the
+    // person sees is it researching, not a button to press.
+    if (!latest) await ctx.scheduler.runAfter(0, internal.runs.firstDryRun, { automationId })
     return null
   },
 })
@@ -468,6 +472,9 @@ export const dashboard = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
     const names = new Map(channels.map((c) => [c.channelId, c.name]))
+    const limits = new Map(
+      channels.filter((c) => c.maxLength).map((c) => [c.channelId, c.maxLength!] as const),
+    )
     const automations = []
     for (const a of rows) {
       if (a.deletedAt) continue
@@ -519,6 +526,7 @@ export const dashboard = query({
         channelId: p.channelId,
         service: p.service,
         text: p.text,
+        limit: limits.get(p.channelId) ?? SERVICE_LIMITS[p.service as Service]?.maxLength ?? 280,
         createdAt: p.createdAt,
       }))
     const user = await ctx.db.get(userId)

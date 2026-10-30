@@ -325,3 +325,59 @@ describe('posts deleted in Buffer', () => {
     expect(await t.query(internal.status.pending, {})).toEqual([])
   })
 })
+
+describe('the first dry run', () => {
+  it('starts by itself once, for an automation that has never run, while dry runs are left', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const versionId = await t.run((ctx) =>
+      ctx.db.insert('playbookVersions', {
+        automationId,
+        version: 1,
+        playbook: {},
+        text: '',
+        createdBy: 'ai',
+        createdAt: Date.now(),
+      }),
+    )
+    await t.run((ctx) => ctx.db.patch(automationId, { playbookVersionId: versionId }))
+    await t.mutation(internal.runs.firstDryRun, { automationId })
+    let runs = await t.run((ctx) => ctx.db.query('runs').collect())
+    expect(runs).toHaveLength(1)
+    expect(runs[0]!.kind).toBe('dry')
+    expect(runs[0]!.startedBy).toBe('first')
+    expect(runs[0]!.steps[0]!.note).toContain('on its own')
+    // Never twice, and never without a dry run left.
+    await t.mutation(internal.runs.firstDryRun, { automationId })
+    runs = await t.run((ctx) => ctx.db.query('runs').collect())
+    expect(runs).toHaveLength(1)
+    const other = await t.run((ctx) =>
+      ctx.db.insert('automations', {
+        userId,
+        name: 'B',
+        status: 'ready',
+        setup: {
+          research: 'B',
+          services: ['twitter'],
+          avoid: '',
+          sources: [],
+          onlyTheseSources: false,
+          cadence: { preset: 'daily', time: '08:00', weekday: null },
+          maxStories: 3,
+          postingMode: 'draft',
+        },
+        channelIds: ['c1'],
+        cadence: { preset: 'daily', time: '08:00', weekday: null },
+        timezone: 'UTC',
+        postingMode: 'draft',
+        maxPostsPerRun: 3,
+        playbookVersionId: versionId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }),
+    )
+    await t.run((ctx) => ctx.db.patch(userId, { freeDryRunsUsed: 3 }))
+    await t.mutation(internal.runs.firstDryRun, { automationId: other })
+    expect(await t.run((ctx) => ctx.db.query('runs').collect())).toHaveLength(1)
+  })
+})

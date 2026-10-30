@@ -635,3 +635,73 @@ describe('rules from the security review', () => {
       expect(await t.run((ctx) => ctx.db.query(table).collect()), table).toHaveLength(0)
   })
 })
+
+describe('editing a draft', () => {
+  async function withPost(status: string) {
+    const ctx = await account(convexTest(schema, modules))
+    const postId = await ctx.t.run(async (db) => {
+      const runId = await db.db.insert('runs', {
+        userId: ctx.userId,
+        automationId: ctx.automationId,
+        kind: 'now',
+        status: 'done',
+        startedAt: Date.now(),
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      })
+      const storyId = await db.db.insert('stories', {
+        automationId: ctx.automationId,
+        runId,
+        title: 'T',
+        canonicalUrl: 'https://x.y/z',
+        source: 'x',
+        publishedAt: '',
+        summary: '',
+        whyItMatters: '',
+        keyFacts: [],
+        confidence: 1,
+        decision: 'kept',
+        reason: '',
+        createdAt: Date.now(),
+      })
+      return await db.db.insert('posts', {
+        userId: ctx.userId,
+        automationId: ctx.automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'Hello https://x.y/z',
+        status,
+        bufferPostId: 'b1',
+        createdAt: Date.now(),
+      })
+    })
+    return { ...ctx, postId }
+  }
+
+  it('refuses text over the channel limit, counting a link as 23 on X', async () => {
+    const { call, postId } = await withPost('draft')
+    const over = await call(`/posts/${postId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ text: `${'a'.repeat(260)} https://example.com/${'p'.repeat(200)}` }),
+    })
+    expect(over.status).toBe(400)
+    expect((await over.json()).error.message).toBe(
+      'Too long for GrandPrixPicks: 284 characters, the limit is 280.',
+    )
+    const empty = await call(`/posts/${postId}`, { method: 'PATCH', body: '{"text":"   "}' })
+    expect(empty.status).toBe(400)
+  })
+
+  it('only edits drafts, and a read token cannot', async () => {
+    const queued = await withPost('queued')
+    const res = await queued.call(`/posts/${queued.postId}`, {
+      method: 'PATCH',
+      body: '{"text":"New text"}',
+    })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.message).toContain('Only a draft')
+  })
+})

@@ -36,6 +36,7 @@ const TOOLS: [string, string][] = [
   ['list_runs', 'Recent runs of an automation.'],
   ['list_drafts', 'Posts waiting in Buffer as drafts, with text and channel.'],
   ['approve_post', 'Move a draft into the Buffer queue (Buffer’s editPost).'],
+  ['edit_post', 'Change a draft\u2019s text before approving it. It must still fit the channel.'],
   ['get_post', 'One post with its Buffer status, link and metrics.'],
   ['list_channels', 'Your usable Buffer channels.'],
   ['share_run', 'A public link to a run.'],

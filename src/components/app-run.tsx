@@ -10,6 +10,7 @@ import { measuredLength } from '../../convex/lib/ai/write'
 import type { Service } from '../../convex/lib/ai/setup'
 import { bufferChannelUrl, errorText, serviceName, timeIn, usd, whenIn } from '../lib/format'
 import { BusyLabel } from './busy-label'
+import { DraftEditor } from './app-pages'
 
 const DECISION_WORDS: Record<string, string> = {
   kept: 'Kept',
@@ -102,6 +103,7 @@ function RunView({
   const [rule, setRule] = useState('')
   const [ruleNote, setRuleNote] = useState<Record<string, string>>({})
   const [approving, setApproving] = useState<string | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const live = !run.finishedAt
   const stepsDone = ['research', 'select', 'write', 'publish'].filter((s) =>
@@ -311,9 +313,17 @@ function RunView({
                     </span>
                   </p>
                   {story ? <p className="app-muted">{story.title}</p> : null}
-                  {parts.map((part, i) => (
-                    <PostText key={i} text={part} />
-                  ))}
+                  {editing === p._id ? (
+                    <DraftEditor
+                      postId={p._id}
+                      text={p.text}
+                      service={p.service}
+                      limit={p.limit}
+                      onDone={() => setEditing(null)}
+                    />
+                  ) : (
+                    parts.map((part, i) => <PostText key={i} text={part} />)
+                  )}
                   {p.metrics?.length ? (
                     <p className="app-muted tabular">
                       {p.metrics
@@ -334,6 +344,11 @@ function RunView({
                     {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
                   </p>
                   <div className="app-gate-actions">
+                    {p.status === 'draft' && !shared && editing !== p._id ? (
+                      <button type="button" className="app-link" onClick={() => setEditing(p._id)}>
+                        Edit
+                      </button>
+                    ) : null}
                     {p.status === 'draft' && !shared ? (
                       <button
                         type="button"

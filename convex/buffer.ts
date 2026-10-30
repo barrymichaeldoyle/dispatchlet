@@ -805,6 +805,32 @@ export async function approveBufferPost(
   throw new BufferPostError(editPost.message ?? 'Buffer did not move the post', 'other')
 }
 
+/** Replaces a draft's text in Buffer and keeps it a draft. */
+export async function editBufferPostText(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  bufferPostId: string,
+  text: string,
+): Promise<void> {
+  const { editPost } = await bufferCallFor<{
+    editPost: MutationPayload & { post?: { id: string; status: string } }
+  }>(
+    ctx,
+    userId,
+    `mutation DispatchletEditText($id: PostId!, $text: String!) {
+      editPost(input: { id: $id, text: $text, saveToDraft: true }) {
+        __typename
+        ... on PostActionSuccess { post { id status } }
+        ... on MutationError { message }
+      }
+    }`,
+    { id: bufferPostId, text },
+    'interactive',
+  )
+  if (!editPost.post)
+    throw new BufferPostError(editPost.message ?? 'Buffer did not save the change', 'other')
+}
+
 /** The current status of posts Dispatchlet created, one query per organization (SPEC §24.7). */
 export async function postStatuses(
   ctx: ActionCtx,

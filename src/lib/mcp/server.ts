@@ -285,6 +285,18 @@ export function createDispatchletServer(
   )
 
   server.registerTool(
+    'edit_post',
+    {
+      title: 'Edit a draft',
+      description:
+        'Change the text of a post that is still a draft in Buffer, before approving it. Keep any link that is in the text. The result says if it is too long for the channel.',
+      inputSchema: { post_id: z.string(), text: z.string().min(1) },
+    },
+    ({ post_id, text: body }) =>
+      guarded(() => api.send('PATCH', `/posts/${e(post_id)}`, { text: body })),
+  )
+
+  server.registerTool(
     'get_post',
     {
       title: 'Get a post',
