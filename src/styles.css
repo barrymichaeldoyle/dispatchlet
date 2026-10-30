@@ -5852,15 +5852,18 @@ header nav button {
     grid-template-columns: 60px minmax(0, 1fr);
     gap: 12px;
   }
-  /* On a phone a choice's description sits under its name, beside the box, not under the box. */
-  .app-choices label {
+  /*
+   * On a phone a choice's description sits under its name, beside the box, not under the box.
+   * Only for the box + name + description rows: channel rows (box, logo, name) keep one line.
+   */
+  .app-choices label:has(> :nth-child(3).app-muted:last-child) {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     column-gap: 10px;
     row-gap: 2px;
     align-items: baseline;
   }
-  .app-choices label > .app-muted {
+  .app-choices label:has(> :nth-child(3).app-muted:last-child) > .app-muted {
     grid-column: 2;
   }
 }
