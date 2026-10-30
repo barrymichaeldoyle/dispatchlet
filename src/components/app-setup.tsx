@@ -131,7 +131,7 @@ export function NewAutomation() {
             maxLength={300}
             autoFocus
             onChange={(e) => set('research', e.target.value)}
-            placeholder="F1 news: race results, driver and team news"
+            placeholder="F1 race results and team news"
           />
           <p className="setup-hint">Or start from an example and change what you like.</p>
           <div className="setup-templates">

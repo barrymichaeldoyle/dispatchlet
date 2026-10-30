@@ -5867,3 +5867,8 @@ header nav button {
     grid-column: 2;
   }
 }
+
+/* The hint under the research box needs air between it and the box's focus ring. */
+.app-gate .setup-hint {
+  margin-top: 10px;
+}
