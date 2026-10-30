@@ -17,24 +17,23 @@ Deadline: 13 November 2026, 23:59 PT (14 November, 09:59 SAST). Submit on 12 Nov
 
 **Problem.** Keeping an account posting about one topic means the same research every day: what
 happened, have I posted it, is it worth a post, how do I write it for each channel. I did this by
-hand for GrandPrixPicks, my F1 predictions game, then wrote a script to do it for me. Dispatchlet is
-that script, rebuilt so anyone with a Buffer account can use it.
+hand for GrandPrixPicks, my F1 predictions game, then wrote a script for it. Dispatchlet is that
+script, rebuilt for anyone with a Buffer account.
 
-**Who it's for.** People who share news about a topic: a local food page, a sports fan account, a
-software company, a charity. They want a steady stream of good posts without an hour of research a
-day.
+**Who it's for.** People who share news about a topic: a local food page, a fan account, a
+software company, a charity.
 
-**What it does.** You answer seven questions. Dispatchlet writes a playbook you can edit, then runs
-a dry run on its own so you see what it finds. On schedule it opens your sources, searches the web,
-skips anything you have already posted or asked it to avoid, writes a post for each channel within
-that channel's limit, credits the outlet it links to, and puts the posts in Buffer as drafts or in
-your queue. You can edit a draft and approve it from the app, the email or a chat. Every run is
-logged: what it searched, what it kept, what it skipped and why, and what it cost.
+**What it does.** You answer seven questions. Dispatchlet writes a playbook you can edit and runs a
+dry run straight away. On schedule it reads your sources, searches the web, skips what you have
+already posted, writes a post for each channel within its limit, credits the outlet it links to,
+and puts the posts in Buffer as drafts or in your queue. You can edit and approve drafts from the
+app, the email or a chat. Every run is logged: what it searched, kept, skipped and why, and what it
+cost.
 
 **Built on the Buffer API.** OAuth with rotating refresh tokens, `channels` and
 `dailyPostingLimits` before every run, `createPost` in its three modes, `editPost` to change and
-approve drafts, `createTag`, and `posts` and `post` for status, deletions and metrics. Every call is
-reserved against the rate-limit budget Buffer reports in its headers.
+approve drafts, `createTag`, and `posts` for status, deletions and metrics. Every call is reserved
+against the rate-limit budget Buffer reports.
 
 **Open to other tools.** A REST API with personal tokens, signed webhooks (Buffer has none, so this
 is also how you learn a post went out), a URL that turns a GitHub release into a run, and an MCP
@@ -42,7 +41,7 @@ server: add it to claude.ai and Claude can run research and approve drafts besid
 connector.
 
 **What I learned.** A run costs about 6 cents and two minutes. The hard part is judgement, not
-writing: what is new, what is a repeat told by another outlet, and when to post nothing.
+writing: what is new, what is a repeat from another outlet, and when to post nothing.
 
 **Next.** Images for visual channels, metrics feeding back into the playbook, team approvals.
 
