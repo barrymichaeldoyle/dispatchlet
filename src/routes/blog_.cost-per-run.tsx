@@ -22,15 +22,16 @@ function CostPerRun() {
       published="31 Oct 2026"
     >
       <p>
-        I built Dispatchlet for <a href={BUFFER_COMMIT_URL}>Buffer Commit</a>, Buffer’s hackathon
-        for apps built on its API. Every run calls Claude to find stories and write posts, and every
-        call costs money. Right now a run costs about $0.07. When I first got it working, it was
-        closer to $0.32.
+        A Dispatchlet run costs about $0.07 now, down from about $0.31 when I started. Most of that
+        drop comes from a test I ran on 31 October. The test also showed that my first attempt at
+        cutting the cost had made the posts worse.
       </p>
       <p>
-        That’s the number a paid plan would have to be priced around later. For now, it’s what your
-        free runs cost me, or what you pay if you add your own Anthropic key. Either way, I wanted
-        it as low as I could get it without the posts getting worse.
+        I built Dispatchlet for <a href={BUFFER_COMMIT_URL}>Buffer Commit</a>, Buffer’s hackathon
+        for apps built on its API. Every run calls Claude to find stories and write posts, and every
+        call costs money. Your free runs cost me, and if you add your own Anthropic key you pay it.
+        A paid plan later would have to be priced around this number too, so I wanted it as low as I
+        could get it without hurting the posts.
       </p>
 
       <h2>The breakdown</h2>
@@ -66,7 +67,7 @@ function CostPerRun() {
             <tr>
               <td>Writing</td>
               <td>Sonnet</td>
-              <td>$0.015–0.02</td>
+              <td>$0.02</td>
             </tr>
             <tr>
               <td>
@@ -109,8 +110,8 @@ function CostPerRun() {
       <h2>Spending $72 of expiring credits</h2>
       <p>
         My Claude Max plan comes with credits for Anthropic’s developer platform, and they reset at
-        the end of each month. Whatever I haven’t used by then is gone, so 31 October was the
-        cheapest day to run a big test.
+        the end of each month. Whatever I haven’t used by then is gone, so 31 October was the best
+        day to run a big test.
       </p>
       <p>
         It came to about $72, which is around 1,100 Dispatchlet runs. I wouldn’t have spent that
@@ -120,24 +121,17 @@ function CostPerRun() {
       <h2>How I tested it</h2>
       <p>
         I have 14 made-up accounts that I test with. Each one is set up the way a real person would
-        answer Dispatchlet’s setup questions, and I picked topics that need different things:
+        answer Dispatchlet’s setup questions, and I picked topics that need different things. Five
+        of them:
       </p>
       <ul>
         <li>Formula 1 news on X</li>
-        <li>Good news stories on X and LinkedIn</li>
-        <li>A weekly programming and security roundup on Bluesky and Mastodon</li>
         <li>New openings in Bristol’s food scene on Threads and X</li>
-        <li>Releases from a few Rust libraries, using only their own websites</li>
-        <li>A Sheffield Wednesday fan account</li>
         <li>A Kenyan wildlife charity on LinkedIn</li>
-        <li>E-ink gadgets and games</li>
-        <li>Industry news for a business software company</li>
         <li>Cornish lighthouse preservation, where nothing happens most weeks</li>
-        <li>Other people’s Buffer Commit projects</li>
-        <li>Space missions on Bluesky</li>
         <li>UK personal finance rule changes, using gov.uk figures only</li>
-        <li>New AI models you can download and run yourself</li>
       </ul>
+      <p>The other nine include space missions, Rust libraries and a football fan account.</p>
       <p>
         Each account also has a rule it can’t break. The finance account has to quote gov.uk’s
         numbers exactly and can’t call a proposal a new rule. The lighthouse account should usually
@@ -153,25 +147,23 @@ function CostPerRun() {
       <p>
         I wasn’t going to read hundreds of posts myself, so Opus did the judging. It got the
         playbook, the account’s rule and two results labelled A and B, without being told which
-        model made which. It scored each one out of 5 and picked one, or called it a tie.
-      </p>
-      <p>
-        AI judges tend to prefer whichever answer they read first, so every pair was judged twice
-        with the order swapped. A model only won if it won both times.
+        model made which. It scored each one out of 5 and picked one, or called it a tie. AI judges
+        tend to prefer whichever answer they read first, so I judged every pair twice with the order
+        swapped, and a model only won if it won both times.
       </p>
       <p>
         When research picks a story, it writes down the facts it found, and the writer can only use
         those. So the judge could check every post against them and mark down anything made up.
       </p>
       <p>
-        Each account ran three times, so a round was 42 comparisons. The{' '}
+        Each account ran three times, so a full round was 42 comparisons. The{' '}
         <a href={BENCHMARK_URL}>test code is on GitHub</a> if you want to see exactly how it works.
       </p>
 
       <h2>Results</h2>
       <p>
-        Research was close. Sonnet won 23 comparisons, Haiku won 17, and 2 were ties. Haiku actually
-        scored a bit higher on getting facts right, and it cost a sixth as much.
+        Sonnet won research 23 to 17, with 2 ties, which is close enough to call even. Haiku
+        actually scored a bit higher on getting facts right, and it cost a sixth as much.
       </p>
       <p>
         Writing wasn’t close. Writing up the same stories, Sonnet won 18, Haiku won 6, and 10 were
@@ -250,16 +242,21 @@ function CostPerRun() {
       <h2>What the test doesn’t show</h2>
       <ul>
         <li>
-          The judge is an AI too. It can’t open links, so it checked posts against the facts
+          The judge is an AI too, and it’s a Claude model like the two it was judging, so it may
+          favour Claude-style writing. It can’t open links, so it checked posts against the facts
           research wrote down, not the original articles.
         </li>
         <li>
-          It’s small: 14 accounts, three times each, on one day. That’s enough to show Sonnet writes
-          better. It’s not enough to say the split setup beats Sonnet doing both.
+          It’s small: 14 accounts, three times each, on one day. Three runs per account shows Sonnet
+          writes better. It doesn’t show the split beats Sonnet doing both.
         </li>
         <li>
-          Each round saw different news, so the rounds can’t be compared with each other story by
-          story.
+          I ran out of credits partway through the last round, so Haiku researching and Sonnet
+          writing has 27 judged comparisons, not 42.
+        </li>
+        <li>
+          I never tried Opus or Fable for writing. My view that they’d cost too much for what they
+          add is a guess.
         </li>
       </ul>
 
@@ -269,10 +266,7 @@ function CostPerRun() {
         outside Claude for the searching. That’s more than I can take on for my Buffer Commit
         submission, so it’ll come after.
       </p>
-      <p>
-        Models keep getting better and cheaper, too. I’ll rerun this test when new ones come out, or
-        when I change the prompts.
-      </p>
+      <p>I’ll rerun this test when new models come out, or when I change the prompts.</p>
     </LegalPage>
   )
 }
