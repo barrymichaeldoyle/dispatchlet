@@ -21,12 +21,14 @@ function CostPerRun() {
       published="31 Oct 2026"
     >
       <p>
-        Dispatchlet uses Claude to find stories and write posts, and Claude isn’t free. I pay for
-        your first 10 runs. After that you add your own Anthropic API key and Anthropic bills you
-        directly, so the cost of a run is something you actually pay.
+        I built Dispatchlet for Buffer Commit, Buffer’s hackathon for apps built on its API. Every
+        run calls Claude to find stories and write posts, and every call costs money. Right now a
+        run costs about 7 cents. When I first got it working, it was closer to 32.
       </p>
       <p>
-        Right now that’s about 7 cents. When I first got Dispatchlet working, it was closer to 32.
+        That’s the number a paid plan would have to be priced around later. For now, it’s what your
+        free runs cost me, or what you pay if you add your own Anthropic key. Either way, I wanted
+        it as low as I could get it without the posts getting worse.
       </p>
 
       <h2>The breakdown</h2>
@@ -127,7 +129,7 @@ function CostPerRun() {
         <li>E-ink gadgets and games</li>
         <li>Industry news for a business software company</li>
         <li>Cornish lighthouse preservation, where nothing happens most weeks</li>
-        <li>Other people’s projects in Buffer Commit, the hackathon I built Dispatchlet for</li>
+        <li>Other people’s Buffer Commit projects</li>
         <li>Space missions on Bluesky</li>
         <li>UK personal finance rule changes, using gov.uk figures only</li>
         <li>New AI models you can download and run yourself</li>
