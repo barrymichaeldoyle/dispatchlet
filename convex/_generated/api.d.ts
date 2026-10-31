@@ -20,6 +20,7 @@ import type * as api_router from "../api/router.js";
 import type * as approvals from "../approvals.js";
 import type * as auth from "../auth.js";
 import type * as automations from "../automations.js";
+import type * as benchmark from "../benchmark.js";
 import type * as buffer from "../buffer.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   approvals: typeof approvals;
   auth: typeof auth;
   automations: typeof automations;
+  benchmark: typeof benchmark;
   buffer: typeof buffer;
   crons: typeof crons;
   email: typeof email;

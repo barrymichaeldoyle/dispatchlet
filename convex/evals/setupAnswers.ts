@@ -1,8 +1,9 @@
 import type { SetupAnswers } from '../lib/ai/setup'
 
 /**
- * Ten accounts written as answers to the setup questions (SPEC §36). Rows 1 to 3 measure the cost
- * of a research run; all ten check playbook and research quality. `mustGetRight` is judged by eye.
+ * Accounts written as answers to the setup questions (SPEC §36). Rows 1 to 3 measure the cost
+ * of a research run; all of them check playbook and research quality. `mustGetRight` is the bar
+ * the blind judge in benchmark.ts scores against.
  */
 export type Fixture = { id: number; answers: SetupAnswers; mustGetRight: string }
 
@@ -174,5 +175,52 @@ export const FIXTURES: Fixture[] = [
     },
     mustGetRight:
       'Credits the builder by name and links their own post or repo; never presents their project as Dispatchlet; nothing about judging',
+  },
+  {
+    id: 12,
+    answers: {
+      research: 'Space missions: launches, landings, probe and telescope results from the agencies',
+      services: ['bluesky'],
+      avoid: 'Space tourism hype, UFOs, launch date speculation',
+      sources: ['nasa.gov', 'esa.int', 'spacenews.com', 'planetary.org'],
+      onlyTheseSources: false,
+      cadence: { preset: 'daily', time: '07:00', weekday: null },
+      maxStories: 2,
+      postingMode: 'queue',
+    },
+    mustGetRight:
+      'Agency or mission team as the source for results; exact mission names and dates; a scrubbed launch is not a launch',
+  },
+  {
+    id: 13,
+    answers: {
+      research:
+        'UK personal finance rule changes: tax thresholds, ISA and pension rules, benefit rates',
+      services: ['linkedin', 'threads'],
+      avoid: 'Product promotions, investment tips, predictions',
+      sources: ['gov.uk', 'moneysavingexpert.com', 'which.co.uk'],
+      onlyTheseSources: true,
+      cadence: { preset: 'weekly', time: '08:00', weekday: 'thu' },
+      maxStories: 2,
+      postingMode: 'draft',
+    },
+    mustGetRight:
+      'Every figure and date exactly as gov.uk gives it; a proposal is not a rule; no advice on what to do',
+  },
+  {
+    id: 14,
+    answers: {
+      research:
+        'Open-weight AI model releases: new models, licences and benchmark results from the labs',
+      services: ['twitter', 'bluesky'],
+      avoid: 'Leaks, funding rounds, "this changes everything" takes',
+      sources: ['huggingface.co', 'github.com', 'arxiv.org'],
+      onlyTheseSources: false,
+      cadence: { preset: 'daily', time: '09:00', weekday: null },
+      maxStories: 3,
+      postingMode: 'draft',
+    },
+    mustGetRight:
+      'Names the lab, the model and its licence; benchmark numbers only as the lab reports them, credited; no hype words',
   },
 ]
