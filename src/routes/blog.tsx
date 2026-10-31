@@ -8,24 +8,19 @@ const POSTS = [
     title: 'How I tested cheaper AI models to lower my cost-per-run',
     date: '31 Oct 2026',
     summary:
-      'How a run went from 32 cents to about 7, and the test that showed which version of Claude should research and which should write.',
+      'I tested Claude Haiku against Sonnet on 14 test accounts. Haiku now does the research and Sonnet writes the posts, and a run costs about 7 cents.',
   },
 ]
 
 export const Route = createFileRoute('/blog')({
   component: Blog,
-  head: () =>
-    legalHead(
-      'Blog',
-      'Notes from building Dispatchlet: what it costs to run, what I tested and what changed.',
-      '/blog',
-    ),
+  head: () => legalHead('Blog', 'Posts about building Dispatchlet.', '/blog'),
 })
 
 function Blog() {
   return (
     <LegalPage title="Blog" updated={POSTS[0]!.date}>
-      <p>Notes from building Dispatchlet: what it costs, what I tested and what changed.</p>
+      <p>Posts about building Dispatchlet.</p>
       <ul className="blog-list">
         {POSTS.map((post) => (
           <li key={post.path}>
