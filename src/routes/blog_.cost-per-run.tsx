@@ -42,9 +42,10 @@ function CostPerRun() {
       </p>
       <p>
         Anthropic sells a few Claude models at different prices. Haiku is the cheap one. Sonnet
-        costs about 20 times as much and writes better. Opus is the most capable and costs twice as
-        much again. It’s made for harder problems than finding the news and writing a short post,
-        and I don’t think it would make those posts better by enough to justify the price.
+        costs about 20 times as much and writes better. Opus costs twice as much as Sonnet, and
+        Fable, Anthropic’s most capable model, costs two and a half times as much as Opus. Opus and
+        Fable are made for much harder problems than finding the news and writing a short post, and
+        I don’t think they’d make those posts better by enough to justify the price.
       </p>
       <p>Dispatchlet uses Haiku for research and Sonnet for writing. Averaged over 42 test runs:</p>
       <div className="legal-table">
@@ -151,10 +152,9 @@ function CostPerRun() {
         the writing on its own, because both models are working from the same stories.
       </p>
       <p>
-        I wasn’t going to read hundreds of posts myself, so Opus, Anthropic’s most capable model,
-        did the judging. It got the playbook, the account’s rule and two results labelled A and B,
-        without being told which model made which. It scored each one out of 5 and picked one, or
-        called it a tie.
+        I wasn’t going to read hundreds of posts myself, so Opus did the judging. It got the
+        playbook, the account’s rule and two results labelled A and B, without being told which
+        model made which. It scored each one out of 5 and picked one, or called it a tie.
       </p>
       <p>
         AI judges tend to prefer whichever answer they read first, so every pair was judged twice
