@@ -1075,7 +1075,7 @@ function AnthropicKey({
           <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">
             platform.claude.com
           </a>{' '}
-          and runs are not counted; you pay Anthropic for what they use, about 7 cents a run.
+          and runs are not counted; you pay Anthropic for what they use, about $0.07 a run.
         </p>
       )}
       <div className="app-field">

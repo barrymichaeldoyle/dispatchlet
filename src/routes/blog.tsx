@@ -8,7 +8,7 @@ const POSTS = [
     title: 'How I tested cheaper AI models to lower my cost-per-run',
     date: '31 Oct 2026',
     summary:
-      'I tested Claude Haiku against Sonnet on 14 test accounts. Haiku now does the research and Sonnet writes the posts, and a run costs about 7 cents.',
+      'I tested Claude Haiku against Sonnet on 14 test accounts. Haiku now does the research and Sonnet writes the posts, and a run costs about $0.07.',
   },
 ]
 

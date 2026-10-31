@@ -119,7 +119,7 @@ LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source articl
       <p>
         Every account has 10 free runs and 3 dry runs on Dispatchlet’s key. Adding your own
         Anthropic key in settings lifts the count; you pay Anthropic for what runs use,{' '}
-        <a href="/blog/cost-per-run">about 7 cents a run</a>. Settings shows this month’s runs, cost
+        <a href="/blog/cost-per-run">about $0.07 a run</a>. Settings shows this month’s runs, cost
         and posts by channel.
       </p>
       <p>

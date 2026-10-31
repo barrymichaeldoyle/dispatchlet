@@ -39,7 +39,7 @@ against Buffer's rate limits.
 you a post went out), a URL that turns a GitHub release into a run, and an MCP server: in claude.ai,
 Claude can run research and approve drafts beside Buffer's own connector.
 
-**What I learned.** A run costs about 7 cents and two minutes. The hard part is judgement, not
+**What I learned.** A run costs about $0.07 and two minutes. The hard part is judgement, not
 writing: what is new, what is a repeat from another outlet, and when to post nothing.
 
 **Next.** Images for visual channels, team approvals.

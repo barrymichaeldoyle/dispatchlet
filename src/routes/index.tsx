@@ -342,7 +342,7 @@ function Home() {
               <p>
                 Your first 10 runs are free. After that, you can add your own Anthropic API key.
                 Anthropic makes Claude, the AI that does the research and writing, so you pay
-                Anthropic directly for what your runs use. That’s about 7 cents a run.{' '}
+                Anthropic directly for what your runs use. That’s about $0.07 a run.{' '}
                 <a href="/blog/cost-per-run">See what a run’s cost is made of.</a>
               </p>
               <p>

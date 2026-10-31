@@ -10,7 +10,7 @@ export const Route = createFileRoute('/blog_/cost-per-run')({
   head: () =>
     legalHead(
       'How I tested cheaper AI models to lower my cost-per-run',
-      'I tested Claude Haiku against Sonnet on 14 test accounts. Haiku now does the research and Sonnet writes the posts, and a run costs about 7 cents.',
+      'I tested Claude Haiku against Sonnet on 14 test accounts. Haiku now does the research and Sonnet writes the posts, and a run costs about $0.07.',
       '/blog/cost-per-run',
     ),
 })
@@ -24,8 +24,8 @@ function CostPerRun() {
       <p>
         I built Dispatchlet for <a href={BUFFER_COMMIT_URL}>Buffer Commit</a>, Buffer’s hackathon
         for apps built on its API. Every run calls Claude to find stories and write posts, and every
-        call costs money. Right now a run costs about 7 cents. When I first got it working, it was
-        closer to 32.
+        call costs money. Right now a run costs about $0.07. When I first got it working, it was
+        closer to $0.32.
       </p>
       <p>
         That’s the number a paid plan would have to be priced around later. For now, it’s what your
@@ -58,12 +58,12 @@ function CostPerRun() {
             <tr>
               <td>Research</td>
               <td>Haiku</td>
-              <td>5&nbsp;cents</td>
+              <td>$0.05</td>
             </tr>
             <tr>
               <td>Writing</td>
               <td>Sonnet</td>
-              <td>1.5–2&nbsp;cents</td>
+              <td>$0.015–0.02</td>
             </tr>
             <tr>
               <td>
@@ -71,19 +71,19 @@ function CostPerRun() {
               </td>
               <td></td>
               <td>
-                <strong>About 7&nbsp;cents</strong>
+                <strong>About $0.07</strong>
               </td>
             </tr>
             <tr>
               <td>Playbook (once)</td>
               <td>Sonnet</td>
-              <td>7&nbsp;cents</td>
+              <td>$0.07</td>
             </tr>
           </tbody>
         </table>
       </div>
       <p>
-        Most of the 5 cents for research isn’t Haiku. Anthropic charges a cent for every web search,
+        Most of the $0.05 for research isn’t Haiku. Anthropic charges $0.01 for every web search,
         and research does about three per run. If I want runs to get cheaper, I need research to
         search less. A cheaper model wouldn’t save much now.
       </p>
@@ -93,7 +93,7 @@ function CostPerRun() {
       </p>
 
       <h2>Sonnet, then Haiku</h2>
-      <p>I built Dispatchlet on Sonnet, and a run cost about 31 cents.</p>
+      <p>I built Dispatchlet on Sonnet, and a run cost about $0.31.</p>
       <p>
         On 28 October I tried Haiku for everything. I ran ten test accounts, read what came out and
         couldn’t see a difference. It was a fifth of the price, so I switched.
@@ -210,9 +210,9 @@ function CostPerRun() {
 
       <h2>Haiku for research, Sonnet for writing</h2>
       <p>
-        Writing is a small call: about 2 cents on Sonnet and a fifth of a cent on Haiku. Research is
-        where the money goes, and Haiku is fine at research. So I ran one more round with Haiku
-        researching and Sonnet writing, against Sonnet doing both.
+        Writing is a small call: about $0.02 on Sonnet and $0.002 on Haiku. Research is where the
+        money goes, and Haiku is fine at research. So I ran one more round with Haiku researching
+        and Sonnet writing, against Sonnet doing both.
       </p>
       <div className="legal-table">
         <table>
@@ -226,17 +226,17 @@ function CostPerRun() {
           <tbody>
             <tr>
               <td>Sonnet does both</td>
-              <td>31&nbsp;cents</td>
+              <td>$0.31</td>
               <td>–</td>
             </tr>
             <tr>
               <td>Haiku does both</td>
-              <td>5&nbsp;cents</td>
+              <td>$0.05</td>
               <td>Lost 10 to 23, 3&nbsp;ties</td>
             </tr>
             <tr>
               <td>Haiku researches, Sonnet writes</td>
-              <td>6.5&nbsp;cents</td>
+              <td>$0.065</td>
               <td>
                 <strong>Won 13 to 12, 2&nbsp;ties</strong>
               </td>
