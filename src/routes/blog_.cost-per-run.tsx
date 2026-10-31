@@ -20,13 +20,16 @@ function CostPerRun() {
       title="How I tested cheaper AI models to lower my cost-per-run"
       published="31 Oct 2026"
     >
+      <p>A Dispatchlet run now costs about 7 cents. When I started building it, a run cost 32.</p>
       <p>
-        The research and the writing in Dispatchlet are done by Claude, an AI made by Anthropic.
-        Every account gets 10 free runs. After that, you connect your own Anthropic account and pay
-        Anthropic directly for what your runs use. So the cost of a run comes out of your pocket,
-        not mine, and I think you should know what it is.
+        That number matters to you as much as to me. Your first 10 runs are free. After that, you
+        connect your own Anthropic account and pay for what your runs use. Anthropic makes Claude,
+        the AI that finds your stories and writes your posts.
       </p>
-      <p>Right now a run costs about 7 cents. When I started, it was about 32 cents.</p>
+      <p>
+        Here’s where the money goes, and how I tested cheaper versions of Claude without making the
+        posts worse.
+      </p>
 
       <h2>Where the money goes</h2>
       <p>
