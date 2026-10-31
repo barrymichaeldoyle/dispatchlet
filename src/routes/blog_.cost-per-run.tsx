@@ -42,9 +42,11 @@ function CostPerRun() {
       </p>
       <p>
         Anthropic sells a few Claude models at different prices. Haiku is the cheap one. Sonnet
-        costs about 20 times as much and writes better. Dispatchlet uses Haiku for research and
-        Sonnet for writing. Averaged over 42 test runs:
+        costs about 20 times as much and writes better. Opus is the most capable and costs twice as
+        much again. It’s made for harder problems than finding the news and writing a short post,
+        and I don’t think it would make those posts better by enough to justify the price.
       </p>
+      <p>Dispatchlet uses Haiku for research and Sonnet for writing. Averaged over 42 test runs:</p>
       <div className="legal-table">
         <table>
           <thead>
