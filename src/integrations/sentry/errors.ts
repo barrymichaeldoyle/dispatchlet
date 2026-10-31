@@ -12,13 +12,22 @@ let sdk: SentryBrowser | undefined
 let loading: Promise<void> | undefined
 const pending: unknown[] = []
 
+/**
+ * A local dev server reports nothing. Editing a file while its page is open makes the server and
+ * the browser render different text, and each hot reload sent a hydration error that was not a bug.
+ */
+export function isLocalHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
+
 function allowed(): boolean {
   if (typeof window === 'undefined') return false
+  if (isLocalHost(window.location.hostname)) return false
   // Same rule as analytics: Do Not Track means nothing is sent.
   return typeof navigator === 'undefined' || navigator.doNotTrack !== '1'
 }
 
-/** production on dispatchlet.com, development anywhere else (localhost, previews). */
+/** production on dispatchlet.com, development anywhere else (previews). */
 export function environmentFor(hostname: string): string {
   return hostname === 'dispatchlet.com' || hostname === 'www.dispatchlet.com'
     ? 'production'
