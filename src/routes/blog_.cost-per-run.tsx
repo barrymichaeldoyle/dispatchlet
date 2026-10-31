@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LegalPage, legalHead } from '../components/legal-page'
 
+const BUFFER_COMMIT_URL = 'https://buffer.com/api/commit'
 const BENCHMARK_URL =
   'https://github.com/barrymichaeldoyle/dispatchlet/blob/main/convex/benchmark.ts'
 
@@ -21,9 +22,10 @@ function CostPerRun() {
       published="31 Oct 2026"
     >
       <p>
-        I built Dispatchlet for Buffer Commit, Buffer’s hackathon for apps built on its API. Every
-        run calls Claude to find stories and write posts, and every call costs money. Right now a
-        run costs about 7 cents. When I first got it working, it was closer to 32.
+        I built Dispatchlet for <a href={BUFFER_COMMIT_URL}>Buffer Commit</a>, Buffer’s hackathon
+        for apps built on its API. Every run calls Claude to find stories and write posts, and every
+        call costs money. Right now a run costs about 7 cents. When I first got it working, it was
+        closer to 32.
       </p>
       <p>
         That’s the number a paid plan would have to be priced around later. For now, it’s what your
