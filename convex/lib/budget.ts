@@ -1,7 +1,7 @@
 /**
- * Buffer's call budget. Buffer sends one `ratelimit` header per window (100 in 15 minutes, 250 a
- * day, 7,500 in 30 days), each with the calls left (`r`) and seconds until it resets (`t`), plus a
- * partition key (`pk`) saying whose budget it is. Calls are reserved against the latest numbers
+ * Buffer's call budget. Buffer sends one `ratelimit` header per window (15 minutes, a day, 30
+ * days; each grows with the number of accounts that have connected the app), each with the calls
+ * left (`r`) and seconds until it resets (`t`), plus a partition key (`pk`) saying whose budget it is. Calls are reserved against the latest numbers
  * before they are made, so two runs at once cannot both spend the last of a window.
  */
 

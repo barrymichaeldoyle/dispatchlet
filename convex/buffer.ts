@@ -165,11 +165,12 @@ const DAY_MS = 86_400_000
 
 /**
  * Background Buffer calls one account may make in a day. A daily run with two channels uses about
- * ten, so 80 covers several automations while 525 a day is shared by everyone.
+ * ten, so 40 covers a few automations. Each account that connects adds 25 a day to the app's
+ * budget, so the share stays near what an account brings in.
  */
 export function backgroundCallsPerUser(): number {
   const raw = Number(process.env.BUFFER_BACKGROUND_CALLS_PER_USER)
-  return Number.isFinite(raw) && raw > 0 ? raw : 80
+  return Number.isFinite(raw) && raw > 0 ? raw : 40
 }
 
 /** Thrown when Buffer's budget has no room; `retryAt` is when the tightest window resets. */
