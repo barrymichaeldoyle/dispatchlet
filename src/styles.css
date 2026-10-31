@@ -6176,3 +6176,49 @@ header nav button {
   gap: 4px 16px;
   margin: 0;
 }
+
+/* Blog posts reuse the legal reading layout; these are the parts only a post needs. */
+.legal-main h3 {
+  margin: 28px 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+.legal-main ol {
+  margin: 0 0 16px;
+  padding-left: 20px;
+  max-width: 64ch;
+  list-style: decimal;
+}
+.legal-main ol li + li {
+  margin-top: 8px;
+}
+.legal-main blockquote {
+  margin: 0 0 16px;
+  padding-left: 16px;
+  max-width: 60ch;
+  border-left: 2px solid var(--color-rule);
+  color: var(--color-muted);
+}
+/* A table that is wider than a phone scrolls inside itself, never the page. */
+.legal-table {
+  margin: 0 0 16px;
+  overflow-x: auto;
+}
+.legal-table table {
+  margin: 0;
+}
+.legal-main .blog-list {
+  list-style: none;
+  padding-left: 0;
+}
+.blog-list a {
+  font-weight: 500;
+}
+.blog-date {
+  display: block;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+.blog-list p {
+  margin: 4px 0 0;
+}

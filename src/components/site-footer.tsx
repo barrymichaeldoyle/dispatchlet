@@ -13,7 +13,8 @@ export function SiteFooter() {
       <span>
         <a href={BARRY_URL}>Barry Michael Doyle</a>{' '}
         <a href={SOURCE_URL}>Source, Elastic License 2.0</a> <a href="/docs">Docs</a>{' '}
-        <a href="/docs/api">API</a> <a href="/privacy">Privacy</a> <a href="/terms">Terms</a>
+        <a href="/blog">Blog</a> <a href="/docs/api">API</a> <a href="/privacy">Privacy</a>{' '}
+        <a href="/terms">Terms</a>
       </span>
     </footer>
   )

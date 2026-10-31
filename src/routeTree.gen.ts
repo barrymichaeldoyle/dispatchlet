@@ -11,12 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as BlogRouteImport } from './routes/blog'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppNewRouteImport } from './routes/app.new'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as BlogCostPerRunRouteImport } from './routes/blog_.cost-per-run'
 import { Route as DocsApiRouteImport } from './routes/docs_.api'
 import { Route as DocsHooksRouteImport } from './routes/docs_.hooks'
 import { Route as DocsMcpRouteImport } from './routes/docs_.mcp'
@@ -36,6 +38,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogRoute = BlogRouteImport.update({
+  id: '/blog',
+  path: '/blog',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsRoute = DocsRouteImport.update({
@@ -67,6 +74,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRoute,
+} as any)
+const BlogCostPerRunRoute = BlogCostPerRunRouteImport.update({
+  id: '/blog_/cost-per-run',
+  path: '/blog/cost-per-run',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DocsApiRoute = DocsApiRouteImport.update({
   id: '/docs_/api',
@@ -122,11 +134,13 @@ const AppAIdRunsRunIdRoute = AppAIdRunsRunIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/blog': typeof BlogRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/blog/cost-per-run': typeof BlogCostPerRunRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/hooks': typeof DocsHooksRoute
   '/docs/mcp': typeof DocsMcpRoute
@@ -141,11 +155,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/blog': typeof BlogRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/blog/cost-per-run': typeof BlogCostPerRunRoute
   '/docs/api': typeof DocsApiRoute
   '/docs/hooks': typeof DocsHooksRoute
   '/docs/mcp': typeof DocsMcpRoute
@@ -162,11 +178,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/blog': typeof BlogRoute
   '/docs': typeof DocsRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/app/new': typeof AppNewRoute
   '/app/settings': typeof AppSettingsRoute
+  '/blog_/cost-per-run': typeof BlogCostPerRunRoute
   '/docs_/api': typeof DocsApiRoute
   '/docs_/hooks': typeof DocsHooksRoute
   '/docs_/mcp': typeof DocsMcpRoute
@@ -184,11 +202,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/blog'
     | '/docs'
     | '/privacy'
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/blog/cost-per-run'
     | '/docs/api'
     | '/docs/hooks'
     | '/docs/mcp'
@@ -203,11 +223,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/blog'
     | '/docs'
     | '/privacy'
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/blog/cost-per-run'
     | '/docs/api'
     | '/docs/hooks'
     | '/docs/mcp'
@@ -223,11 +245,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/blog'
     | '/docs'
     | '/privacy'
     | '/terms'
     | '/app/new'
     | '/app/settings'
+    | '/blog_/cost-per-run'
     | '/docs_/api'
     | '/docs_/hooks'
     | '/docs_/mcp'
@@ -244,9 +268,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  BlogRoute: typeof BlogRoute
   DocsRoute: typeof DocsRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  BlogCostPerRunRoute: typeof BlogCostPerRunRoute
   DocsApiRoute: typeof DocsApiRoute
   DocsHooksRoute: typeof DocsHooksRoute
   DocsMcpRoute: typeof DocsMcpRoute
@@ -271,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog': {
+      id: '/blog'
+      path: '/blog'
+      fullPath: '/blog'
+      preLoaderRoute: typeof BlogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs': {
@@ -314,6 +347,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/blog_/cost-per-run': {
+      id: '/blog_/cost-per-run'
+      path: '/blog/cost-per-run'
+      fullPath: '/blog/cost-per-run'
+      preLoaderRoute: typeof BlogCostPerRunRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/docs_/api': {
       id: '/docs_/api'
@@ -409,9 +449,11 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  BlogRoute: BlogRoute,
   DocsRoute: DocsRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  BlogCostPerRunRoute: BlogCostPerRunRoute,
   DocsApiRoute: DocsApiRoute,
   DocsHooksRoute: DocsHooksRoute,
   DocsMcpRoute: DocsMcpRoute,

@@ -24,10 +24,13 @@ export function legalHead(title: string, description: string, path: string) {
 export function LegalPage({
   title,
   updated,
+  published,
   children,
 }: {
   title: string
-  updated: string
+  /** Policies and docs say when they last changed; a blog post says when it went up. */
+  updated?: string
+  published?: string
   children: ReactNode
 }) {
   return (
@@ -45,7 +48,11 @@ export function LegalPage({
       </header>
       <main id="main-content" tabIndex={-1} className="legal-main">
         <h1>{title}</h1>
-        <p className="legal-updated">Last updated {updated}.</p>
+        <p className="legal-updated">
+          {published
+            ? `Published ${published} by Barry Michael Doyle.`
+            : `Last updated ${updated}.`}
+        </p>
         {children}
       </main>
       <SiteFooter />
