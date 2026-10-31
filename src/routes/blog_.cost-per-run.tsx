@@ -102,20 +102,19 @@ function CostPerRun() {
         couldn’t see a difference. It was a fifth of the price, so I switched.
       </p>
       <p>
-        Reading a few posts and deciding they look fine isn’t really testing, though. I knew that,
-        and I didn’t do anything about it until the end of the month.
+        Reading a few posts was a quick check. A proper test would take hundreds of calls to Claude,
+        so I planned it for the end of the month.
       </p>
 
       <h2>Spending $72 of expiring credits</h2>
       <p>
-        My Claude Max plan comes with credits for Anthropic’s developer platform, and they expire at
-        the end of each month. On 31 October I still had a lot left, and they were going to
-        disappear the next day.
+        My Claude Max plan comes with credits for Anthropic’s developer platform, and they reset at
+        the end of each month. Whatever I haven’t used by then is gone, so 31 October was the
+        cheapest day to run a big test.
       </p>
       <p>
-        I’d rather they went on something useful, so I spent about $72 testing which model should do
-        which job. That’s around 1,100 Dispatchlet runs. I wouldn’t have spent that much of my own
-        money on one test.
+        It came to about $72, which is around 1,100 Dispatchlet runs. I wouldn’t have spent that
+        much of my own money on one test.
       </p>
 
       <h2>How I tested it</h2>
