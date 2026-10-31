@@ -265,9 +265,13 @@ function CostPerRun() {
 
       <h2>Next</h2>
       <p>
-        I’ll rerun this when Anthropic ships new models or when I change the prompts. Web searches
-        are now most of what a run costs, so next I want to see if research can find the same
-        stories with fewer of them.
+        Web searches are now most of what a run costs. Next I want to try cheaper models from
+        outside Claude for the searching. That’s more than I can take on for my Buffer Commit
+        submission, so it’ll come after.
+      </p>
+      <p>
+        Models keep getting better and cheaper, too. I’ll rerun this test when new ones come out, or
+        when I change the prompts.
       </p>
     </LegalPage>
   )
