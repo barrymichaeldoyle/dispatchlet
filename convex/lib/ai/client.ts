@@ -4,13 +4,15 @@ import type { z } from 'zod'
 import { costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
 
 /**
- * The one place a model is chosen. On the 28 Oct eval Haiku 5.5 matched Sonnet 5.5 on research
- * picks and on the posts, at a fifth of the cost, so runs use it; the playbook, a one-off that
- * needs judgement about sources, stays on Sonnet.
+ * The one place a model is chosen. In the 31 Oct benchmark (benchmark.ts, 14 fixtures, judged
+ * blind) Haiku 5.5 researched about as well as Sonnet 5.5 at a sixth of the cost, but Sonnet wrote
+ * clearly better posts from the same stories. Writing is a small call, so Haiku research with
+ * Sonnet writing matched all-Sonnet runs at about a fifth of the price. The playbook, a one-off
+ * that needs judgement about sources, stays on Sonnet.
  */
 const DEFAULT_MODELS = {
   research: 'claude-haiku-5-5',
-  write: 'claude-haiku-5-5',
+  write: 'claude-sonnet-5-5',
   playbook: 'claude-sonnet-5-5',
   reparse: 'claude-haiku-5-5',
 } as const satisfies Record<string, ModelId>
