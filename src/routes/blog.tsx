@@ -5,7 +5,7 @@ import { LegalPage, legalHead } from '../components/legal-page'
 const POSTS = [
   {
     path: '/blog/cost-per-run',
-    title: 'What a run costs, and how I tested cheaper AI models',
+    title: 'How I tested cheaper AI models to lower my cost-per-run',
     date: '31 Oct 2026',
     summary:
       'How a run went from 32 cents to about 7, and the test that showed which version of Claude should research and which should write.',

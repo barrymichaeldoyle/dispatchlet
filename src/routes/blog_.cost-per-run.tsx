@@ -8,7 +8,7 @@ export const Route = createFileRoute('/blog_/cost-per-run')({
   component: CostPerRun,
   head: () =>
     legalHead(
-      'What a run costs, and how I tested cheaper AI models',
+      'How I tested cheaper AI models to lower my cost-per-run',
       'What each Dispatchlet run costs, how I brought it down from 32 cents to about 7, and the test I ran to make sure the posts did not get worse.',
       '/blog/cost-per-run',
     ),
@@ -16,7 +16,10 @@ export const Route = createFileRoute('/blog_/cost-per-run')({
 
 function CostPerRun() {
   return (
-    <LegalPage title="What a run costs, and how I tested cheaper AI models" published="31 Oct 2026">
+    <LegalPage
+      title="How I tested cheaper AI models to lower my cost-per-run"
+      published="31 Oct 2026"
+    >
       <p>
         The research and the writing in Dispatchlet are done by Claude, an AI made by Anthropic.
         Every account gets 10 free runs. After that, you connect your own Anthropic account and pay

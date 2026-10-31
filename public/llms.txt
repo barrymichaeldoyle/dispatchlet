@@ -9,7 +9,7 @@
 - [Webhooks](https://dispatchlet.com/docs/webhooks): signed events (Standard Webhooks) when runs finish and posts go out
 - [Inbound hooks](https://dispatchlet.com/docs/hooks): start a run from a cron, a Zap or a GitHub release
 - [MCP server](https://dispatchlet.com/docs/mcp): tools for Claude Code, Claude Desktop and Cursor
-- [What a run costs](https://dispatchlet.com/blog/cost-per-run): cost per run, and the benchmark behind the choice of models
+- [How I tested cheaper AI models to lower my cost-per-run](https://dispatchlet.com/blog/cost-per-run): cost per run, and the benchmark behind the choice of models
 
 ## Machine endpoints
 
