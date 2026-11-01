@@ -1,0 +1,33 @@
+version: 2
+
+# The audit workflow reports advisories after they land; this opens the PRs that clear them.
+# Note: the pnpm overrides pinning seroval and undici live in pnpm-workspace.yaml, which
+# Dependabot does not always read, so check its logs if an update looks like it fights a pin.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:40'
+      timezone: Africa/Johannesburg
+    open-pull-requests-limit: 5
+    groups:
+      # Majors stay on their own PRs, where they can get the attention they need.
+      production:
+        dependency-type: production
+        update-types: [minor, patch]
+      development:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '08:50'
+      timezone: Africa/Johannesburg
+    groups:
+      actions:
+        patterns: ['*']
