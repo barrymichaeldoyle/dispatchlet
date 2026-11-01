@@ -4,7 +4,7 @@ name: audit
 # than in the pre-commit hook, where a fresh advisory would block an unrelated change.
 on:
   schedule:
-    - cron: '0 9 * * 1'
+    - cron: '23 8 * * 1'
   workflow_dispatch:
 
 permissions:

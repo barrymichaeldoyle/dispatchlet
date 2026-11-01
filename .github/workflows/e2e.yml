@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 3 * * *'
+    # An odd minute off the hour: GitHub's scheduled queue is worst at :00, and this job
+    # exists to catch an overnight production break before the morning, not after it.
+    - cron: '37 1 * * *'
 
 permissions:
   contents: read
