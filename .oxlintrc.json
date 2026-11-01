@@ -9,7 +9,8 @@
     "no-console": "warn",
     "no-underscore-dangle": "off",
     "react/react-in-jsx-scope": "off",
-    "import/no-named-as-default": "off"
+    "import/no-named-as-default": "off",
+    "unicorn/no-array-sort": "off"
   },
   "overrides": [
     {

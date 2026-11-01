@@ -13,7 +13,7 @@
     "deploy": "pnpm build:deploy && wrangler deploy",
     "generate-routes": "tsr generate",
     "og": "node scripts/og/render.mjs",
-    "lint": "oxlint",
+    "lint": "oxlint --max-warnings 18",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "typecheck": "tsc --noEmit",
