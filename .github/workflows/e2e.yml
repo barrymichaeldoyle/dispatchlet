@@ -10,6 +10,11 @@ permissions:
   contents: read
   checks: read
 
+# A newer push supersedes an in-flight run: both test the same production URL.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
