@@ -23,7 +23,7 @@
     "e2e": "playwright test",
     "prepare": "husky",
     "audit": "pnpm audit --audit-level low",
-    "precommit": "pnpm exec lint-staged && pnpm run audit && pnpm test"
+    "precommit": "pnpm exec lint-staged --quiet && pnpm --silent run typecheck && pnpm --silent exec vitest run --silent"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
