@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest'
 import { apiClient } from './api'
 import { createDispatchletServer } from './server'
 
+const json = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+
 /** A fake Dispatchlet API: records calls and answers from a small table. */
 function fakeApi() {
   const calls: { method: string; path: string; body?: string; accept?: string }[] = []
@@ -18,11 +24,6 @@ function fakeApi() {
       body: init?.body as string | undefined,
       accept: headers.get('accept') ?? undefined,
     })
-    const json = (status: number, body: unknown) =>
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      })
     if (headers.get('authorization') !== 'Bearer dl_test')
       return json(401, { error: { code: 'unauthorized', message: 'Bad token' } })
     if (path === '/automations') return json(200, { automations: [{ _id: 'a1', name: 'F1' }] })

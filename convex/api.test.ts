@@ -652,51 +652,51 @@ describe('rules from the security review', () => {
   })
 })
 
-describe('editing a draft', () => {
-  async function withPost(status: string) {
-    const ctx = await account(convexTest(schema, modules))
-    const postId = await ctx.t.run(async (db) => {
-      const runId = await db.db.insert('runs', {
-        userId: ctx.userId,
-        automationId: ctx.automationId,
-        kind: 'now',
-        status: 'done',
-        startedAt: Date.now(),
-        steps: [],
-        usage: EMPTY,
-        costUsd: 0,
-      })
-      const storyId = await db.db.insert('stories', {
-        automationId: ctx.automationId,
-        runId,
-        title: 'T',
-        canonicalUrl: 'https://x.y/z',
-        source: 'x',
-        publishedAt: '',
-        summary: '',
-        whyItMatters: '',
-        keyFacts: [],
-        confidence: 1,
-        decision: 'kept',
-        reason: '',
-        createdAt: Date.now(),
-      })
-      return await db.db.insert('posts', {
-        userId: ctx.userId,
-        automationId: ctx.automationId,
-        runId,
-        storyId,
-        channelId: 'c1',
-        service: 'twitter',
-        text: 'Hello https://x.y/z',
-        status,
-        bufferPostId: 'b1',
-        createdAt: Date.now(),
-      })
+async function withPost(status: string) {
+  const ctx = await account(convexTest(schema, modules))
+  const postId = await ctx.t.run(async (db) => {
+    const runId = await db.db.insert('runs', {
+      userId: ctx.userId,
+      automationId: ctx.automationId,
+      kind: 'now',
+      status: 'done',
+      startedAt: Date.now(),
+      steps: [],
+      usage: EMPTY,
+      costUsd: 0,
     })
-    return { ...ctx, postId }
-  }
+    const storyId = await db.db.insert('stories', {
+      automationId: ctx.automationId,
+      runId,
+      title: 'T',
+      canonicalUrl: 'https://x.y/z',
+      source: 'x',
+      publishedAt: '',
+      summary: '',
+      whyItMatters: '',
+      keyFacts: [],
+      confidence: 1,
+      decision: 'kept',
+      reason: '',
+      createdAt: Date.now(),
+    })
+    return await db.db.insert('posts', {
+      userId: ctx.userId,
+      automationId: ctx.automationId,
+      runId,
+      storyId,
+      channelId: 'c1',
+      service: 'twitter',
+      text: 'Hello https://x.y/z',
+      status,
+      bufferPostId: 'b1',
+      createdAt: Date.now(),
+    })
+  })
+  return { ...ctx, postId }
+}
 
+describe('editing a draft', () => {
   it('refuses text over the channel limit, counting a link as 23 on X', async () => {
     const { call, postId } = await withPost('draft')
     const over = await call(`/posts/${postId}`, {
@@ -722,39 +722,39 @@ describe('editing a draft', () => {
   })
 })
 
-describe('saving a story to Buffer Ideas', () => {
-  async function withStory(decision: string) {
-    const ctx = await account(convexTest(schema, modules))
-    const storyId = await ctx.t.run(async (db) => {
-      const runId = await db.db.insert('runs', {
-        userId: ctx.userId,
-        automationId: ctx.automationId,
-        kind: 'dry',
-        status: 'done',
-        startedAt: Date.now(),
-        steps: [],
-        usage: EMPTY,
-        costUsd: 0,
-      })
-      return await db.db.insert('stories', {
-        automationId: ctx.automationId,
-        runId,
-        title: 'A story',
-        canonicalUrl: 'https://example.com/a',
-        source: 'example.com',
-        publishedAt: '2026-10-30',
-        summary: 's',
-        whyItMatters: 'w',
-        keyFacts: [],
-        confidence: 0.9,
-        decision,
-        reason: 'r',
-        createdAt: Date.now(),
-      })
+async function withStory(decision: string) {
+  const ctx = await account(convexTest(schema, modules))
+  const storyId = await ctx.t.run(async (db) => {
+    const runId = await db.db.insert('runs', {
+      userId: ctx.userId,
+      automationId: ctx.automationId,
+      kind: 'dry',
+      status: 'done',
+      startedAt: Date.now(),
+      steps: [],
+      usage: EMPTY,
+      costUsd: 0,
     })
-    return { ...ctx, storyId }
-  }
+    return await db.db.insert('stories', {
+      automationId: ctx.automationId,
+      runId,
+      title: 'A story',
+      canonicalUrl: 'https://example.com/a',
+      source: 'example.com',
+      publishedAt: '2026-10-30',
+      summary: 's',
+      whyItMatters: 'w',
+      keyFacts: [],
+      confidence: 0.9,
+      decision,
+      reason: 'r',
+      createdAt: Date.now(),
+    })
+  })
+  return { ...ctx, storyId }
+}
 
+describe('saving a story to Buffer Ideas', () => {
   it('refuses a story that was posted', async () => {
     const { call, storyId } = await withStory('kept')
     const res = await call(`/stories/${storyId}/idea`, { method: 'POST' })

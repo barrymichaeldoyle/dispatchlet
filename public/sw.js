@@ -19,6 +19,7 @@ self.addEventListener('push', (event) => {
   // Tell open pages too, so the app can react to a push it is already looking at.
   const tell = self.clients
     .matchAll({ type: 'window', includeUncontrolled: true })
+    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- a Client's postMessage takes no origin
     .then((windows) => windows.forEach((w) => w.postMessage({ type: 'push', ...data })))
   event.waitUntil(tell)
   event.waitUntil(

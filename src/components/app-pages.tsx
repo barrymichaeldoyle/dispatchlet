@@ -279,9 +279,9 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
             onClick={() => {
               setState('working')
               approve({ postId: draft._id })
-                .then((message) => {
+                .then((reply) => {
                   setState('done')
-                  setNote(message)
+                  setNote(reply)
                 })
                 .catch((reason: unknown) => {
                   setState('failed')
@@ -489,13 +489,12 @@ function useScrollToHash() {
   useEffect(() => {
     const id = decodeURIComponent(window.location.hash.slice(1))
     if (!id) return
-    let timer = 0
-    let stopped = false
+    const hold = { timer: 0, stopped: false }
     const started = performance.now()
     // Every 100ms, for a few seconds: if the section is not at the top, put it there. This
     // outlasts the router's own scroll reset and rows loading above the section.
     const tick = () => {
-      if (stopped) return
+      if (hold.stopped) return
       const target = document.getElementById(id)
       const page = document.scrollingElement ?? document.documentElement
       const atBottom = window.scrollY + window.innerHeight >= page.scrollHeight - 1
@@ -505,11 +504,11 @@ function useScrollToHash() {
         // Instant: arriving at a link should land, not animate, and the site's smooth scrolling
         // does not run at all in a background tab.
         target.scrollIntoView({ block: 'start', behavior: 'instant' })
-      if (performance.now() - started < 8000) timer = window.setTimeout(tick, 100)
+      if (performance.now() - started < 8000) hold.timer = window.setTimeout(tick, 100)
     }
     const stop = () => {
-      stopped = true
-      window.clearTimeout(timer)
+      hold.stopped = true
+      window.clearTimeout(hold.timer)
       for (const e of ['wheel', 'touchstart', 'keydown', 'pointerdown'] as const)
         window.removeEventListener(e, stop)
     }

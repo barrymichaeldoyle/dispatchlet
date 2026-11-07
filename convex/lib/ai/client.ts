@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import Anthropic, { APIError } from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 import { costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
@@ -144,8 +144,7 @@ export async function callStructured<T extends z.ZodType>(
   try {
     message = await parse(client, call)
   } catch (error) {
-    if (attempt === 0 && !(error instanceof Anthropic.APIError))
-      return callStructured(client, call, 1)
+    if (attempt === 0 && !(error instanceof APIError)) return callStructured(client, call, 1)
     throw error
   }
   const usage = usageFrom(message.usage)

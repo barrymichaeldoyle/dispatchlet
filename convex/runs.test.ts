@@ -188,61 +188,61 @@ describe('approving a draft', () => {
   })
 })
 
-describe('telling the person after a run', () => {
-  async function finishWith(prefs: string, emailEnabled: boolean, posted: number, mode = 'draft') {
-    const t = convexTest(schema, modules)
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert('users', {
-        email: 'a@example.com',
-        emailPrefs: prefs,
-        emailEnabled,
-      })
-      const automationId = await ctx.db.insert('automations', {
-        userId,
-        name: 'F1',
-        status: 'active',
-        setup: {
-          research: 'F1',
-          services: ['twitter'],
-          avoid: '',
-          sources: [],
-          onlyTheseSources: false,
-          cadence: { preset: 'daily', time: '08:00', weekday: null },
-          maxStories: 3,
-          postingMode: 'draft',
-        },
-        channelIds: ['c1'],
+async function finishWith(prefs: string, emailEnabled: boolean, posted: number, mode = 'draft') {
+  const t = convexTest(schema, modules)
+  const ids = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert('users', {
+      email: 'a@example.com',
+      emailPrefs: prefs,
+      emailEnabled,
+    })
+    const automationId = await ctx.db.insert('automations', {
+      userId,
+      name: 'F1',
+      status: 'active',
+      setup: {
+        research: 'F1',
+        services: ['twitter'],
+        avoid: '',
+        sources: [],
+        onlyTheseSources: false,
         cadence: { preset: 'daily', time: '08:00', weekday: null },
-        timezone: 'UTC',
-        postingMode: mode,
-        maxPostsPerRun: 3,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      })
-      const runId = await ctx.db.insert('runs', {
-        userId,
-        automationId,
-        kind: 'scheduled',
-        status: 'publishing',
-        startedAt: Date.now(),
-        steps: [],
-        usage: EMPTY,
-        costUsd: 0,
-        posted,
-      })
-      return { userId, automationId, runId }
+        maxStories: 3,
+        postingMode: 'draft',
+      },
+      channelIds: ['c1'],
+      cadence: { preset: 'daily', time: '08:00', weekday: null },
+      timezone: 'UTC',
+      postingMode: mode,
+      maxPostsPerRun: 3,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
-    await t.mutation(internal.runs.finish, {
-      runId: ids.runId,
-      status: 'done',
-      note: `Done. ${posted} posts in Buffer.`,
+    const runId = await ctx.db.insert('runs', {
+      userId,
+      automationId,
+      kind: 'scheduled',
+      status: 'publishing',
+      startedAt: Date.now(),
+      steps: [],
+      usage: EMPTY,
+      costUsd: 0,
+      posted,
     })
-    const scheduled = await t.run(
-      async (ctx) => await ctx.db.system.query('_scheduled_functions').collect(),
-    )
-    return scheduled.map((s) => s.name)
-  }
+    return { userId, automationId, runId }
+  })
+  await t.mutation(internal.runs.finish, {
+    runId: ids.runId,
+    status: 'done',
+    note: `Done. ${posted} posts in Buffer.`,
+  })
+  const scheduled = await t.run(
+    async (ctx) => await ctx.db.system.query('_scheduled_functions').collect(),
+  )
+  return scheduled.map((s) => s.name)
+}
 
+describe('telling the person after a run', () => {
   it('sends the digest by email and by push after a run with drafts', async () => {
     const names = await finishWith('every', true, 2)
     expect(names).toContain('email:sendDigest')
@@ -382,11 +382,11 @@ describe('the first dry run', () => {
   })
 })
 
+const withStatus = (status: number, message = 'x') => Object.assign(new Error(message), { status })
+
 describe('failures on the AI side', () => {
   it('tells busy and broken replies apart from other errors', async () => {
     const { serviceFailure: aiServiceFailure } = await import('./runs')
-    const withStatus = (status: number, message = 'x') =>
-      Object.assign(new Error(message), { status })
     expect(aiServiceFailure(withStatus(529))).toMatch(/too busy/)
     expect(aiServiceFailure(withStatus(429))).toMatch(/too busy/)
     expect(aiServiceFailure(withStatus(500))).toMatch(/had a problem/)
@@ -398,9 +398,9 @@ describe('failures on the AI side', () => {
   it('gives a free dry run back once', async () => {
     const t = convexTest(schema, modules)
     const { runId, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert('users', { email: 'a@example.com', freeDryRunsUsed: 2 })
-      const runId = await ctx.db.insert('runs', {
-        userId,
+      const owner = await ctx.db.insert('users', { email: 'a@example.com', freeDryRunsUsed: 2 })
+      const failed = await ctx.db.insert('runs', {
+        userId: owner,
         kind: 'dry',
         status: 'failed',
         startedAt: 0,
@@ -416,7 +416,7 @@ describe('failures on the AI side', () => {
         costUsd: 0,
         freeRun: true,
       })
-      return { runId, userId }
+      return { runId: failed, userId: owner }
     })
     await t.mutation(internal.runs.refundFreeRun, { runId })
     await t.mutation(internal.runs.refundFreeRun, { runId })
@@ -779,51 +779,51 @@ describe('the approve link in the digest email', () => {
   })
 })
 
-describe('double clicks', () => {
-  async function draftAndStory(t: ReturnType<typeof convexTest>) {
-    const { userId, automationId } = await seed(t)
-    return await t.run(async (ctx) => {
-      const runId = await ctx.db.insert('runs', {
-        userId,
-        automationId,
-        kind: 'now',
-        status: 'done',
-        startedAt: 0,
-        steps: [],
-        usage: EMPTY,
-        costUsd: 0,
-      })
-      const storyId = await ctx.db.insert('stories', {
-        automationId,
-        runId,
-        title: 't',
-        canonicalUrl: 'https://e.com/a',
-        source: 'e.com',
-        publishedAt: '',
-        summary: '',
-        whyItMatters: '',
-        keyFacts: [],
-        confidence: 1,
-        decision: 'skipped_limit',
-        reason: '',
-        createdAt: 0,
-      })
-      const postId = await ctx.db.insert('posts', {
-        userId,
-        automationId,
-        runId,
-        storyId,
-        channelId: 'c1',
-        service: 'twitter',
-        text: 'x',
-        status: 'draft',
-        bufferPostId: 'b-1',
-        createdAt: 0,
-      })
-      return { postId, storyId }
+async function draftAndStory(t: ReturnType<typeof convexTest>) {
+  const { userId, automationId } = await seed(t)
+  return await t.run(async (ctx) => {
+    const runId = await ctx.db.insert('runs', {
+      userId,
+      automationId,
+      kind: 'now',
+      status: 'done',
+      startedAt: 0,
+      steps: [],
+      usage: EMPTY,
+      costUsd: 0,
     })
-  }
+    const storyId = await ctx.db.insert('stories', {
+      automationId,
+      runId,
+      title: 't',
+      canonicalUrl: 'https://e.com/a',
+      source: 'e.com',
+      publishedAt: '',
+      summary: '',
+      whyItMatters: '',
+      keyFacts: [],
+      confidence: 1,
+      decision: 'skipped_limit',
+      reason: '',
+      createdAt: 0,
+    })
+    const postId = await ctx.db.insert('posts', {
+      userId,
+      automationId,
+      runId,
+      storyId,
+      channelId: 'c1',
+      service: 'twitter',
+      text: 'x',
+      status: 'draft',
+      bufferPostId: 'b-1',
+      createdAt: 0,
+    })
+    return { postId, storyId }
+  })
+}
 
+describe('double clicks', () => {
   it('approve a draft once, and free it again if Buffer refused', async () => {
     const t = convexTest(schema, modules)
     const { postId } = await draftAndStory(t)

@@ -447,6 +447,14 @@ function ScheduleEditor({ a }: { a: Loaded }) {
   )
 }
 
+/** One line per entry, for the form's list fields. */
+const list = (value: string[]) => value.join('\n')
+const fromList = (value: string) =>
+  value
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
 /**
  * The playbook as a form and as text, kept in step: the text is the source, the form is a view.
  * Form edits re-render the text; text edits re-parse with a short delay and name the line when
@@ -522,13 +530,6 @@ function PlaybookEditor({
         setProblem(errorText(reason, 'Not saved.'))
       })
   }
-  const list = (value: string[]) => value.join('\n')
-  const fromList = (value: string) =>
-    value
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean)
-
   return (
     <section className="app-section app-playbook">
       <div className="app-playbook-head">

@@ -146,9 +146,10 @@ function parseFreshness(text: string): number | null {
  * Reads the text back into a playbook. The first problem stops the parse and names its line, so
  * the editor can say "Line 14: format not understood." and keep the last good version.
  */
+const fail = (line: number, message: string): ParseResult => ({ ok: false, line, message })
+
 export function parsePlaybook(text: string): ParseResult {
   const lines = text.split(/\r?\n/)
-  const fail = (line: number, message: string): ParseResult => ({ ok: false, line, message })
   const first = lines.findIndex((l) => l.trim())
   if (first < 0 || !lines[first]!.startsWith('# '))
     return fail(first + 1 || 1, 'Start with "# " and a name.')

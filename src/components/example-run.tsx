@@ -235,12 +235,12 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
 
   useEffect(() => {
     if (!playing) return
-    let previous = performance.now()
+    const clock = { previous: performance.now() }
     const timer = window.setInterval(() => {
       const now = performance.now()
-      const delta = (now - previous) * speed
+      const delta = (now - clock.previous) * speed
       setElapsed((value) => Math.min(DURATION, value + delta))
-      previous = now
+      clock.previous = now
     }, 50)
     return () => window.clearInterval(timer)
   }, [playing, speed])

@@ -169,6 +169,7 @@ async function grantedMcp(request: Request, env: Env, ctx: Ctx, origin: string) 
         const grants = await env.OAUTH_PROVIDER.listUserGrants(userId)
         for (const g of grants.items)
           if (g.clientId === clientId) await env.OAUTH_PROVIDER.revokeGrant(g.id, userId)
+        // oxlint-disable-next-line no-console -- the worker's log is where this is read
       })().catch((error: unknown) => console.error('Revoking a dead grant failed', error)),
     )
     return mcpUnauthorized(origin, 'This connection was revoked in Dispatchlet. Connect again.')

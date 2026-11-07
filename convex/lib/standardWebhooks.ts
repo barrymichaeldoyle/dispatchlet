@@ -132,10 +132,12 @@ function ipv6Groups(ip: string): number[] | null {
  * link- and site-local, multicast, and any form that embeds an IPv4 address (mapped, compatible,
  * NAT64, 6to4), which is judged by that IPv4 address.
  */
+/** The IPv4 address two 16-bit groups of an IPv6 address spell out. */
+const embedded = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
+
 export function isPrivateIPv6(ip: string): boolean {
   const g = ipv6Groups(ip)
   if (!g) return true
-  const embedded = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
   if (g.slice(0, 6).every((x) => x === 0))
     return g[6] === 0 && g[7]! <= 1 ? true : isPrivateIPv4(embedded(g[6]!, g[7]!))
   if (g.slice(0, 5).every((x) => x === 0) && g[5] === 0xffff)

@@ -20,7 +20,7 @@ concurrency:
 jobs:
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -46,7 +46,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          for attempt in $(seq 1 60); do
+          # Cloudflare builds have taken over ten minutes; wait up to thirty.
+          for attempt in $(seq 1 120); do
             result=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs" --jq '
               [.check_runs[] | select(.app.slug == "cloudflare-workers-and-pages" and .name == "Workers Builds: dispatchlet")]
               | first
@@ -54,7 +55,7 @@ jobs:
             ')
             case "$result" in
               success) exit 0 ;;
-              pending) echo "Waiting for Cloudflare build ($attempt/60)"; sleep 10 ;;
+              pending) echo "Waiting for Cloudflare build ($attempt/120)"; sleep 15 ;;
               *) echo "Cloudflare deployment finished with: $result"; exit 1 ;;
             esac
           done

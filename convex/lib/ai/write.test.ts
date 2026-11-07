@@ -155,7 +155,7 @@ describe('crediting the outlet of the link', () => {
 
   it('sends back a post that credits an outlet other than its link', () => {
     const channel = { channelId: 'c1', service: 'twitter' as const, name: 'GPP', maxLength: null }
-    const playbook = {
+    const credited = {
       name: 'F1',
       about: '',
       sources: [],
@@ -183,7 +183,7 @@ describe('crediting the outlet of the link', () => {
     const wrong = checkPost(
       post('Antonelli won the US GP, per Reuters.'),
       channel,
-      playbook,
+      credited,
       new Set([url]),
     )
     expect(wrong.ok).toBe(false)
@@ -192,34 +192,35 @@ describe('crediting the outlet of the link', () => {
         'It credits Reuters but the link is to aljazeera.com. Credit the outlet of the link.',
       )
     expect(
-      checkPost(post('Antonelli won the US GP, per Al Jazeera.'), channel, playbook, new Set([url]))
+      checkPost(post('Antonelli won the US GP, per Al Jazeera.'), channel, credited, new Set([url]))
         .ok,
     ).toBe(true)
     expect(
       checkPost(
         post('Al Jazeera, citing Reuters, says Antonelli won.'),
         channel,
-        playbook,
+        credited,
         new Set([url]),
       ).ok,
     ).toBe(true)
     expect(
-      checkPost(post('Antonelli won the US GP from pole.'), channel, playbook, new Set([url])).ok,
+      checkPost(post('Antonelli won the US GP from pole.'), channel, credited, new Set([url])).ok,
     ).toBe(true)
-    const ok = (text: string) => checkPost(post(text), channel, playbook, new Set([url])).ok
+    const ok = (text: string) => checkPost(post(text), channel, credited, new Set([url])).ok
     expect(ok('Antonelli won, citing Reuters.')).toBe(false)
     expect(ok('Antonelli won, per aljazeera.com.')).toBe(true)
     expect(ok('He told Reuters he was happy.')).toBe(false)
   })
 })
 
-describe('learning from posts that did well', () => {
-  const post = (text: string, metrics: { type: string; value: number }[]) => ({
-    service: 'twitter',
-    text,
-    metrics: metrics.map((m) => ({ ...m, unit: 'count' })),
-  })
+/** A sent post with its numbers, as the metrics poll stores them. */
+const post = (text: string, metrics: { type: string; value: number }[]) => ({
+  service: 'twitter',
+  text,
+  metrics: metrics.map((m) => ({ ...m, unit: 'count' })),
+})
 
+describe('learning from posts that did well', () => {
   it('ranks by interactions, breaks ties on views, and needs three posts with numbers', () => {
     const posts = [
       post('quiet', [{ type: 'impressions', value: 900 }]),
