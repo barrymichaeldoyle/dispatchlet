@@ -9,6 +9,7 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { displayPrefix, generateSecret, hashSecret, TOKEN_PREFIX } from './lib/apiToken'
+import { isAllowlisted } from './lib/allowlist'
 
 const scopeValidator = v.union(v.literal('read'), v.literal('write'))
 /** Revoked tokens stay in the list this long, so the person can see what was turned off. */
@@ -155,6 +156,8 @@ export const byHash = internalQuery({
       userId: v.id('users'),
       scope: scopeValidator,
       lastUsedAt: v.union(v.number(), v.null()),
+      /** The allowlist is checked at sign-in; a token outlives that, so it is checked here too. */
+      allowed: v.boolean(),
     }),
   ),
   handler: async (ctx, { hash }) => {
@@ -163,11 +166,17 @@ export const byHash = internalQuery({
       .withIndex('by_hash', (q) => q.eq('hash', hash))
       .first()
     if (!token || token.revokedAt) return null
+    const user = await ctx.db.get(token.userId)
+    const account = await ctx.db
+      .query('authAccounts')
+      .withIndex('userIdAndProvider', (q) => q.eq('userId', token.userId).eq('provider', 'buffer'))
+      .first()
     return {
       _id: token._id,
       userId: token.userId,
       scope: token.scope,
       lastUsedAt: token.lastUsedAt ?? null,
+      allowed: isAllowlisted(account?.providerAccountId ?? null, user?.email ?? null),
     }
   },
 })

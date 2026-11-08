@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { apiTokenOwner, consentUrl, grantedScopes, providerOrigin } from './oauth'
+import {
+  apiTokenOwner,
+  consentUrl,
+  grantScope,
+  grantedScopes,
+  providerOrigin,
+  requestedWrite,
+} from './oauth'
 
 describe('OAuth helpers', () => {
   it('runs the provider only on dispatchlet.com and localhost', () => {
@@ -28,6 +35,21 @@ describe('OAuth helpers', () => {
   it('grants read with write', () => {
     expect(grantedScopes(true)).toEqual(['read', 'write'])
     expect(grantedScopes(false)).toEqual(['read'])
+  })
+
+  it('reads whether the client asked to write', () => {
+    expect(requestedWrite('read write')).toBe(true)
+    expect(requestedWrite('read')).toBe(false)
+    expect(requestedWrite(null)).toBe(false)
+    expect(requestedWrite(['write'])).toBe(true)
+  })
+
+  it('never grants more than the client asked for', () => {
+    expect(grantScope(['read', 'write'], true)).toEqual(['read', 'write'])
+    expect(grantScope(['read'], true)).toEqual(['read'])
+    expect(grantScope(['read', 'write'], false)).toEqual(['read'])
+    expect(grantScope([], true)).toEqual(['read'])
+    expect(grantScope(['write'], true)).toEqual(['read', 'write'])
   })
 
   it('checks a token with the API', async () => {

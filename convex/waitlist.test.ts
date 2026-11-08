@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.stubEnv('SITE_URL', 'https://dispatchlet.com')
   vi.stubEnv('IP_HASH_SALT', 'test')
   vi.stubEnv('WAITLIST_RATE_LIMIT', '')
+  vi.stubEnv('WAITLIST_EMAILS_PER_HOUR', '')
 })
 
 describe('waitlist.add', () => {
@@ -33,6 +34,69 @@ describe('waitlist.add', () => {
     expect(a).toMatchObject({ position: 1, isNew: true })
     expect(b).toMatchObject({ position: 2, isNew: true })
     expect(a.token).toHaveLength(64)
+  })
+
+  it('keeps the count in one row and the position on each row', async () => {
+    const tc = t()
+    await tc.mutation(internal.waitlist.add, { email: 'a@example.com', source: 'direct' })
+    await tc.mutation(internal.waitlist.add, { email: 'b@example.com', source: 'direct' })
+    expect(await tc.query(api.waitlist.count, {})).toBe(2)
+    const stats = await tc.run((ctx) => ctx.db.query('waitlistStats').collect())
+    expect(stats).toHaveLength(1)
+    expect(stats[0]?.count).toBe(2)
+    const rows = await tc.run((ctx) => ctx.db.query('waitlist').collect())
+    expect(rows.map((r) => r.position).sort()).toEqual([1, 2])
+  })
+
+  it('gives a row from before positions were stored its place once', async () => {
+    const tc = t()
+    await tc.run((ctx) =>
+      ctx.db.insert('waitlist', {
+        email: 'old@example.com',
+        createdAt: 1,
+        source: 'x',
+        token: 't',
+      }),
+    )
+    const again = await tc.mutation(internal.waitlist.add, {
+      email: 'old@example.com',
+      source: 'direct',
+    })
+    expect(again).toMatchObject({ position: 1, isNew: false })
+    const row = await tc.run((ctx) => ctx.db.query('waitlist').first())
+    expect(row?.position).toBe(1)
+    expect(await tc.query(api.waitlist.count, {})).toBe(1)
+  })
+
+  it('caps confirmation emails in total, whatever the address or IP', async () => {
+    vi.stubEnv('WAITLIST_EMAILS_PER_HOUR', '2')
+    const tc = t()
+    for (const n of [1, 2]) {
+      const ok = await tc.mutation(internal.waitlist.add, {
+        email: `n${n}@example.com`,
+        source: 'x',
+      })
+      expect(ok.limited).toBe(false)
+    }
+    const over = await tc.mutation(internal.waitlist.add, { email: 'n3@example.com', source: 'x' })
+    expect(over).toEqual({ position: 0, isNew: false, token: '', limited: true })
+    expect(await tc.query(api.waitlist.count, {})).toBe(2)
+    // A known address is still answered, without an email.
+    const known = await tc.mutation(internal.waitlist.add, { email: 'n1@example.com', source: 'x' })
+    expect(known).toMatchObject({ position: 1, isNew: false, limited: false })
+  })
+
+  it('sends one confirmation an hour per address', async () => {
+    const tc = t()
+    await tc.mutation(internal.waitlist.add, { email: 'once@example.com', source: 'x' })
+    await tc.run(async (ctx) => {
+      for (const row of await ctx.db.query('waitlist').collect()) await ctx.db.delete(row._id)
+    })
+    const again = await tc.mutation(internal.waitlist.add, {
+      email: 'once@example.com',
+      source: 'x',
+    })
+    expect(again.limited).toBe(true)
   })
 
   it('returns the same position for a repeated address and stores nothing', async () => {
@@ -109,6 +173,29 @@ describe('POST /waitlist', () => {
       { 'cf-connecting-ip': '203.0.113.10' },
     )
     expect(other.status).toBe(200)
+  })
+
+  it('answers 429 when the hourly email cap is reached, and stores nothing', async () => {
+    vi.stubEnv('WAITLIST_EMAILS_PER_HOUR', '1')
+    const tc = t()
+    expect(
+      (await post(tc, { email: 'one@example.com' }, { 'cf-connecting-ip': '1.1.1.1' })).status,
+    ).toBe(200)
+    const res = await post(tc, { email: 'two@example.com' }, { 'cf-connecting-ip': '2.2.2.2' })
+    expect(res.status).toBe(429)
+    expect(await res.json()).toEqual({ ok: false, error: 'rate_limited' })
+    expect(await tc.query(api.waitlist.count, {})).toBe(1)
+    const scheduled = await tc.run((ctx) => ctx.db.system.query('_scheduled_functions').collect())
+    expect(scheduled).toHaveLength(1)
+  })
+
+  it('refuses to hash an IP without a salt', async () => {
+    vi.stubEnv('IP_HASH_SALT', '')
+    const tc = t()
+    await expect(
+      post(tc, { email: 'salt@example.com' }, { 'cf-connecting-ip': '203.0.113.9' }),
+    ).rejects.toThrow('IP_HASH_SALT')
+    expect(await tc.query(api.waitlist.count, {})).toBe(0)
   })
 
   it('falls back to the referrer host as source', async () => {
@@ -244,8 +331,10 @@ describe('after sign-up opens', () => {
     await expect(tc.mutation(internal.waitlist.purge, {})).rejects.toThrow('still open')
     vi.stubEnv('SIGNUP_OPEN', 'true')
     expect(await tc.mutation(internal.waitlist.purge, { limit: 1 })).toBe(1)
+    expect(await tc.query(api.waitlist.count, {})).toBe(1)
     expect(await tc.mutation(internal.waitlist.purge, {})).toBe(1)
     expect(await tc.mutation(internal.waitlist.purge, {})).toBe(0)
+    expect(await tc.query(api.waitlist.count, {})).toBe(0)
   })
 
   it('the daily cleanup waits two weeks after the launch email', async () => {

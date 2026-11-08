@@ -42,15 +42,54 @@ function escapeHtml(text: string): string {
     .replaceAll('"', '&quot;')
 }
 
-/** `text` is trusted HTML; `extra` is more trusted HTML placed after it, such as a form. */
-function page(status: number, text: string, extra = ''): Response {
+/**
+ * `text` is trusted HTML; `extra` is more trusted HTML placed after it, such as a form. A function
+ * gets a nonce for its own `<script nonce>`: inline handlers are not allowed by the policy.
+ */
+function page(
+  status: number,
+  text: string,
+  extra: string | ((nonce: string) => string) = '',
+): Response {
   const site = siteUrl()
-  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dispatchlet</title><link rel="icon" href="${site}/favicon.svg"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f1;color:#1a1a1a;font:15px/1.55 system-ui,sans-serif}main{max-width:48ch;padding:32px}blockquote{margin:0 0 16px;padding:12px 16px;border-left:3px solid #0f6e56;background:#fff;white-space:pre-wrap}button{font:inherit;min-width:16em;font-weight:500;min-height:44px;padding:0 20px;border:0;border-radius:8px;background:#0f6e56;color:#f4f4f1;cursor:pointer}button:disabled{opacity:.7;cursor:progress}form{margin:0 0 16px}@media(prefers-color-scheme:dark){blockquote{background:#1f1f1e;border-color:#5cc9a8}button{background:#5cc9a8;color:#161616}}p{margin:0 0 16px}a{color:#0f6e56}@media(prefers-color-scheme:dark){body{background:#161616;color:#ededea}a{color:#5cc9a8}}</style></head><body><main><p>${text}</p>${extra}<p><a href="${site}/">Back to dispatchlet.com</a></p></main></body></html>`
-  return new Response(body, { status, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
+  const nonce = crypto.randomUUID()
+  const more = typeof extra === 'function' ? extra(nonce) : extra
+  const body = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dispatchlet</title><link rel="icon" href="${site}/favicon.svg"><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f4f1;color:#1a1a1a;font:15px/1.55 system-ui,sans-serif}main{max-width:48ch;padding:32px}blockquote{margin:0 0 16px;padding:12px 16px;border-left:3px solid #0f6e56;background:#fff;white-space:pre-wrap}button{font:inherit;min-width:16em;font-weight:500;min-height:44px;padding:0 20px;border:0;border-radius:8px;background:#0f6e56;color:#f4f4f1;cursor:pointer}button:disabled{opacity:.7;cursor:progress}form{margin:0 0 16px}@media(prefers-color-scheme:dark){blockquote{background:#1f1f1e;border-color:#5cc9a8}button{background:#5cc9a8;color:#161616}}p{margin:0 0 16px}a{color:#0f6e56}@media(prefers-color-scheme:dark){body{background:#161616;color:#ededea}a{color:#5cc9a8}}</style></head><body><main><p>${text}</p>${more}<p><a href="${site}/">Back to dispatchlet.com</a></p></main></body></html>`
+  return new Response(body, {
+    status,
+    headers: { 'Content-Type': 'text/html; charset=utf-8', ...pageHeaders(site, nonce) },
+  })
 }
 
+/** These pages hold tokens in their URLs and a form that approves a post, so they are locked down. */
+function pageHeaders(site: string, nonce: string): Record<string, string> {
+  return {
+    'Content-Security-Policy': [
+      "default-src 'none'",
+      "style-src 'unsafe-inline'",
+      `img-src ${site}`,
+      `script-src 'nonce-${nonce}'`,
+      "form-action 'self'",
+      "base-uri 'none'",
+      "frame-ancestors 'none'",
+    ].join('; '),
+    'X-Frame-Options': 'DENY',
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'no-referrer',
+    'Cache-Control': 'no-store',
+  }
+}
+
+/**
+ * IPs are stored hashed with a secret salt, so the list cannot be joined to anything by address.
+ * Without the salt the hash would be reversible by trying every address, so it is refused.
+ */
 async function hashIp(ip: string): Promise<string> {
-  const salt = process.env.IP_HASH_SALT ?? ''
+  const salt = process.env.IP_HASH_SALT
+  if (!salt)
+    throw new Error(
+      'IP_HASH_SALT is not set on this deployment. Set a long random value: npx convex env set IP_HASH_SALT <value>',
+    )
   const data = new TextEncoder().encode(`${salt}:${ip}`)
   const digest = await crypto.subtle.digest('SHA-256', data)
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
@@ -157,7 +196,14 @@ http.route({
 
     const source = body.source.trim() || referrerHost(req) || 'direct'
     const campaign = body.campaign.trim() || undefined
+    // The IP comes from headers a direct caller can forge, so `add` also caps confirmation emails
+    // per address and in total before it stores a new row.
     const result = await ctx.runMutation(internal.waitlist.add, { email, source, campaign, ip })
+    if (result.limited) {
+      return asJson
+        ? json(429, { ok: false, error: 'rate_limited' })
+        : page(429, 'Too many sign-ups right now, try again in an hour.')
+    }
     if (result.isNew) {
       await ctx.scheduler.runAfter(0, internal.email.sendConfirm, { email, token: result.token })
     }
@@ -189,14 +235,29 @@ http.route({
   }),
 })
 
+/** Same length and bytes, in time that does not depend on where they first differ. */
+function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a)
+  const y = new TextEncoder().encode(b)
+  if (x.length !== y.length) return false
+  let diff = 0
+  for (let i = 0; i < x.length; i++) diff |= x[i]! ^ y[i]!
+  return diff === 0
+}
+
 /**
  * PostHog's error tracking webhook (new or reopened issue). The request body is ignored: the
- * email is the same every time and only links to PostHog, so the endpoint needs no secret.
+ * email is the same every time and only links to PostHog. With `ALERTS_SECRET` set, the call must
+ * carry it in `X-Alerts-Secret`; without it anyone can ring the bell, so the 10-minute dedupe in
+ * `claimErrorAlert` is all that stops a flood.
  */
 http.route({
   path: '/alerts/errors',
   method: 'POST',
-  handler: httpAction(async (ctx) => {
+  handler: httpAction(async (ctx, req) => {
+    const secret = process.env.ALERTS_SECRET
+    if (secret && !sameSecret(req.headers.get('x-alerts-secret') ?? '', secret))
+      return new Response(null, { status: 401 })
     if (await ctx.runMutation(internal.alerts.claimErrorAlert, {})) {
       await ctx.scheduler.runAfter(0, internal.email.sendErrorAlert, {})
     }
@@ -219,7 +280,8 @@ http.route({
     return page(
       200,
       'Approve this draft and add it to your Buffer queue?',
-      `<blockquote>${escapeHtml(post.text)}</blockquote><form method="post" action="?token=${encodeURIComponent(token)}" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Approving';"><button type="submit">Approve and add to the queue</button></form>`,
+      (nonce) =>
+        `<blockquote>${escapeHtml(post.text)}</blockquote><form id="approve" method="post" action="?token=${encodeURIComponent(token)}"><button type="submit">Approve and add to the queue</button></form><script nonce="${nonce}">document.getElementById('approve').addEventListener('submit',function(){var b=this.querySelector('button');b.disabled=true;b.textContent='Approving'})</script>`,
     )
   }),
 })

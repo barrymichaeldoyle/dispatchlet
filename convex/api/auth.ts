@@ -32,6 +32,14 @@ export async function authenticate(ctx: ActionCtx, req: Request): Promise<Caller
       rate: headers,
       retryAfter: Math.max(1, rate.reset - Math.floor(Date.now() / 1000)),
     })
+  // Someone removed from the allowlist, or who got in before launch, keeps no API access.
+  if (!found.allowed)
+    return errorResponse(
+      403,
+      'forbidden',
+      'This account is not allowed into Dispatchlet yet, so its tokens do not work.',
+      { rate: headers },
+    )
   if (!found.lastUsedAt || Date.now() - found.lastUsedAt >= 60_000)
     await ctx.runMutation(internal.tokens.touch, { id: found._id })
   return { userId: found.userId, tokenId: found._id, scope: found.scope, rate: headers }

@@ -2,14 +2,51 @@ import { v } from 'convex/values'
 import { internalMutation, internalQuery, query } from './_generated/server'
 import type { Doc, Id } from './_generated/dataModel'
 import type { MutationCtx, QueryCtx } from './_generated/server'
+import { take } from './api/rate'
 import { isSignupOpen } from './lib/allowlist'
 import { normalizeEmail } from './lib/email'
 
 const WEEK = 7 * 24 * 60 * 60 * 1000
+const HOUR = 60 * 60 * 1000
+/** Confirmation emails an hour, in total, whatever addresses or IPs a flood claims to come from. */
+const DEFAULT_EMAILS_PER_HOUR = 200
 
-async function positionOf(ctx: QueryCtx, row: Doc<'waitlist'>): Promise<number> {
+function emailsPerHour(): number {
+  const n = Number(process.env.WAITLIST_EMAILS_PER_HOUR)
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_EMAILS_PER_HOUR
+}
+
+/**
+ * The single counter row, made from a one-off count the first time (for a list that predates
+ * it). Public reads use `readCount`, which cannot write and falls back to the same count.
+ */
+async function stats(ctx: MutationCtx): Promise<Doc<'waitlistStats'>> {
+  const row = await ctx.db.query('waitlistStats').first()
+  if (row) return row
+  const count = (await ctx.db.query('waitlist').collect()).length
+  const id = await ctx.db.insert('waitlistStats', { count })
+  return (await ctx.db.get(id))!
+}
+
+async function readCount(ctx: QueryCtx): Promise<number> {
+  const row = await ctx.db.query('waitlistStats').first()
+  return row ? row.count : (await ctx.db.query('waitlist').collect()).length
+}
+
+async function bumpCount(ctx: MutationCtx, by: number): Promise<number> {
+  const row = await stats(ctx)
+  const count = Math.max(0, row.count + by)
+  await ctx.db.patch(row._id, { count })
+  return count
+}
+
+/** A row's place: stored when it was added; older rows count what came before them, once. */
+async function positionOf(ctx: MutationCtx, row: Doc<'waitlist'>): Promise<number> {
+  if (row.position !== undefined) return row.position
   const rows = await ctx.db.query('waitlist').collect()
-  return rows.filter((r) => r._creationTime <= row._creationTime).length
+  const position = rows.filter((r) => r._creationTime <= row._creationTime).length
+  await ctx.db.patch(row._id, { position })
+  return position
 }
 
 function makeToken(): string {
@@ -20,13 +57,14 @@ function makeToken(): string {
 export const count = query({
   args: {},
   returns: v.number(),
-  handler: async (ctx) => {
-    const rows = await ctx.db.query('waitlist').collect()
-    return rows.length
-  },
+  handler: async (ctx) => await readCount(ctx),
 })
 
-/** Adds an address, or returns the existing row's position without changing it. */
+/**
+ * Adds an address, or returns the existing row's position without changing it. A new address
+ * means a confirmation email, so it is capped: one an hour per address and `emailsPerHour()` in
+ * total. Over the cap nothing is stored and `limited` is set, so the person can try again later.
+ */
 export const add = internalMutation({
   args: {
     email: v.string(),
@@ -34,26 +72,40 @@ export const add = internalMutation({
     campaign: v.optional(v.string()),
     ip: v.optional(v.string()),
   },
-  returns: v.object({ position: v.number(), isNew: v.boolean(), token: v.string() }),
+  returns: v.object({
+    position: v.number(),
+    isNew: v.boolean(),
+    token: v.string(),
+    limited: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query('waitlist')
       .withIndex('by_email', (q) => q.eq('email', args.email))
       .first()
     if (existing) {
-      return { position: await positionOf(ctx, existing), isNew: false, token: existing.token }
+      return {
+        position: await positionOf(ctx, existing),
+        isNew: false,
+        token: existing.token,
+        limited: false,
+      }
     }
+    const perEmail = await take(ctx, `wl:email:${args.email}`, HOUR, 1)
+    const total = perEmail.ok ? await take(ctx, 'wl:all', HOUR, emailsPerHour()) : perEmail
+    if (!total.ok) return { position: 0, isNew: false, token: '', limited: true }
     const token = makeToken()
-    const id = await ctx.db.insert('waitlist', {
+    const position = await bumpCount(ctx, 1)
+    await ctx.db.insert('waitlist', {
       email: args.email,
       createdAt: Date.now(),
       source: args.source,
       campaign: args.campaign,
       token,
       ip: args.ip,
+      position,
     })
-    const row = (await ctx.db.get(id)) as Doc<'waitlist'>
-    return { position: await positionOf(ctx, row), isNew: true, token }
+    return { position, isNew: true, token, limited: false }
   },
 })
 
@@ -75,6 +127,7 @@ export async function addSignInToWaitlist(ctx: MutationCtx, email: string): Prom
     source: 'buffer-sign-in',
     confirmedAt: now,
     token: makeToken(),
+    position: await bumpCount(ctx, 1),
   })
 }
 
@@ -186,6 +239,7 @@ export const purge = internalMutation({
     if (!isSignupOpen()) throw new Error('The waiting list is still open (SIGNUP_OPEN is not true)')
     const rows = await ctx.db.query('waitlist').take(limit ?? 500)
     for (const row of rows) await ctx.db.delete(row._id)
+    await bumpCount(ctx, -rows.length)
     return rows.length
   },
 })
@@ -215,6 +269,7 @@ export const purgeClosed = internalMutation({
         deleted++
       }
     }
+    if (deleted) await bumpCount(ctx, -deleted)
     return deleted
   },
 })

@@ -55,7 +55,9 @@ export const claimSync = internalMutation({
 
 /**
  * Counts one request against the token's minute and the user's hour (SPEC §44.3). The response
- * headers come from the minute window, which is the one a caller can act on.
+ * headers come from the minute window, which is the one a caller can act on. The minute window
+ * is checked first and the hour only charged when it admits the request: otherwise a caller
+ * bouncing off the minute limit would eat their hour without a single request going through.
  */
 export const check = internalMutation({
   args: { tokenKey: v.string(), userKey: v.string() },
@@ -68,12 +70,14 @@ export const check = internalMutation({
   handler: async (ctx, { tokenKey, userKey }): Promise<RateResult> => {
     const perMinute = num('API_RATE_PER_MINUTE', 60)
     const perHour = num('API_RATE_PER_HOUR', 1000)
+    const minute = await take(ctx, `m:${tokenKey}`, 60_000, perMinute)
+    if (!minute.ok)
+      return { ok: false, limit: perMinute, remaining: 0, reset: Math.ceil(minute.resetAt / 1000) }
     const hour = await take(ctx, `h:${userKey}`, 3_600_000, perHour)
     if (!hour.ok)
       return { ok: false, limit: perHour, remaining: 0, reset: Math.ceil(hour.resetAt / 1000) }
-    const minute = await take(ctx, `m:${tokenKey}`, 60_000, perMinute)
     return {
-      ok: minute.ok,
+      ok: true,
       limit: perMinute,
       remaining: minute.remaining,
       reset: Math.ceil(minute.resetAt / 1000),

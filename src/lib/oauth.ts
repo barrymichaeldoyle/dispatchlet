@@ -47,6 +47,24 @@ export function grantedScopes(write: boolean): string[] {
   return write ? ['read', 'write'] : ['read']
 }
 
+/** Whether the client asked to write; a request naming no scopes is a request to read. */
+export function requestedWrite(scope: string | string[] | null | undefined): boolean {
+  const list = typeof scope === 'string' ? scope.split(' ') : (scope ?? [])
+  return list.includes('write')
+}
+
+/**
+ * The grant's scopes: what the person approved, narrowed to what the client asked for. A grant
+ * never carries more than the request did, however the token behind it was made. Read is always
+ * in: the provider's required scope, and a request with no scopes means read.
+ */
+export function grantScope(requested: string[], write: boolean): string[] {
+  const approved = grantedScopes(write)
+  const asked = new Set(requested.length ? requested : ['read'])
+  asked.add('read')
+  return approved.filter((scope) => asked.has(scope))
+}
+
 /** Checks an API token with the API: whose it is and whether it can write, or null if invalid. */
 export async function apiTokenOwner(
   apiBase: string,

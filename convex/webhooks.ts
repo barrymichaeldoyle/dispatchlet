@@ -28,25 +28,39 @@ import {
 /** Test pings and retries per webhook per hour, so a person cannot aim a flood through us. */
 const MANUAL_SENDS_PER_HOUR = 20
 
+type Resolution = 'public' | 'private' | 'unknown'
+
 /**
- * Resolves a host over DNS-over-HTTPS and says whether any answer is private. A name that does
- * not resolve counts as private: there is nowhere safe to send it.
+ * Resolves a host over DNS-over-HTTPS and says whether any answer is private, over A and AAAA. A
+ * name that does not exist, or has no address, is `private`: there is nowhere safe to send it.
+ * When the resolver itself cannot be reached or answers with an error, nothing is known about the
+ * host, so the answer is `unknown` and the caller tries again later rather than blaming the
+ * receiver.
  */
-async function resolvesPrivate(host: string): Promise<boolean> {
+async function resolve(host: string): Promise<Resolution> {
   const name = host.replace(/\.+$/, '')
-  if (name.includes(':') || /^[\d.]+$/.test(name)) return false
+  if (name.includes(':') || /^[\d.]+$/.test(name)) return 'public'
   const answers: string[] = []
   for (const type of ['A', 'AAAA']) {
-    const response = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
-      { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) },
-    )
-    if (!response.ok) return true
-    const body = (await response.json()) as { Answer?: { type: number; data: string }[] }
+    let body: { Status?: number; Answer?: { type: number; data: string }[] }
+    try {
+      const response = await fetch(
+        `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
+        { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) },
+      )
+      if (!response.ok) return 'unknown'
+      body = (await response.json()) as typeof body
+    } catch {
+      return 'unknown'
+    }
+    // 0 is NOERROR and 3 is NXDOMAIN, both real answers; anything else (SERVFAIL, REFUSED) is not.
+    if (body.Status !== undefined && body.Status !== 0 && body.Status !== 3) return 'unknown'
     for (const a of body.Answer ?? []) if (a.type === 1 || a.type === 28) answers.push(a.data)
   }
-  if (!answers.length) return true
+  if (!answers.length) return 'private'
   return answers.some((ip) => (ip.includes(':') ? isPrivateIPv6(ip) : isPrivateIPv4(ip)))
+    ? 'private'
+    : 'public'
 }
 
 /**
@@ -372,22 +386,32 @@ export const loadDelivery = internalQuery({
   },
 })
 
+/**
+ * Records one attempt. `reason` says when a failure is not the receiver's: `unverified` means the
+ * host could not be checked (the resolver was down), so the delivery is retried without counting
+ * towards switching the webhook off; `off` means the webhook is inactive, so the delivery stops
+ * here and the webhook's counters are left alone.
+ */
 export const recordAttempt = internalMutation({
   args: {
     deliveryId: v.id('webhookDeliveries'),
     ok: v.boolean(),
     responseStatus: v.optional(v.number()),
     error: v.optional(v.string()),
+    reason: v.optional(v.union(v.literal('unverified'), v.literal('off'))),
   },
   returns: v.null(),
-  handler: async (ctx, { deliveryId, ok, responseStatus, error }) => {
+  handler: async (ctx, { deliveryId, ok, responseStatus, error, reason }) => {
     const d = await ctx.db.get(deliveryId)
     if (!d) return null
     const w = await ctx.db.get(d.webhookId)
     const now = Date.now()
     const attempt = d.attempt + 1
     const wait = RETRY_AFTER_MS[attempt - 1]
-    const willRetry = !ok && wait !== undefined
+    // A webhook that was switched off, or deleted, gets no more tries: nothing changes until the
+    // person turns it on again, and the retries would only add to the count that turned it off.
+    const stopped = reason === 'off' || !w || !w.active
+    const willRetry = !ok && !stopped && wait !== undefined
     await ctx.db.patch(deliveryId, {
       attempt,
       status: ok ? 'ok' : willRetry ? 'pending' : 'failed',
@@ -397,9 +421,10 @@ export const recordAttempt = internalMutation({
       updatedAt: now,
     })
     if (willRetry) await ctx.scheduler.runAfter(wait, internal.webhooks.deliver, { deliveryId })
-    if (!w) return null
-    const failedInARow = ok ? 0 : willRetry ? w.failedInARow : w.failedInARow + 1
-    const disable = !ok && !willRetry && failedInARow >= DISABLE_AFTER && w.active
+    if (stopped) return null
+    const blame = !ok && !willRetry && reason !== 'unverified'
+    const failedInARow = ok ? 0 : blame ? w.failedInARow + 1 : w.failedInARow
+    const disable = blame && failedInARow >= DISABLE_AFTER
     await ctx.db.patch(w._id, {
       lastDeliveryAt: now,
       lastStatus: ok ? 'ok' : 'failed',
@@ -415,7 +440,7 @@ export const recordAttempt = internalMutation({
   },
 })
 
-/** Signs and sends one delivery; the outcome and any retry are recorded by `recordAttempt`. */
+/** Signs and sends one delivery (within DELIVERY_TIMEOUT_MS); the outcome and any retry are recorded by `recordAttempt`. */
 export const deliver = internalAction({
   args: { deliveryId: v.id('webhookDeliveries') },
   returns: v.null(),
@@ -427,22 +452,27 @@ export const deliver = internalAction({
         deliveryId,
         ok: false,
         error: 'The webhook is off.',
+        reason: 'off',
       })
       return null
     }
     const { delivery, webhook } = loaded
     // Checked again at send time: the rules may be stricter than when it was saved, and the name
-    // may now point somewhere private.
-    const refused =
-      webhookUrlProblem(webhook.url) ??
-      ((await resolvesPrivate(new URL(webhook.url).hostname).catch(() => true))
-        ? 'The host resolves to a private address, or does not resolve.'
-        : null)
-    if (refused) {
+    // may now point somewhere private. The check and the send are separate lookups, so a name
+    // that flips between them (DNS rebinding) is not caught: Convex's fetch gives no way to pin
+    // the address. The timeout and `redirect: 'manual'` below bound what such a host could do.
+    const problem = webhookUrlProblem(webhook.url)
+    const resolution = problem ? 'private' : await resolve(new URL(webhook.url).hostname)
+    if (resolution !== 'public') {
       await ctx.runMutation(internal.webhooks.recordAttempt, {
         deliveryId,
         ok: false,
-        error: refused,
+        error:
+          problem ??
+          (resolution === 'unknown'
+            ? 'Could not check where the host points. Trying again later.'
+            : 'The host resolves to a private address, or does not resolve.'),
+        ...(resolution === 'unknown' ? { reason: 'unverified' as const } : {}),
       })
       return null
     }

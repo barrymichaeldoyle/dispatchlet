@@ -1,5 +1,5 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { generateSecret, hashSecret, HOOK_PREFIX } from './lib/apiToken'
@@ -9,6 +9,10 @@ import { ROUTES } from './api/reference'
 import { matchPath } from './api/http'
 
 const modules = import.meta.glob('./**/*.*s')
+
+// A token only works for an allowlisted account; the tests' account is let in by opening sign-up.
+beforeEach(() => vi.stubEnv('SIGNUP_OPEN', 'true'))
+afterEach(() => vi.unstubAllEnvs())
 
 const EMPTY = {
   inputTokens: 0,
@@ -130,6 +134,36 @@ describe('API tokens', () => {
     })
     expect(denied.status).toBe(403)
     expect((await denied.json()).error.code).toBe('forbidden')
+  })
+
+  it('stops working for an account that is not on the allowlist', async () => {
+    const { call } = await account(convexTest(schema, modules))
+    vi.stubEnv('SIGNUP_OPEN', '')
+    vi.stubEnv('ALLOWED_EMAILS', 'someone-else@example.com')
+    const denied = await call('/me')
+    expect(denied.status).toBe(403)
+    expect((await denied.json()).error.message).toContain('not allowed')
+    vi.stubEnv('ALLOWED_EMAILS', 'A@example.com')
+    expect((await call('/me')).status).toBe(200)
+  })
+
+  it('charges the hour only when the minute window admits the request', async () => {
+    const t = convexTest(schema, modules)
+    process.env.API_RATE_PER_MINUTE = '1'
+    process.env.API_RATE_PER_HOUR = '2'
+    try {
+      const check = (tokenKey: string) =>
+        t.mutation(internal.api.rate.check, { tokenKey, userKey: 'u' })
+      expect((await check('t1')).ok).toBe(true)
+      const minute = await check('t1')
+      expect(minute).toMatchObject({ ok: false, limit: 1 })
+      // The refused call did not count: a second token still has an hour slot.
+      expect((await check('t2')).ok).toBe(true)
+      expect(await check('t3')).toMatchObject({ ok: false, limit: 2 })
+    } finally {
+      delete process.env.API_RATE_PER_MINUTE
+      delete process.env.API_RATE_PER_HOUR
+    }
   })
 
   it('rate limits per token', async () => {
@@ -468,7 +502,82 @@ describe('webhooks', () => {
     await t.mutation(internal.webhooks.recordAttempt, { deliveryId, ok: true, responseStatus: 200 })
     expect((await t.run((ctx) => ctx.db.get(webhookId)))?.failedInARow).toBe(0)
   })
+
+  it('stops a delivery whose webhook is off: no retry, no failure counted', async () => {
+    const { t, webhookId, deliveryId } = await pendingDelivery(false, 3)
+    await t.action(internal.webhooks.deliver, { deliveryId })
+    const d = await t.run((ctx) => ctx.db.get(deliveryId))
+    expect(d).toMatchObject({ status: 'failed', attempt: 1, error: 'The webhook is off.' })
+    expect(d?.nextAttemptAt).toBeUndefined()
+    const w = await t.run((ctx) => ctx.db.get(webhookId))
+    expect(w?.failedInARow).toBe(3)
+    expect(w?.lastStatus).toBeUndefined()
+    const scheduled = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect())
+    expect(scheduled).toHaveLength(0)
+  })
+
+  it('retries later, blaming nobody, when the resolver cannot be reached', async () => {
+    const { t, webhookId, deliveryId } = await pendingDelivery(true, 9)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('resolver down'))
+    try {
+      await t.action(internal.webhooks.deliver, { deliveryId })
+    } finally {
+      fetchSpy.mockRestore()
+    }
+    // Only the resolver was called; the receiver was not.
+    expect(
+      fetchSpy.mock.calls.every(([url]) => String(url).startsWith('https://cloudflare-dns.com/')),
+    ).toBe(true)
+    const d = await t.run((ctx) => ctx.db.get(deliveryId))
+    expect(d?.status).toBe('pending')
+    expect(d?.error).toContain('Could not check')
+    expect(d?.nextAttemptAt).toBeGreaterThan(Date.now())
+    const w = await t.run((ctx) => ctx.db.get(webhookId))
+    expect(w?.failedInARow).toBe(9)
+    expect(w?.active).toBe(true)
+    // Run out the retries the same way: still nobody's fault, so the webhook stays on.
+    for (let i = 0; i < 3; i++)
+      await t.mutation(internal.webhooks.recordAttempt, {
+        deliveryId,
+        ok: false,
+        error: 'x',
+        reason: 'unverified',
+      })
+    expect(await t.run((ctx) => ctx.db.get(deliveryId))).toMatchObject({ status: 'failed' })
+    expect(await t.run((ctx) => ctx.db.get(webhookId))).toMatchObject({
+      failedInARow: 9,
+      active: true,
+    })
+  })
 })
+
+async function pendingDelivery(active: boolean, failedInARow = 0) {
+  const { t, userId } = await account(convexTest(schema, modules))
+  const webhookId = await t.run((ctx) =>
+    ctx.db.insert('webhooks', {
+      userId,
+      url: 'https://hooks.example.com/a',
+      secretEnc: 'x',
+      events: ['ping'],
+      active,
+      createdAt: Date.now(),
+      failedInARow,
+    }),
+  )
+  const deliveryId = await t.run((ctx) =>
+    ctx.db.insert('webhookDeliveries', {
+      webhookId,
+      userId,
+      event: 'ping',
+      payload: '{}',
+      attempt: 0,
+      status: 'pending',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }),
+  )
+  return { t, webhookId, deliveryId }
+}
 
 describe('inbound hooks', () => {
   it('start a run from a token in the URL, with a GitHub release as the hint', async () => {

@@ -5,7 +5,7 @@ import { bearerApiToken, handleMcp, mcpUnauthorized } from './lib/mcp/handler'
 import {
   apiTokenOwner,
   consentUrl,
-  grantedScopes,
+  grantScope,
   OAUTH_SCOPES,
   providerOrigin,
   type GrantProps,
@@ -44,7 +44,7 @@ type OAuthHelpersLike = {
   approveConsent(
     request: Request,
     handle: string,
-    options: { scope: string[] },
+    options?: { scope?: string[] },
   ): Promise<{ request: { scope: string[] }; headers: Headers }>
   denyConsent(request: Request, handle: string): Promise<{ redirectTo: string; headers: Headers }>
   listUserGrants(
@@ -119,14 +119,15 @@ async function authorize(request: Request, env: Env, origin: string): Promise<Re
     const owner = token ? await apiTokenOwner(API_BASE, token) : null
     if (!owner) return json(400, { error: 'That token is not valid. Start again from the app.' })
     const { userId } = owner
-    // The grant says what the token can do; the page's checkbox only chose the token's scope.
-    const scope = grantedScopes(owner.write)
-    const approved = await oauth.approveConsent(request, handle, { scope })
+    // Approved without a scope override, so `approved.request.scope` is what the client asked
+    // for. The grant gets that narrowed by what the person approved (the token's scope): a write
+    // token behind a read-only request makes a read grant, never the other way round.
+    const approved = await oauth.approveConsent(request, handle)
     const { redirectTo } = await oauth.completeAuthorization({
       request: approved.request,
       userId,
       metadata: {},
-      scope: approved.request.scope,
+      scope: grantScope(approved.request.scope, owner.write),
       props: { apiToken: token, userId },
     })
     return json(200, { redirectTo }, approved.headers)
