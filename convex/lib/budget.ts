@@ -57,3 +57,18 @@ export function reserve(
   })
   return retryAt ? { ok: false, retryAt } : { ok: true, windows: next }
 }
+
+/**
+ * Buffer's report after a call, merged with the local windows. Calls reserved by other actions
+ * since that call was made are not in Buffer's number yet, so within the same window the lower
+ * remaining count wins; a window that has reset is taken as reported.
+ */
+export function mergeReported(local: BudgetWindow[], reported: BudgetWindow[]): BudgetWindow[] {
+  return reported.map((window) => {
+    const known = local.find((w) => w.name === window.name)
+    const sameWindow = known && window.resetAt <= known.resetAt + 5_000
+    return sameWindow && known.remaining < window.remaining
+      ? { ...window, remaining: known.remaining }
+      : window
+  })
+}

@@ -241,6 +241,31 @@ describe('learning from posts that did well', () => {
     expect(provenPosts(posts.slice(1))).toEqual([])
   })
 
+  it("counts only people acting, in Buffer's normalized metric names", () => {
+    const [p] = provenPosts(
+      [
+        {
+          service: 'linkedin',
+          text: 'video',
+          metrics: [
+            { type: 'reactions', value: 4, unit: 'count' },
+            { type: 'comments', value: 2, unit: 'count' },
+            { type: 'reposts', value: 1, unit: 'count' },
+            { type: 'impressions', value: 100, unit: 'count' },
+            { type: 'views', value: 60, unit: 'count' },
+            { type: 'viewers', value: 50, unit: 'count' },
+            { type: 'reach', value: 80, unit: 'count' },
+            { type: 'totalTimeWatched', value: 900, unit: 'count' },
+            { type: 'averageTimeWatched', value: 15, unit: 'count' },
+            { type: 'engagementRate', value: 7, unit: 'percentage' },
+          ],
+        },
+      ],
+      { min: 1 },
+    )
+    expect(p).toMatchObject({ engagements: 7, views: 160 })
+  })
+
   it('shows them to the writer as examples, not as stories', () => {
     const text = writeUserMessage(
       playbook,

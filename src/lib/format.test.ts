@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { bufferChannelUrl, channelHint, channelProblem, ideaLinkState, serviceList } from './format'
+import {
+  bufferChannelUrl,
+  channelHint,
+  channelProblem,
+  ideaLinkState,
+  metricLabel,
+  serviceList,
+} from './format'
 
 const none = { usable: 0, blocked: 0, others: [] as string[], syncing: false, syncError: null }
 
@@ -47,6 +54,21 @@ describe('channels Dispatchlet cannot post to', () => {
       'Dispatchlet can’t post to Instagram yet.',
     )
     expect(channelProblem('unsupported', 'tiktok')).toBe('Dispatchlet can’t post to TikTok yet.')
+  })
+})
+
+describe('a post metric in words', () => {
+  it('spells out Buffer’s camelCase and snake_case names, and marks a percentage', () => {
+    expect(metricLabel({ type: 'impressions', value: 1200, unit: 'count' })).toBe(
+      '1,200 impressions',
+    )
+    expect(metricLabel({ type: 'engagementRate', value: 3.5, unit: 'percentage' })).toBe(
+      '3.5% engagement rate',
+    )
+    expect(metricLabel({ type: 'totalTimeWatched', value: 90, unit: 'count' })).toBe(
+      '90 total time watched',
+    )
+    expect(metricLabel({ type: 'link_clicks', value: 2, unit: 'count' })).toBe('2 link clicks')
   })
 })
 

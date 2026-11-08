@@ -46,6 +46,20 @@ export function serviceName(service: string): string {
   return SERVICE_NAMES[service] ?? OTHER_SERVICE_NAMES[service] ?? service
 }
 
+/**
+ * One of Buffer's post metrics in words: "1,200 impressions", "4 reactions", "3.5% engagement
+ * rate". Buffer names them in camelCase (engagementRate, totalTimeWatched); older ones use
+ * snake_case.
+ */
+export function metricLabel(m: { type: string; value: number; unit?: string }): string {
+  const words = m.type
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replaceAll('_', ' ')
+    .toLowerCase()
+  if (m.unit === 'percentage') return `${m.value.toLocaleString('en-GB')}% ${words}`
+  return `${m.value.toLocaleString('en-GB')} ${words}`
+}
+
 /** "Instagram", "Instagram or TikTok", "Facebook, Instagram or TikTok". */
 export function serviceList(services: string[]): string {
   const names = services.map(serviceName)

@@ -100,10 +100,18 @@ export function limitFor(channel: TargetChannel, playbook: Playbook): number {
 /** A sent post that did well, given to the writer as an example of what this audience likes. */
 export type ProvenPost = { service: string; text: string; engagements: number; views: number }
 
-type Metric = { type: string; value: number }
+type Metric = { type: string; value: number; unit?: string }
 
-/** Counts that are not someone acting on the post: views, reach, rates and follower numbers. */
-const PASSIVE = /impression|view|reach|rate|follower|percent/i
+/**
+ * Numbers that are not someone acting on the post: views, viewers, reach, watch time, rates and
+ * follower counts, in Buffer's normalized metric names (impressions, views, viewers, reach,
+ * engagementRate, averageTimeWatched, totalTimeWatched) and the older snake_case ones.
+ */
+const PASSIVE = /impression|view|reach|rate|follower|percent|watched|time|postCount/i
+/** A count of people who saw the post, once per sighting. */
+const VIEWS = /^(impressions?|views?)(_count)?$/i
+/** Whether a metric is a plain count, so a percentage is never added to likes. */
+const isCount = (m: Metric) => !m.unit || m.unit === 'count'
 
 /**
  * The best of an automation's sent posts by interactions (likes, replies, reposts, clicks and
@@ -119,10 +127,10 @@ export function provenPosts(
     .map((p) => ({
       service: p.service,
       text: p.text,
-      engagements: p.metrics!.filter((m) => !PASSIVE.test(m.type)).reduce((s, m) => s + m.value, 0),
-      views: p
-        .metrics!.filter((m) => /impression|view/i.test(m.type))
+      engagements: p
+        .metrics!.filter((m) => isCount(m) && !PASSIVE.test(m.type))
         .reduce((s, m) => s + m.value, 0),
+      views: p.metrics!.filter((m) => VIEWS.test(m.type)).reduce((s, m) => s + m.value, 0),
     }))
   if (scored.length < min) return []
   return scored

@@ -15,7 +15,7 @@ import { isAllowlisted } from './lib/allowlist'
 import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
 import { operationName, serverEvent } from './lib/serverEvents'
 import { take } from './api/rate'
-import { parseRateLimit, reserve, type Priority } from './lib/budget'
+import { mergeReported, parseRateLimit, reserve, type Priority } from './lib/budget'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { emit } from './webhooks'
 
@@ -28,8 +28,12 @@ export type SignInGrant = {
   scope: string
 }
 
-/** How long a claimed refresh lock is honoured before another caller may take it over. */
-const REFRESH_LOCK_MS = 30_000
+/**
+ * How long a claimed refresh lock is honoured before another caller may take it over. Longer than
+ * the refresh call's own timeout (lib/buffer.REFRESH_TIMEOUT_MS), so a slow refresh is given up
+ * before anyone else can spend the same single-use token.
+ */
+export const REFRESH_LOCK_MS = 90_000
 /** The text channels Dispatchlet can post to. */
 const TEXT_SERVICES = new Set(['twitter', 'linkedin', 'threads', 'bluesky', 'mastodon'])
 
@@ -118,7 +122,11 @@ export const recordRateLimit = internalMutation({
       .query('bufferBudgets')
       .withIndex('by_partition', (q) => q.eq('partition', partition))
       .first()
-    if (budget) await ctx.db.patch(budget._id, { windows, observedAt: now })
+    if (budget)
+      await ctx.db.patch(budget._id, {
+        windows: mergeReported(budget.windows, windows),
+        observedAt: now,
+      })
     else await ctx.db.insert('bufferBudgets', { partition, windows, observedAt: now })
   },
 })
@@ -134,7 +142,12 @@ export const reserveCalls = internalMutation({
   args: { userId: v.id('users'), calls: v.number(), priority: priorityValidator },
   returns: v.union(
     v.object({ ok: v.literal(true) }),
-    v.object({ ok: v.literal(false), retryAt: v.number(), share: v.optional(v.boolean()) }),
+    v.object({
+      ok: v.literal(false),
+      retryAt: v.number(),
+      share: v.optional(v.boolean()),
+      ceiling: v.optional(v.boolean()),
+    }),
   ),
   handler: async (ctx, { userId, calls, priority }) => {
     // Background work (runs, status checks) also has a daily share per person, so one account
@@ -142,6 +155,16 @@ export const reserveCalls = internalMutation({
     if (priority === 'background') {
       const share = await take(ctx, `buffer-share:${userId}`, DAY_MS, backgroundCallsPerUser())
       if (!share.ok) return { ok: false as const, retryAt: share.resetAt, share: true }
+    } else {
+      // App clicks are not held to the daily share, but a tool looping on edits through the API
+      // still cannot spend everyone's budget: an hourly ceiling far above what a person clicks.
+      const ceiling = await take(
+        ctx,
+        `buffer-interactive:${userId}`,
+        3_600_000,
+        interactiveCallsPerUserHour(),
+      )
+      if (!ceiling.ok) return { ok: false as const, retryAt: ceiling.resetAt, ceiling: true }
     }
     const connection = await ctx.db
       .query('bufferConnections')
@@ -173,11 +196,17 @@ export function backgroundCallsPerUser(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 40
 }
 
+/** The most Buffer calls one person's app clicks and API edits may make an hour (default 300). */
+function interactiveCallsPerUserHour(): number {
+  const raw = Number(process.env.BUFFER_INTERACTIVE_CALLS_PER_HOUR)
+  return Number.isFinite(raw) && raw > 0 ? raw : 300
+}
+
 /** Thrown when Buffer's budget has no room; `retryAt` is when the tightest window resets. */
 export class BufferBudgetError extends Error {
   constructor(
     readonly retryAt: number,
-    readonly reason: 'budget' | 'share' = 'budget',
+    readonly reason: 'budget' | 'share' | 'ceiling' = 'budget',
   ) {
     const minutes = Math.max(1, Math.ceil((retryAt - Date.now()) / 60_000))
     const wait =
@@ -187,9 +216,11 @@ export class BufferBudgetError extends Error {
           ? `${minutes} minutes`
           : `${Math.ceil(minutes / 60)} hours`
     super(
-      reason === 'share'
-        ? `Your account has used today’s share of Buffer requests for runs. It frees up in ${wait}.`
-        : `Buffer is busy with Dispatchlet’s requests right now. Try again in ${wait}.`,
+      reason === 'ceiling'
+        ? `This account has made a lot of Buffer requests in the last hour. It frees up in ${wait}.`
+        : reason === 'share'
+          ? `Your account has used today’s share of Buffer requests for runs. It frees up in ${wait}.`
+          : `Buffer is busy with Dispatchlet’s requests right now. Try again in ${wait}.`,
     )
   }
 }
@@ -213,7 +244,12 @@ async function callBuffer<T>(
   })
   const operation = operationName(document)
   if (!reserved.ok) {
-    const reason = 'share' in reserved && reserved.share ? 'share' : 'budget'
+    const reason =
+      'share' in reserved && reserved.share
+        ? 'share'
+        : 'ceiling' in reserved && reserved.ceiling
+          ? 'ceiling'
+          : 'budget'
     await serverEvent('buffer_call_refused', { operation, priority, reason })
     throw new BufferBudgetError(reserved.retryAt, reason)
   }
@@ -261,30 +297,39 @@ export const connectionFor = internalQuery({
  */
 export const claimRefresh = internalMutation({
   args: { connectionId: v.id('bufferConnections') },
-  returns: v.boolean(),
+  /** The claim's timestamp, which the holder gives back to release it; null if someone has it. */
+  returns: v.union(v.number(), v.null()),
   handler: async (ctx, { connectionId }) => {
     const connection = await ctx.db.get(connectionId)
-    if (!connection) return false
+    if (!connection) return null
     const now = Date.now()
-    if (connection.refreshingAt && now - connection.refreshingAt < REFRESH_LOCK_MS) return false
+    if (connection.refreshingAt && now - connection.refreshingAt < REFRESH_LOCK_MS) return null
     await ctx.db.patch(connectionId, { refreshingAt: now })
-    return true
+    return now
   },
 })
+
+/** Whether `claim` is the lock this connection currently has, so only its holder may clear it. */
+const holdsLock = (connection: Doc<'bufferConnections'>, claim: number | undefined) =>
+  claim !== undefined && connection.refreshingAt === claim
 
 export const storeRefreshed = internalMutation({
   args: {
     connectionId: v.id('bufferConnections'),
+    claim: v.number(),
     accessTokenEnc: v.string(),
     refreshTokenEnc: v.optional(v.string()),
     expiresAt: v.number(),
     scope: v.string(),
   },
-  handler: async (ctx, { connectionId, ...tokens }) => {
+  handler: async (ctx, { connectionId, claim, ...tokens }) => {
+    const connection = await ctx.db.get(connectionId)
+    if (!connection) return
     const now = Date.now()
     await ctx.db.patch(connectionId, {
       ...tokens,
-      refreshingAt: undefined,
+      // Only the holder frees the lock; a late caller whose claim was taken over leaves it alone.
+      ...(holdsLock(connection, claim) ? { refreshingAt: undefined } : {}),
       lastRefreshedAt: now,
       updatedAt: now,
     })
@@ -292,8 +337,13 @@ export const storeRefreshed = internalMutation({
 })
 
 export const releaseRefresh = internalMutation({
-  args: { connectionId: v.id('bufferConnections'), needsReauth: v.boolean() },
-  handler: async (ctx, { connectionId, needsReauth }) => {
+  args: {
+    connectionId: v.id('bufferConnections'),
+    needsReauth: v.boolean(),
+    /** The claim from claimRefresh. Without one the lock is left to its holder. */
+    claim: v.optional(v.number()),
+  },
+  handler: async (ctx, { connectionId, needsReauth, claim }) => {
     const connection = await ctx.db.get(connectionId)
     if (!connection) return
     // Tell the person once, when access is first lost; a new sign-in clears the flag.
@@ -309,7 +359,7 @@ export const releaseRefresh = internalMutation({
       await emit(ctx, connection.userId, 'buffer.reauth_needed', {})
     }
     await ctx.db.patch(connectionId, {
-      refreshingAt: undefined,
+      ...(holdsLock(connection, claim) ? { refreshingAt: undefined } : {}),
       ...(needsReauth ? { needsReauth: true } : {}),
       updatedAt: Date.now(),
     })
@@ -342,10 +392,10 @@ async function accessTokenFor(
       })
       throw new Error('Buffer did not issue a refresh token. Sign in with Buffer again.')
     }
-    const claimed = await ctx.runMutation(internal.buffer.claimRefresh, {
+    const claim = await ctx.runMutation(internal.buffer.claimRefresh, {
       connectionId: connection._id,
     })
-    if (!claimed) {
+    if (claim === null) {
       // Another caller is refreshing; wait for its new token rather than spending ours.
       await sleep(1500)
       force = false
@@ -355,6 +405,7 @@ async function accessTokenFor(
       const tokens = await refreshBufferTokens(await decryptSecret(connection.refreshTokenEnc))
       await ctx.runMutation(internal.buffer.storeRefreshed, {
         connectionId: connection._id,
+        claim,
         accessTokenEnc: await encryptSecret(tokens.accessToken),
         refreshTokenEnc: tokens.refreshToken ? await encryptSecret(tokens.refreshToken) : undefined,
         expiresAt: tokens.expiresAt,
@@ -362,11 +413,13 @@ async function accessTokenFor(
       })
       return { token: tokens.accessToken, refreshed: true }
     } catch (error) {
-      // A rejected grant needs a new sign-in; anything else (network, 5xx) can be retried later.
-      const rejected = error instanceof BufferApiError && error.status >= 400 && error.status < 500
+      // A rejected grant (invalid_grant comes back as 400, a bad client as 401 or 403) needs a new
+      // sign-in. A 429, a timeout or a 5xx is Buffer's trouble, and the next call tries again.
+      const rejected = error instanceof BufferApiError && [400, 401, 403].includes(error.status)
       await ctx.runMutation(internal.buffer.releaseRefresh, {
         connectionId: connection._id,
         needsReauth: rejected,
+        claim,
       })
       throw error
     }
@@ -673,6 +726,58 @@ export async function bufferCallFor<T>(
 
 type MutationPayload = { __typename: string; message?: string }
 
+/** Load the saved post, so adding a note can never cause the publishing action to resend it. */
+export const postForNote = internalQuery({
+  args: { postId: v.id('posts') },
+  handler: async (ctx, { postId }) => ctx.db.get(postId),
+})
+
+/**
+ * A best-effort link to the originating run, separate from post creation. No retries: a timeout
+ * can mean Buffer saved the note, and retrying could duplicate it. Existing notes are untouched.
+ */
+export const addPostNote = internalAction({
+  args: { postId: v.id('posts') },
+  returns: v.null(),
+  handler: async (ctx, { postId }) => {
+    if (process.env.BUFFER_NOTES?.trim().toLowerCase() !== 'true') return null
+    const post = await ctx.runQuery(internal.buffer.postForNote, { postId })
+    if (!post?.bufferPostId) return null
+    const connection = await ctx.runQuery(internal.buffer.connectionFor, { userId: post.userId })
+    if (!connection?.scope.split(/\s+/).includes('notes:write')) return null
+    const site = (process.env.SITE_URL ?? 'https://dispatchlet.com').replace(/\/+$/, '')
+    try {
+      const { createCollaborationNote } = await bufferCallFor<{
+        createCollaborationNote: MutationPayload & { edge?: { node: { id: string } } }
+      }>(
+        ctx,
+        post.userId,
+        `mutation DispatchletPostNote($input: CreateCollaborationNoteInput!) {
+          createCollaborationNote(input: $input) {
+            __typename
+            ... on CreateCollaborationNoteSuccess { edge { node { id } } }
+            ... on MutationError { message }
+          }
+        }`,
+        {
+          input: {
+            subject: { postId: post.bufferPostId },
+            text: `Created by Dispatchlet. View the run: ${site}/app/a/${post.automationId}/runs/${post.runId}`,
+            annotations: [],
+          },
+        },
+      )
+      if (!createCollaborationNote.edge?.node.id)
+        throw new Error(createCollaborationNote.message ?? createCollaborationNote.__typename)
+    } catch (error) {
+      console.log(
+        `Buffer note unavailable for ${postId}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    }
+    return null
+  },
+})
+
 /** The "Dispatchlet" tag in an organization, created the first time it is needed. */
 /**
  * The tag every post gets, so it can be found in Buffer. Dev sets BUFFER_TAG_NAME to
@@ -813,27 +918,40 @@ export class BufferPostError extends Error {
   }
 }
 
+/**
+ * The network-specific part of a post: the whole thread in `metadata.<service>.thread` on X,
+ * Threads, Bluesky and Mastodon (the first item is the post itself), the link card on LinkedIn,
+ * Threads and Bluesky, and the AI disclosure X asks for. Undefined when there is nothing to say.
+ */
+export function postMetadata(
+  post: Pick<CreatePostInput, 'service' | 'text' | 'thread' | 'linkAttachment'>,
+): Record<string, unknown> | undefined {
+  const metadata: Record<string, unknown> = {}
+  const thread = post.thread?.length
+    ? { thread: [post.text, ...post.thread].map((text) => ({ text })) }
+    : {}
+  if (post.service === 'twitter') {
+    metadata.twitter = { isAiGenerated: true, ...thread }
+  } else if (post.service === 'mastodon') {
+    if (post.thread?.length) metadata.mastodon = thread
+  } else if (post.service === 'linkedin') {
+    if (post.linkAttachment) metadata.linkedin = { linkAttachment: post.linkAttachment }
+  } else if (post.service === 'threads' || post.service === 'bluesky') {
+    const card = post.linkAttachment
+      ? { linkAttachment: { url: post.linkAttachment.url, title: post.linkAttachment.title } }
+      : {}
+    if (post.thread?.length || post.linkAttachment) metadata[post.service] = { ...card, ...thread }
+  }
+  return Object.keys(metadata).length ? metadata : undefined
+}
+
 /** One post into Buffer, as a draft, into the queue, or at a time (SPEC §24.5). */
 export async function createBufferPost(
   ctx: ActionCtx,
   userId: Id<'users'>,
   post: CreatePostInput,
 ): Promise<CreatedPost> {
-  const metadata: Record<string, unknown> = {}
-  if (post.service === 'twitter') {
-    metadata.twitter = {
-      isAiGenerated: true,
-      ...(post.thread?.length
-        ? { thread: [post.text, ...post.thread].map((text) => ({ text })) }
-        : {}),
-    }
-  } else if (post.linkAttachment && post.service === 'linkedin') {
-    metadata.linkedin = { linkAttachment: post.linkAttachment }
-  } else if (post.linkAttachment && (post.service === 'threads' || post.service === 'bluesky')) {
-    metadata[post.service] = {
-      linkAttachment: { url: post.linkAttachment.url, title: post.linkAttachment.title },
-    }
-  }
+  const metadata = postMetadata(post)
   const input: Record<string, unknown> = {
     channelId: post.channelId,
     text: post.text,
@@ -841,7 +959,7 @@ export async function createBufferPost(
     aiAssisted: true,
     source: 'dispatchlet',
     ...(post.tagId ? { tagIds: [post.tagId] } : {}),
-    ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(metadata ? { metadata } : {}),
     ...(post.mode === 'draft' || draftsOnly()
       ? { mode: 'addToQueue', saveToDraft: true }
       : post.mode === 'queue'
@@ -932,13 +1050,17 @@ export async function editBufferPostText(
     throw new BufferPostError(editPost.message ?? 'Buffer did not save the change', 'other')
 }
 
-/** The current status of posts Dispatchlet created, one query per organization (SPEC §24.7). */
+/**
+ * The current status of posts Dispatchlet created, one query per organization (SPEC §24.7). With
+ * a tag id, only posts carrying it are returned, which finds Dispatchlet's posts on a busy account.
+ */
 export async function postStatuses(
   ctx: ActionCtx,
   userId: Id<'users'>,
   organizationId: string,
   channelIds: string[],
   since: number,
+  tagId?: string | null,
 ): Promise<
   {
     id: string
@@ -963,16 +1085,21 @@ export async function postStatuses(
   }>(
     ctx,
     userId,
-    `query DispatchletStatus($orgId: OrganizationId!, $ids: [ChannelId!], $since: DateTime!) {
+    `query DispatchletStatus($orgId: OrganizationId!, $ids: [ChannelId!], $since: DateTime!, $tags: TagComparator) {
       posts(first: 50, input: { # keep in step with STATUS_PAGE in status.ts
         organizationId: $orgId,
-        filter: { channelIds: $ids, createdAt: { start: $since } },
+        filter: { channelIds: $ids, createdAt: { start: $since }, tags: $tags },
         sort: [{ field: createdAt, direction: desc }]
       }) {
         edges { node { id status sentAt externalLink error { message } } }
       }
     }`,
-    { orgId: organizationId, ids: channelIds, since: new Date(since).toISOString() },
+    {
+      orgId: organizationId,
+      ids: channelIds,
+      since: new Date(since).toISOString(),
+      ...(tagId ? { tags: { in: [tagId] } } : {}),
+    },
   )
   return posts.edges.map((e) => ({ ...e.node, error: e.node.error?.message ?? null }))
 }

@@ -1,5 +1,9 @@
 const BUFFER_API = 'https://api.buffer.com'
 const BUFFER_TOKEN_URL = 'https://auth.buffer.com/token'
+/** How long one API call may take before it is given up on. */
+const API_TIMEOUT_MS = 60_000
+/** How long a token refresh may take; kept well under the refresh lock. */
+export const REFRESH_TIMEOUT_MS = 30_000
 const BUFFER_REVOCATION_URL = 'https://auth.buffer.com/token/revocation'
 
 export type BufferAccount = { id: string; email: string | null; name: string | null }
@@ -33,6 +37,7 @@ export async function bufferRequest<T>(
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
+    signal: AbortSignal.timeout(API_TIMEOUT_MS),
   })
   const rateLimit = rateLimitFrom(response.headers)
   if (rateLimit) console.log(`Buffer rate limit: ${rateLimit}`)
@@ -40,11 +45,15 @@ export async function bufferRequest<T>(
     data?: T
     errors?: { message: string }[]
   } | null
-  if (!response.ok || !body?.data || body.errors?.length) {
+  // A reply with data and errors is a partial answer (a nested field failed); the fields that came
+  // back are still true, so only an answer with nothing in it is a failure.
+  const empty = !body?.data || Object.values(body.data).every((value) => value == null)
+  if (!response.ok || empty) {
     const message = body?.errors?.[0]?.message ?? `HTTP ${response.status}`
     throw new BufferApiError(message, response.status, rateLimit)
   }
-  return { data: body.data, rateLimit }
+  if (body.errors?.length) console.log(`Buffer partial error: ${body.errors[0]!.message}`)
+  return { data: body.data!, rateLimit }
 }
 
 /** A GraphQL call with a Buffer access token. Throws with Buffer's message on any error. */
@@ -83,10 +92,14 @@ export async function fetchBufferAccount(accessToken: string): Promise<BufferAcc
   }
 }
 
-/** When an access token should be treated as expired: two minutes early, so calls never race it. */
+/**
+ * When an access token should be treated as expired: two minutes early, so calls never race it,
+ * but never past the halfway mark of a short-lived token, so one is never born expired.
+ */
 export function expiresAtFrom(expiresIn: unknown, now = Date.now()): number {
   const seconds = Number(expiresIn)
-  return now + (Number.isFinite(seconds) && seconds > 0 ? seconds : 3600) * 1000 - 120_000
+  const life = (Number.isFinite(seconds) && seconds > 0 ? seconds : 3600) * 1000
+  return now + Math.max(life - 120_000, life / 2)
 }
 
 /**
@@ -104,6 +117,9 @@ export async function refreshBufferTokens(refreshToken: string): Promise<TokenSe
       client_id: process.env.BUFFER_CLIENT_ID ?? '',
       client_secret: process.env.BUFFER_CLIENT_SECRET ?? '',
     }),
+    // Shorter than the refresh lock (buffer.REFRESH_LOCK_MS), so a hung refresh gives up before
+    // another caller may take the lock and spend the same single-use token.
+    signal: AbortSignal.timeout(REFRESH_TIMEOUT_MS),
   })
   const body = (await response.json().catch(() => ({}))) as Record<string, unknown>
   if (!response.ok || typeof body.access_token !== 'string') {

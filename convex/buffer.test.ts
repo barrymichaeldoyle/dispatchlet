@@ -1,7 +1,7 @@
 import { convexTest } from 'convex-test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { internal } from './_generated/api'
-import { saveBufferConnection } from './buffer'
+import { postMetadata, REFRESH_LOCK_MS, saveBufferConnection } from './buffer'
 import schema from './schema'
 
 const modules = import.meta.glob('./**/*.*s')
@@ -29,21 +29,26 @@ async function setup() {
 describe('the Buffer refresh lock', () => {
   it('lets only one caller refresh at a time', async () => {
     const { t, connectionId } = await setup()
-    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBe(true)
-    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBe(false)
+    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toEqual(
+      expect.any(Number),
+    )
+    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBeNull()
   })
 
   it('frees the lock once the new tokens are stored', async () => {
     const { t, connectionId } = await setup()
-    await t.mutation(internal.buffer.claimRefresh, { connectionId })
+    const claim = await t.mutation(internal.buffer.claimRefresh, { connectionId })
     await t.mutation(internal.buffer.storeRefreshed, {
       connectionId,
+      claim: claim!,
       accessTokenEnc: 'iv.access2',
       refreshTokenEnc: 'iv.refresh2',
       expiresAt: Date.now() + 3_600_000,
       scope: 'account:read',
     })
-    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBe(true)
+    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toEqual(
+      expect.any(Number),
+    )
   })
 
   it('takes over a lock left behind by a caller that died', async () => {
@@ -51,8 +56,12 @@ describe('the Buffer refresh lock', () => {
     try {
       const { t, connectionId } = await setup()
       await t.mutation(internal.buffer.claimRefresh, { connectionId })
-      vi.advanceTimersByTime(31_000)
-      expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBe(true)
+      vi.advanceTimersByTime(REFRESH_LOCK_MS - 1_000)
+      expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBeNull()
+      vi.advanceTimersByTime(2_000)
+      expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toEqual(
+        expect.any(Number),
+      )
     } finally {
       vi.useRealTimers()
     }
@@ -60,11 +69,28 @@ describe('the Buffer refresh lock', () => {
 
   it('marks the connection for a new sign-in when Buffer rejects the grant', async () => {
     const { t, userId, connectionId } = await setup()
-    await t.mutation(internal.buffer.claimRefresh, { connectionId })
-    await t.mutation(internal.buffer.releaseRefresh, { connectionId, needsReauth: true })
+    const claim = await t.mutation(internal.buffer.claimRefresh, { connectionId })
+    await t.mutation(internal.buffer.releaseRefresh, {
+      connectionId,
+      needsReauth: true,
+      claim: claim!,
+    })
     const connection = await t.query(internal.buffer.connectionFor, { userId })
     expect(connection?.needsReauth).toBe(true)
     expect(connection?.refreshingAt).toBeUndefined()
+  })
+
+  it("leaves a lock alone when the release carries someone else's claim", async () => {
+    const { t, userId, connectionId } = await setup()
+    const claim = await t.mutation(internal.buffer.claimRefresh, { connectionId })
+    await t.mutation(internal.buffer.releaseRefresh, {
+      connectionId,
+      needsReauth: false,
+      claim: claim! - 1,
+    })
+    const connection = await t.query(internal.buffer.connectionFor, { userId })
+    expect(connection?.refreshingAt).toBe(claim)
+    expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBeNull()
   })
 
   it('a new sign-in replaces the grant and clears the reauth flag', async () => {
@@ -247,5 +273,29 @@ describe('channel sync results', () => {
     }))
     expect(state.channels[0]?.problem).toBeUndefined()
     expect(state.connection?.otherServices).toEqual([])
+  })
+})
+
+describe('the network-specific part of a post', () => {
+  it('carries the whole thread on X, Threads, Bluesky and Mastodon, and the link card where there is one', () => {
+    const thread = [{ text: 'one' }, { text: 'two' }]
+    expect(postMetadata({ service: 'twitter', text: 'one', thread: ['two'] })).toEqual({
+      twitter: { isAiGenerated: true, thread },
+    })
+    expect(postMetadata({ service: 'mastodon', text: 'one', thread: ['two'] })).toEqual({
+      mastodon: { thread },
+    })
+    const linkAttachment = { url: 'https://e.com/a', title: 'A', description: 'D' }
+    expect(
+      postMetadata({ service: 'bluesky', text: 'one', thread: ['two'], linkAttachment }),
+    ).toEqual({ bluesky: { linkAttachment: { url: 'https://e.com/a', title: 'A' }, thread } })
+    expect(postMetadata({ service: 'threads', text: 'one', linkAttachment })).toEqual({
+      threads: { linkAttachment: { url: 'https://e.com/a', title: 'A' } },
+    })
+    expect(postMetadata({ service: 'linkedin', text: 'one', linkAttachment })).toEqual({
+      linkedin: { linkAttachment },
+    })
+    expect(postMetadata({ service: 'mastodon', text: 'one' })).toBeUndefined()
+    expect(postMetadata({ service: 'linkedin', text: 'one' })).toBeUndefined()
   })
 })

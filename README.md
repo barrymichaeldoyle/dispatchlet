@@ -50,6 +50,15 @@ the window, in the commits after it.
    for each post come back into the log. Once an automation has a few sent
    posts, the writer learns from its best ones. Any run can be shared by link.
 
+On a finished run, **Skip this story** records an editorial reason and hides that
+story's drafts from Dispatchlet's approval list. It also blocks approval through
+email, the API and MCP until the skip is undone. Posts already in Buffer stay
+there; the run page links to them so you can remove them in Buffer. Feedback is
+private, including on shared runs. **Teach future runs** offers an editable skip
+rule for common reasons, or lets you write your own. Accepting it creates a new
+playbook version; skipping alone never changes the playbook. Undo restores the
+drafts to review and keeps any rule you explicitly accepted.
+
 The app is a sidebar of your automations and channels with the work beside it,
 like Buffer's own. https://dispatchlet.com/docs says how each part works.
 Screenshots are in `docs/screenshots`.
@@ -65,12 +74,24 @@ OAuth 2.0 with PKCE and rotating, single-use refresh tokens: one refresh at a
 time per connection, guarded by a lock in Convex, because reusing a spent
 refresh token revokes the grant. `account`, `channels`,
 `configuration` and `dailyPostingLimits` for setup and pre-flight. `createPost`
-with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for X
-threads and LinkedIn, Threads and Bluesky link cards. `editPost` to change a
-draft's text and to promote it into the queue. `createTag` and `tagsV2` for the Dispatchlet tag. `createIdea` to save a story that
-missed the cut to the Ideas board. `posts`
-for status once an hour and `post` for metrics once a day. Every call is
-reserved against the rate-limit budget Buffer reports in its headers.
+with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for
+threads on X, Threads, Bluesky and Mastodon and link cards on LinkedIn, Threads
+and Bluesky. `editPost` to change a draft's text and to promote it into the
+queue. `createTag` and `tagsV2` for the Dispatchlet tag. `createIdea` to save a
+story that missed the cut to the Ideas board. `posts` for status once an hour,
+asked again with a `tags` filter when a busy account fills the first page, and
+`post` for metrics once a day, read by Buffer's normalized metric names
+(`reactions`, `comments`, `reposts`, `impressions`, `engagementRate` and so on).
+Every call is reserved against the rate-limit budget Buffer reports in its
+headers.
+
+Optional `createCollaborationNote` adds a link from each new Buffer post back
+to its Dispatchlet run. Enable `notes:write` on the Buffer app client, then set
+`BUFFER_NOTES=true` on the Convex deployment and reconnect Buffer to grant the
+permission. Existing connections without that scope keep posting normally.
+Notes use one extra API request per post, respect the background call budget,
+and fail independently of publishing. Existing posts and notes are unchanged.
+The Notes API is experimental; see [Buffer's Notes guide](https://developers.buffer.com/guides/notes.html).
 
 ## Automate it
 

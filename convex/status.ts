@@ -67,6 +67,10 @@ export const pending = internalQuery({
         .query('bufferChannels')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
+      const connection = await ctx.db
+        .query('bufferConnections')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .first()
       const orgs = new Map<
         string,
         { channelIds: string[]; expected: string[]; check: boolean; urgent: boolean }
@@ -98,6 +102,8 @@ export const pending = internalQuery({
           channelIds: o.channelIds,
           expected: o.expected,
           urgent: o.urgent,
+          /** The Dispatchlet tag there, for a second look when the first page is full. */
+          tagId: connection?.tags?.find((t) => t.organizationId === organizationId)?.tagId ?? null,
         }))
       if (wanted.length) out.push({ userId, since, orgs: wanted })
     }
@@ -158,7 +164,7 @@ export const apply = internalMutation({
           ? 'sent'
           : u.status === 'error'
             ? 'failed'
-            : u.status === 'draft'
+            : u.status === 'draft' || u.status === 'needs_approval'
               ? 'draft'
               : post.status === 'draft'
                 ? 'queued'
@@ -204,9 +210,23 @@ export const poll = internalAction({
             group.since,
           )
           // A full page may have left some out, so only a short page says what is gone.
-          const seen = new Set(rows.map((r) => r.id))
-          const missing =
-            rows.length < STATUS_PAGE ? org.expected.filter((id) => !seen.has(id)) : []
+          const full = rows.length >= STATUS_PAGE
+          const missing = full ? [] : org.expected.filter((id) => !rows.some((r) => r.id === id))
+          // A busy account fills the page with other posts, so ask once more for the tagged ones.
+          // Those left out of that answer may only have lost the tag, so they are not marked gone.
+          if (full && org.tagId && (await ctx.runMutation(internal.status.claimStatusCall, {}))) {
+            checked++
+            const tagged = await postStatuses(
+              ctx,
+              group.userId,
+              org.organizationId,
+              org.channelIds,
+              group.since,
+              org.tagId,
+            )
+            const seen = new Set(rows.map((r) => r.id))
+            rows.push(...tagged.filter((r) => !seen.has(r.id)))
+          }
           await ctx.runMutation(internal.status.apply, {
             updates: rows.map(({ id, ...r }) => ({ bufferPostId: id, ...r })),
             missing,

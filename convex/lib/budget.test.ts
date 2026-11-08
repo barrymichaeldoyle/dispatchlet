@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseRateLimit, reserve, windowLength } from './budget'
+import { mergeReported, parseRateLimit, reserve, windowLength } from './budget'
 
 // Copied from a real Buffer response (rateLimitFrom's output), 18 Oct 2026.
 const RAW =
@@ -45,5 +45,34 @@ describe('the Buffer call budget', () => {
       ok: true,
       windows: [{ name: '15min', limit: 100, remaining: 99, resetAt: 902_000 }],
     })
+  })
+})
+
+describe('merging what Buffer reports with what we spent', () => {
+  const local = [{ name: '15min', limit: 100, remaining: 90, resetAt: 900_000 }]
+
+  it('keeps our lower count when a slow reply reports the same window', () => {
+    const merged = mergeReported(local, [
+      { name: '15min', limit: 100, remaining: 95, resetAt: 900_000 },
+    ])
+    expect(merged[0]?.remaining).toBe(90)
+  })
+
+  it('takes the reported count once the window has reset, or when it is lower', () => {
+    expect(
+      mergeReported(local, [{ name: '15min', limit: 100, remaining: 95, resetAt: 1_800_000 }])[0]
+        ?.remaining,
+    ).toBe(95)
+    expect(
+      mergeReported(local, [{ name: '15min', limit: 100, remaining: 80, resetAt: 900_000 }])[0]
+        ?.remaining,
+    ).toBe(80)
+  })
+
+  it('reports windows we had not seen as they are', () => {
+    const merged = mergeReported(local, [
+      { name: '1day', limit: 250, remaining: 240, resetAt: 50_000_000 },
+    ])
+    expect(merged).toEqual([{ name: '1day', limit: 250, remaining: 240, resetAt: 50_000_000 }])
   })
 })

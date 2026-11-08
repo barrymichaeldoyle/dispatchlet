@@ -19,4 +19,11 @@ describe('Buffer helpers', () => {
     expect(expiresAtFrom(3600, 0)).toBe(3_600_000 - 120_000)
     expect(expiresAtFrom(undefined, 0)).toBe(3_600_000 - 120_000)
   })
+
+  it('keeps at least half the life of a short-lived token', () => {
+    expect(expiresAtFrom(60, 0)).toBe(30_000)
+    expect(expiresAtFrom(300, 0)).toBe(180_000)
+    expect(expiresAtFrom('abc', 0)).toBe(3_600_000 - 120_000)
+    expect(expiresAtFrom(-5, 0)).toBe(3_600_000 - 120_000)
+  })
 })
