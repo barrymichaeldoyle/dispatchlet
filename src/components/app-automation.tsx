@@ -6,7 +6,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { parsePlaybook, renderPlaybook, type Playbook } from '../../convex/lib/playbook'
 import { describeCadence } from '../../convex/lib/schedule'
 import { ChannelMark } from './brand-icons'
-import { channelProblem, errorText, serviceName, usd, whenIn } from '../lib/format'
+import { channelProblem, errorText, metricLabel, serviceName, usd, whenIn } from '../lib/format'
 import { BusyLabel } from './busy-label'
 
 const STATUS_WORDS: Record<string, string> = {
@@ -30,9 +30,18 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Ticks each minute while a run is open, so the buttons come back once it counts as abandoned.
+  const [now, setNow] = useState(() => Date.now())
+  const open = runs?.some((r) => !r.finishedAt) ?? false
+  useEffect(() => {
+    if (!open) return
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [open])
   if (a === undefined) return <p className="app-muted">Loading.</p>
   if (a === null) return <p>This automation does not exist, or it is not yours.</p>
-  const running = runs?.some((r) => !r.finishedAt) ?? false
+  // The same rule as runs.trigger: an unfinished run older than 15 minutes counts as abandoned.
+  const running = runs?.some((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000) ?? false
   const act = (name: string, work: () => Promise<unknown>) => {
     setBusy(name)
     setError(null)
@@ -154,7 +163,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           {perf.totals.length
             ? `${perf.totals
                 .slice(0, 3)
-                .map((t) => `${t.value.toLocaleString('en-GB')} ${t.type.replaceAll('_', ' ')}`)
+                .map(metricLabel)
                 .join(', ')} across the ${perf.withMetrics} posts with metrics so far.`
             : ''}
           {perf.best ? (
@@ -188,7 +197,6 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
       {tab === 'playbook' ? (
         a.playbook && a.text ? (
           <PlaybookEditor
-            key={a.version}
             id={id}
             version={a.version}
             playbook={a.playbook}
@@ -484,7 +492,20 @@ function PlaybookEditor({
   const [problem, setProblem] = useState<string | null>(null)
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   const timer = useRef<number | null>(null)
-  const dirty = draft !== text
+  // The version the draft was started from. A newer one arriving (a save from another tab, the
+  // API, or "write it again") replaces a clean draft and is only announced over a dirty one.
+  const [base, setBase] = useState({ version, text, playbook })
+  // The version this editor's own save made, taken up as it arrives (the server renders the text).
+  const [saved, setSaved] = useState<number | null>(null)
+  const dirty = draft !== base.text
+  const stale = version !== base.version
+  const adopt = () => {
+    setBase({ version, text, playbook })
+    setDraft(text)
+    setForm(playbook)
+    setProblem(null)
+  }
+  if (stale && (!dirty || version === saved)) adopt()
   const lines = useMemo(() => draft.split('\n').length, [draft])
 
   const fromForm = (next: Playbook) => {
@@ -519,8 +540,10 @@ function PlaybookEditor({
     setState('saving')
     save({ id, text: draft })
       .then((r) => {
-        if (r.ok) setState('saved')
-        else {
+        if (r.ok) {
+          setSaved(r.version)
+          setState('saved')
+        } else {
           setState('failed')
           setProblem(`Line ${r.line}: ${r.message}`)
         }
@@ -868,6 +891,14 @@ function PlaybookEditor({
           {problem}
         </p>
       ) : null}
+      {stale && dirty && state !== 'saving' ? (
+        <p className="app-playbook-stale" role="status">
+          This playbook changed elsewhere. Saving will overwrite that change.{' '}
+          <button type="button" className="app-link" onClick={adopt}>
+            Load the new version
+          </button>
+        </p>
+      ) : null}
       <div className="app-gate-actions">
         <button
           type="button"
@@ -882,8 +913,8 @@ function PlaybookEditor({
             type="button"
             className="app-gate-secondary"
             onClick={() => {
-              setDraft(text)
-              setForm(playbook)
+              setDraft(base.text)
+              setForm(base.playbook)
               setProblem(null)
             }}
           >

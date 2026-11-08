@@ -6222,3 +6222,45 @@ header nav button {
 .blog-list p {
   margin: 4px 0 0;
 }
+
+/* Inline editorial feedback stays with the story being reviewed. */
+.app-story-review {
+  display: grid;
+  gap: 12px;
+  max-width: 64ch;
+  margin-block: 16px;
+  font-size: 14px;
+}
+.app-story-review p {
+  margin: 0;
+}
+.app-story-review-label {
+  display: grid;
+  gap: 8px;
+}
+.app-story-review textarea {
+  width: 100%;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.app-story-review summary {
+  cursor: pointer;
+  text-underline-offset: 4px;
+}
+.app-story-review > .app-link {
+  justify-self: start;
+}
+
+/* The playbook editor's note that a newer version arrived while a draft was being edited. */
+.app-gate .app-playbook-stale {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+/* A route whose page threw: the sidebar stays, the page says what happened. */
+.app-gate .app-route-error {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}

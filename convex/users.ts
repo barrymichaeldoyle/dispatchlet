@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
+import { scheduleNext } from './automations'
 import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { allowanceFor } from './lib/limits'
@@ -67,7 +68,11 @@ export function isTimeZone(value: string): boolean {
   }
 }
 
-/** Runs are scheduled in this time zone. The app fills it in from the browser on first visit. */
+/**
+ * Runs are scheduled in this time zone. The app fills it in from the browser on first visit.
+ * Automations copy the zone when they are created, so the ones still on the old zone move with
+ * it and active ones are rebooked; one set to another zone through the API keeps its own.
+ */
 export const setTimezone = mutation({
   args: { timezone: v.string() },
   returns: v.null(),
@@ -75,7 +80,21 @@ export const setTimezone = mutation({
     const userId = await getAuthUserId(ctx)
     if (!userId) throw new Error('Not signed in')
     if (!isTimeZone(timezone)) throw new Error('That is not a time zone.')
+    const user = await ctx.db.get(userId)
+    if (!user) throw new Error('Not signed in')
+    // Automations made before the zone was known were given UTC (automations.createFor).
+    const before = user.timezone ?? 'UTC'
     await ctx.db.patch(userId, { timezone })
+    if (before === timezone) return null
+    const automations = await ctx.db
+      .query('automations')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    for (const a of automations) {
+      if (a.deletedAt || a.timezone !== before) continue
+      await ctx.db.patch(a._id, { timezone, updatedAt: Date.now() })
+      if (a.status === 'active') await scheduleNext(ctx, { ...a, timezone })
+    }
     return null
   },
 })

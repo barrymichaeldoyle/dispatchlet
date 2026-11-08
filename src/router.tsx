@@ -1,4 +1,5 @@
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
+import { RouteError } from './components/route-error'
 import { reportError } from './integrations/posthog/track'
 import { routeTree } from './routeTree.gen'
 
@@ -10,6 +11,8 @@ export function getRouter() {
     defaultPreloadStaleTime: 0,
     // Render errors caught by the router never reach window.onerror, so report them here.
     defaultOnCatch: (error) => reportError(error),
+    // Instead of the router's stack-trace box when a page throws while rendering.
+    defaultErrorComponent: RouteError,
   })
 
   return router

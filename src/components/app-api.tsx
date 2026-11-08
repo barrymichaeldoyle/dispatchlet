@@ -25,19 +25,28 @@ const EVENT_LABELS: Record<string, string> = {
 }
 
 function CopyButton({ text, label = 'Copy' }: { text: string; label?: string }) {
-  const [done, setDone] = useState(false)
+  const [state, setState] = useState<'idle' | 'copying' | 'done' | 'failed'>('idle')
   return (
     <button
       type="button"
       className="app-link"
+      disabled={state === 'copying'}
       onClick={() => {
-        void navigator.clipboard?.writeText(text).then(() => {
-          setDone(true)
-          setTimeout(() => setDone(false), 1500)
-        })
+        setState('copying')
+        // No clipboard (insecure page, denied permission): say so, the text is selectable.
+        const write =
+          navigator.clipboard?.writeText(text) ?? Promise.reject(new Error('No clipboard'))
+        write
+          .then(() => setState('done'))
+          .catch(() => setState('failed'))
+          .finally(() => setTimeout(() => setState('idle'), 1500))
       }}
     >
-      <BusyLabel busy={done} idle={label} working="Copied" />
+      {state === 'failed' ? (
+        <span role="alert">Could not copy</span>
+      ) : (
+        <BusyLabel busy={state === 'done'} idle={label} working="Copied" />
+      )}
     </button>
   )
 }
@@ -523,47 +532,65 @@ function Deliveries({ webhookId, timezone }: { webhookId: Id<'webhooks'>; timezo
 function DeliveryRows({ webhookId, timezone }: { webhookId: Id<'webhooks'>; timezone: string }) {
   const rows = useQuery(api.webhooks.deliveries, { id: webhookId })
   const retry = useMutation(api.webhooks.retry)
+  const [retrying, setRetrying] = useState<Id<'webhookDeliveries'> | null>(null)
+  const [error, setError] = useState<string | null>(null)
   if (!rows) return null
   if (!rows.length) return <p className="app-muted">None yet.</p>
   return (
-    <table className="app-table">
-      <thead>
-        <tr>
-          <th>Event</th>
-          <th>When</th>
-          <th>Result</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((d) => (
-          <tr key={d._id} data-status={d.status}>
-            <td className="tabular">{d.event}</td>
-            <td className="tabular">{whenIn(d.createdAt, timezone)}</td>
-            <td>
-              {d.status === 'ok'
-                ? `Arrived (${d.responseStatus})`
-                : d.status === 'pending'
-                  ? d.attempt
-                    ? `Failed, trying again ${d.nextAttemptAt ? whenIn(d.nextAttemptAt, timezone) : 'soon'}`
-                    : 'Sending'
-                  : `Failed after ${d.attempt} ${d.attempt === 1 ? 'try' : 'tries'}${d.error ? `: ${d.error}` : ''}`}
-            </td>
-            <td>
-              {d.status === 'failed' ? (
-                <button
-                  type="button"
-                  className="app-link"
-                  onClick={() => void retry({ deliveryId: d._id })}
-                >
-                  Retry
-                </button>
-              ) : null}
-            </td>
+    <>
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <table className="app-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>When</th>
+            <th>Result</th>
+            <th></th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((d) => (
+            <tr key={d._id} data-status={d.status}>
+              <td className="tabular">{d.event}</td>
+              <td className="tabular">{whenIn(d.createdAt, timezone)}</td>
+              <td>
+                {d.status === 'ok'
+                  ? `Arrived (${d.responseStatus})`
+                  : d.status === 'pending'
+                    ? d.attempt
+                      ? `Failed, trying again ${d.nextAttemptAt ? whenIn(d.nextAttemptAt, timezone) : 'soon'}`
+                      : 'Sending'
+                    : `Failed after ${d.attempt} ${d.attempt === 1 ? 'try' : 'tries'}${d.error ? `: ${d.error}` : ''}`}
+              </td>
+              <td>
+                {d.status === 'failed' ? (
+                  <button
+                    type="button"
+                    className="app-link"
+                    disabled={retrying !== null}
+                    onClick={() => {
+                      setRetrying(d._id)
+                      setError(null)
+                      retry({ deliveryId: d._id })
+                        .catch((reason: unknown) =>
+                          setError(errorText(reason, 'Could not retry. Try again.')),
+                        )
+                        .finally(() => setRetrying(null))
+                    }}
+                  >
+                    <BusyLabel busy={retrying === d._id} idle="Retry" working="Retrying" />
+                  </button>
+                ) : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   )
 }
 

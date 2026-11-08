@@ -12,6 +12,7 @@ import {
   bufferChannelUrl,
   errorText,
   ideaLinkState,
+  metricLabel,
   serviceName,
   timeIn,
   usd,
@@ -100,7 +101,18 @@ export function SharedRun({ token }: { token: string }) {
 /** The same log, read-only, with the wordmark on top. */
 function SharedRunInner({ token }: { token: string }) {
   const run = useQuery(api.runs.shared, { token })
-  if (run === undefined) return null
+  // The placeholder the server sent (routes/__root.tsx), kept up until the run arrives.
+  if (run === undefined)
+    return (
+      <div className="app-gate boot-placeholder" aria-busy="true">
+        <div className="app-gate-inner">
+          <span className="app-gate-home">
+            <Wordmark size="md" />
+          </span>
+          <h1>Opening the run</h1>
+        </div>
+      </div>
+    )
   return (
     <main className="app-gate is-app">
       <div className="app-gate-inner">
@@ -125,6 +137,19 @@ function SharedRunInner({ token }: { token: string }) {
   )
 }
 
+/**
+ * Puts a share link on the clipboard. No clipboard (insecure page, denied permission) is not an
+ * error: the link is still shown next to the button.
+ */
+function copyLink(token: string): Promise<string> {
+  const write =
+    navigator.clipboard?.writeText(`${window.location.origin}/r/${token}`) ??
+    Promise.reject(new Error('No clipboard'))
+  return write
+    .then(() => 'Link copied.')
+    .catch(() => 'Could not copy. Open it and copy the address.')
+}
+
 /** One run as a log: a timestamp spine on the left, what happened on the right (SPEC §23.4). */
 export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'> }) {
   const run = useQuery(api.runs.get, { runId })
@@ -134,6 +159,207 @@ export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'
 }
 
 type RunData = NonNullable<ReturnType<typeof useQuery<typeof api.runs.get>>>
+
+const REVIEW_REASONS = [
+  {
+    reason: 'Too promotional',
+    rule: 'Skip promotional stories whose main purpose is selling a product or service.',
+  },
+  {
+    reason: 'Old news',
+    rule: 'Skip stories that repeat an older announcement without a new development.',
+  },
+  {
+    reason: 'Off topic',
+    rule: 'Skip stories that do not directly relate to the topic described in this playbook.',
+  },
+  {
+    reason: 'Unreliable source',
+    rule: 'Skip stories whose key claims cannot be verified from a reliable, named source.',
+  },
+]
+
+/** Two deliberate choices: dismiss this story, then optionally teach future runs. */
+function StoryReview({
+  story,
+  hasBufferPosts,
+}: {
+  story: RunData['stories'][number]
+  hasBufferPosts: boolean
+}) {
+  const skip = useMutation(api.runs.skipStory)
+  const undo = useMutation(api.runs.undoSkipStory)
+  const apply = useMutation(api.runs.applyStoryRule)
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState(REVIEW_REASONS[0].reason)
+  const [details, setDetails] = useState('')
+  const [rule, setRule] = useState(
+    () => REVIEW_REASONS.find((r) => r.reason === story.review?.reason)?.rule ?? '',
+  )
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  async function save(work: () => Promise<unknown>) {
+    setBusy(true)
+    setError(null)
+    try {
+      await work()
+    } catch (failure) {
+      setError(errorText(failure, 'Not saved. Try again.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (story.review)
+    return (
+      <div className="app-story-review">
+        <p>
+          <strong>Skipped in Dispatchlet.</strong> {story.review.reason}
+        </p>
+        <p className="app-muted">
+          Its drafts are hidden from your approval list.
+          {hasBufferPosts
+            ? ' Posts already in Buffer are unchanged. Open them below to remove them there.'
+            : ''}
+        </p>
+        {story.review.appliedVersion ? (
+          <p className="app-muted">
+            Added to playbook version {story.review.appliedVersion}: {story.review.appliedRule}{' '}
+            Undoing the skip keeps this rule; you can edit it in the playbook.
+          </p>
+        ) : (
+          <details>
+            <summary>Teach future runs (optional)</summary>
+            <form
+              className="app-story-review"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void save(() => apply({ storyId: story._id, rule }))
+              }}
+            >
+              <label className="app-story-review-label">
+                {REVIEW_REASONS.some((r) => r.reason === story.review?.reason)
+                  ? 'Suggested skip rule. Edit it before adding.'
+                  : 'What should future runs skip? Write one short sentence.'}
+                <textarea
+                  className="app-select"
+                  value={rule}
+                  maxLength={200}
+                  rows={3}
+                  required
+                  onChange={(e) => setRule(e.target.value)}
+                  disabled={busy}
+                />
+              </label>
+              <p className="app-muted">
+                Only changes future runs. Leave this closed to skip just this story.
+              </p>
+              <div className="app-story-actions">
+                <button
+                  className="app-gate-secondary"
+                  type="submit"
+                  disabled={busy || rule.trim().length < 3}
+                >
+                  <BusyLabel busy={busy} idle="Add rule to playbook" working="Saving" />
+                </button>
+              </div>
+            </form>
+          </details>
+        )}
+        <button
+          type="button"
+          className="app-link"
+          disabled={busy}
+          onClick={() => {
+            void save(() => undo({ storyId: story._id }))
+          }}
+        >
+          Undo skip
+        </button>
+        {error ? (
+          <p className="app-muted" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    )
+  if (!open)
+    return (
+      <button type="button" className="app-link" onClick={() => setOpen(true)}>
+        Skip this story
+      </button>
+    )
+  const cleanReason = reason === 'Something else' ? details.trim() : reason
+  return (
+    <form
+      className="app-story-review"
+      onSubmit={(e) => {
+        e.preventDefault()
+        setRule(REVIEW_REASONS.find((r) => r.reason === reason)?.rule ?? '')
+        void save(() => skip({ storyId: story._id, reason: cleanReason }))
+      }}
+    >
+      <label className="app-story-review-label">
+        Why skip this story?
+        <select
+          className="app-select"
+          value={reason}
+          autoFocus
+          disabled={busy}
+          onChange={(e) => setReason(e.target.value)}
+        >
+          {REVIEW_REASONS.map((r) => (
+            <option key={r.reason}>{r.reason}</option>
+          ))}
+          <option>Something else</option>
+        </select>
+      </label>
+      {reason === 'Something else' ? (
+        <label className="app-story-review-label">
+          Your reason
+          <textarea
+            className="app-select"
+            rows={3}
+            value={details}
+            required
+            maxLength={500}
+            disabled={busy}
+            onChange={(e) => setDetails(e.target.value)}
+          />
+        </label>
+      ) : null}
+      <p className="app-muted">
+        Hides this story’s drafts from your approval list.{' '}
+        {hasBufferPosts ? 'Posts already in Buffer stay there.' : ''} You can choose a playbook
+        change after saving.
+      </p>
+      <div className="app-story-actions">
+        <button
+          type="submit"
+          className="app-gate-secondary"
+          disabled={busy || cleanReason.length < 3}
+        >
+          <BusyLabel busy={busy} idle="Skip story" working="Saving" />
+        </button>
+        <button
+          type="button"
+          className="app-link"
+          disabled={busy}
+          onClick={() => {
+            setOpen(false)
+            setError(null)
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+      {error ? (
+        <p className="app-muted" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  )
+}
 
 function RunView({
   run,
@@ -149,10 +375,16 @@ function RunView({
   const share = useMutation(api.runs.share)
   const unshare = useMutation(api.runs.unshare)
   const [shareNote, setShareNote] = useState<string | null>(null)
-  const addRule = useMutation(api.automations.addExcludeRule)
-  const [ruleFor, setRuleFor] = useState<string | null>(null)
-  const [rule, setRule] = useState('')
-  const [ruleNote, setRuleNote] = useState<Record<string, string>>({})
+  const [shareBusy, setShareBusy] = useState(false)
+  const [shareError, setShareError] = useState<string | null>(null)
+  const shareAct = (work: () => Promise<string | null>) => {
+    setShareBusy(true)
+    setShareError(null)
+    work()
+      .then((note) => setShareNote(note))
+      .catch((reason: unknown) => setShareError(errorText(reason, 'That did not work. Try again.')))
+      .finally(() => setShareBusy(false))
+  }
   const [approving, setApproving] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
@@ -195,11 +427,8 @@ function RunView({
               <button
                 type="button"
                 className="app-link"
-                onClick={() => {
-                  void navigator.clipboard
-                    ?.writeText(`${window.location.origin}/r/${run.shareToken}`)
-                    .then(() => setShareNote('Link copied.'))
-                }}
+                disabled={shareBusy}
+                onClick={() => shareAct(() => copyLink(run.shareToken!))}
               >
                 Copy link
               </button>
@@ -209,7 +438,8 @@ function RunView({
               <button
                 type="button"
                 className="app-link"
-                onClick={() => unshare({ runId }).then(() => setShareNote('No longer shared.'))}
+                disabled={shareBusy}
+                onClick={() => shareAct(() => unshare({ runId }).then(() => 'No longer shared.'))}
               >
                 Stop sharing
               </button>
@@ -218,17 +448,18 @@ function RunView({
             <button
               type="button"
               className="app-link"
-              onClick={() =>
-                share({ runId }).then((token) => {
-                  void navigator.clipboard?.writeText(`${window.location.origin}/r/${token}`)
-                  setShareNote('Link copied.')
-                })
-              }
+              disabled={shareBusy}
+              onClick={() => shareAct(() => share({ runId }).then(copyLink))}
             >
               Share this run
             </button>
           )}
           {shareNote ? <span className="app-muted">{shareNote}</span> : null}
+          {shareError ? (
+            <span className="app-connection-error" role="alert">
+              {shareError}
+            </span>
+          ) : null}
         </div>
       ) : null}
       <div className="app-run" data-live={live}>
@@ -265,10 +496,10 @@ function RunView({
             {run.stories.map((s) => {
               const kept = s.decision === 'kept' || s.decision === 'dry'
               return (
-                <li key={s._id} data-kept={kept}>
+                <li key={s._id} data-kept={kept && !s.review}>
                   <p className="app-story-head">
                     <span className="app-story-decision">
-                      {DECISION_WORDS[s.decision] ?? s.decision}
+                      {s.review ? 'Skipped by you' : (DECISION_WORDS[s.decision] ?? s.decision)}
                     </span>
                     <a href={s.url} target="_blank" rel="noreferrer">
                       {s.title}
@@ -280,63 +511,14 @@ function RunView({
                     {kept ? ` ${s.whyItMatters}` : ''}
                   </p>
                   {kept ? <p>{s.summary}</p> : null}
-                  {kept && !shared && id && !ruleNote[s._id] ? (
-                    ruleFor === s._id ? (
-                      <form
-                        className="app-field"
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          addRule({ id: id!, rule })
-                            .then((version) => {
-                              setRuleNote((n) => ({
-                                ...n,
-                                [s._id]: `Added to the playbook as version ${version}. The next run skips it.`,
-                              }))
-                              setRuleFor(null)
-                              setRule('')
-                            })
-                            .catch((reason: unknown) =>
-                              setRuleNote((n) => ({
-                                ...n,
-                                [s._id]: errorText(reason, 'Not saved.'),
-                              })),
-                            )
-                        }}
-                      >
-                        <input
-                          className="app-select app-rule"
-                          value={rule}
-                          autoFocus
-                          maxLength={200}
-                          placeholder="What should it skip from now on? One sentence."
-                          aria-label="Skip rule"
-                          onChange={(e) => setRule(e.target.value)}
-                        />
-                        <button
-                          type="submit"
-                          className="app-gate-secondary"
-                          disabled={rule.trim().length < 3}
-                        >
-                          Add to playbook
-                        </button>
-                        <button type="button" className="app-link" onClick={() => setRuleFor(null)}>
-                          Cancel
-                        </button>
-                      </form>
-                    ) : (
-                      <button
-                        type="button"
-                        className="app-link"
-                        onClick={() => {
-                          setRuleFor(s._id)
-                          setRule('')
-                        }}
-                      >
-                        Don’t post things like this
-                      </button>
-                    )
+                  {kept && !shared && id && !live ? (
+                    <StoryReview
+                      story={s}
+                      hasBufferPosts={run.posts.some(
+                        (p) => p.storyId === s._id && Boolean(p.bufferPostId),
+                      )}
+                    />
                   ) : null}
-                  {ruleNote[s._id] ? <p className="app-muted">{ruleNote[s._id]}</p> : null}
                   {!shared && id && IDEA_DECISIONS.has(s.decision) ? (
                     <SaveIdea storyId={s._id} saved={s.savedAsIdea} />
                   ) : null}
@@ -382,15 +564,17 @@ function RunView({
                     <p className="app-muted tabular">
                       {p.metrics
                         .filter((m) => m.value > 0)
-                        .map(
-                          (m) =>
-                            `${m.value.toLocaleString('en-GB')} ${m.type.replaceAll('_', ' ')}`,
-                        )
+                        .map(metricLabel)
                         .join(', ')}
                     </p>
                   ) : null}
                   {p.linkAttachment ? (
                     <p className="app-muted">Link card: {p.linkAttachment.title}</p>
+                  ) : null}
+                  {story?.review ? (
+                    <p className="app-muted">
+                      Skipped in Dispatchlet. This post’s status in Buffer is unchanged.
+                    </p>
                   ) : null}
                   {p.reason ? <p className="app-muted">{p.reason}</p> : null}
                   <p className="app-muted tabular">
@@ -398,12 +582,12 @@ function RunView({
                     {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
                   </p>
                   <div className="app-gate-actions">
-                    {p.status === 'draft' && !shared && editing !== p._id ? (
+                    {p.status === 'draft' && !story?.review && !shared && editing !== p._id ? (
                       <button type="button" className="app-link" onClick={() => setEditing(p._id)}>
                         Edit
                       </button>
                     ) : null}
-                    {p.status === 'draft' && !shared ? (
+                    {p.status === 'draft' && !story?.review && !shared ? (
                       <button
                         type="button"
                         className="app-gate-primary"
@@ -434,7 +618,7 @@ function RunView({
                         See it live
                       </a>
                     ) : null}
-                    {p.bufferStatus && !shared ? (
+                    {p.bufferPostId && !shared ? (
                       <a
                         href={bufferChannelUrl(p.channelId, p.status, p.bufferPostId)}
                         target="_blank"
