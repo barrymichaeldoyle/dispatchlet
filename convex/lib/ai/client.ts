@@ -31,7 +31,8 @@ export function anthropicClient(apiKey = process.env.ANTHROPIC_API_KEY): Anthrop
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY is not set')
   // Busy and rate-limit replies (429, 529) are retried with backoff, which rides out a spike of
   // runs starting at once; a run that still fails gives its free run back (runs.serviceFailure).
-  return new Anthropic({ apiKey, maxRetries: 4, timeout: 8 * 60_000 })
+  // A whole run has ten minutes (Convex's action limit), so one hung call may not take most of it.
+  return new Anthropic({ apiKey, maxRetries: 2, timeout: 3 * 60_000 })
 }
 
 /** What every call records, whatever it was for. */

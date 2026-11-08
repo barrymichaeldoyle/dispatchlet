@@ -13,7 +13,8 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
-import { scheduleNext } from './automations'
+import { addExcludeRuleFor, ownAutomation, scheduleNext } from './automations'
+import { isAllowlisted } from './lib/allowlist'
 import {
   BufferBudgetError,
   BufferPostError,
@@ -98,6 +99,27 @@ export const firstDryRun = internalMutation({
   },
 })
 
+/** How long an unfinished run is taken to be going; after this the sweeper closes it. */
+export const RUN_IN_FLIGHT_MS = 15 * 60_000
+
+/**
+ * Whether a run of this automation is still going: unfinished and younger than the sweeper's
+ * cut-off. Every way of starting a run checks this, so two never overlap and post twice.
+ */
+export async function runInFlight(
+  ctx: Pick<QueryCtx, 'db'>,
+  automationId: Id<'automations'>,
+  now = Date.now(),
+): Promise<boolean> {
+  const recent = await ctx.db
+    .query('runs')
+    .withIndex('by_automation_startedAt', (q) =>
+      q.eq('automationId', automationId).gt('startedAt', now - RUN_IN_FLIGHT_MS),
+    )
+    .collect()
+  return recent.some((r) => !r.finishedAt)
+}
+
 /** The scheduled entry point: books the run and starts it. Never throws, so the chain goes on. */
 export const start = internalMutation({
   args: { automationId: v.id('automations') },
@@ -107,6 +129,11 @@ export const start = internalMutation({
     if (!automation || automation.deletedAt || automation.status !== 'active') return null
     const setFor = automation.nextRunSetFor
     await scheduleNext(ctx, { ...automation, scheduledFnId: undefined })
+    // A run the person started minutes ago is still going: it covers this slot.
+    if (await runInFlight(ctx, automationId)) {
+      console.log(`Scheduled run skipped for ${automationId}: a run is already going.`)
+      return null
+    }
     await beginRun(ctx, automation, 'scheduled', {
       startedBy: 'schedule',
       late: setFor ? Date.now() - setFor : undefined,
@@ -158,12 +185,7 @@ export async function triggerFor(
       if (automation.status === 'paused' && startedBy === 'hook')
         throw new Error('This automation is paused, so its hooks do not start runs.')
     }
-    const running = await ctx.db
-      .query('runs')
-      .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
-      .order('desc')
-      .first()
-    if (running && !running.finishedAt && Date.now() - running.startedAt < 15 * 60_000)
+    if (await runInFlight(ctx, automationId))
       throw new Error('A run is already going. Wait for it to finish.')
     const runId = await beginRun(ctx, automation, dry ? 'dry' : 'now', { hint, startedBy })
     if (!runId)
@@ -210,6 +232,18 @@ async function beginRun(
 ): Promise<Id<'runs'> | null> {
   const user = await ctx.db.get(automation.userId)
   if (!user) return null
+  // Taken off the allowlist since connecting: the grant stays, but nothing runs on it.
+  const connection = await ctx.db
+    .query('bufferConnections')
+    .withIndex('by_user', (q) => q.eq('userId', user._id))
+    .first()
+  if (!isAllowlisted(connection?.bufferAccountId ?? null, user.email ?? null)) {
+    if (from.startedBy === 'schedule' || from.startedBy === 'first') {
+      console.log(`Run not started for ${user._id}: the account is not on the allowlist.`)
+      return null
+    }
+    throw new Error('This account is not allowed into Dispatchlet yet, so it cannot run.')
+  }
   const allowance = allowanceFor(user)
   const left = kind === 'dry' ? allowance.dryRunsLeft : allowance.runsLeft
   const now = Date.now()
@@ -299,11 +333,24 @@ export const load = internalQuery({
         )
         .collect()
     ).filter((p) => p.automationId === automation._id && p.status === 'sent' && p.metrics?.length)
+    // The last day's spend, from hourly buckets (ai.addSpend): at most 25 rows, however busy the day.
     const since = Date.now() - 86_400_000
     const today = await ctx.db
-      .query('aiCalls')
-      .withIndex('by_createdAt', (q) => q.gte('createdAt', since))
+      .query('aiSpend')
+      .withIndex('by_hour', (q) => q.gte('hourStart', since - 3_600_000))
       .collect()
+    // Until the buckets cover a whole day (they start at deploy), the hours before the first
+    // bucket are summed from the calls themselves, as before.
+    const firstBucket = today.reduce((min, b) => Math.min(min, b.hourStart), Infinity)
+    const uncovered =
+      firstBucket > since
+        ? await ctx.db
+            .query('aiCalls')
+            .withIndex('by_createdAt', (q) =>
+              q.gte('createdAt', since).lt('createdAt', Math.min(firstBucket, Date.now())),
+            )
+            .collect()
+        : []
     return {
       run,
       automation,
@@ -311,7 +358,8 @@ export const load = internalQuery({
       user,
       channels: channels.filter((c) => automation.channelIds.includes(c.channelId)),
       covered: covered.map((s) => ({ _id: s._id, title: s.title, canonicalUrl: s.canonicalUrl })),
-      spentTodayUsd: today.reduce((sum, c) => sum + c.costUsd, 0),
+      spentTodayUsd:
+        today.reduce((sum, c) => sum + c.usd, 0) + uncovered.reduce((sum, c) => sum + c.costUsd, 0),
       proven: provenPosts(sentPosts),
     }
   },
@@ -378,6 +426,7 @@ export const savePost = internalMutation({
       v.object({ url: v.string(), title: v.string(), description: v.string() }),
     ),
     status: v.string(),
+    publishingAt: v.optional(v.number()),
     reason: v.optional(v.string()),
     bufferPostId: v.optional(v.string()),
     bufferStatus: v.optional(v.string()),
@@ -394,6 +443,7 @@ export const savePost = internalMutation({
       const user = await ctx.db.get(args.userId)
       if (user && !user.firstPostAt) await ctx.db.patch(user._id, { firstPostAt: Date.now() })
       await emitPostEvent(ctx, id, 'post.created')
+      await ctx.scheduler.runAfter(0, internal.buffer.addPostNote, { postId: id })
     }
     return id
   },
@@ -776,7 +826,12 @@ export const execute = internalAction({
           schema: WriteResult,
         })
         await record(ctx, runId, 'repair', repaired.record)
-        for (const fix of repaired.output?.posts ?? []) {
+        // Nothing usable came back: asking again with the same input would only spend more.
+        if (!repaired.output?.posts.length) {
+          await say('write', 'The rewrite came back empty, so those posts are left out.')
+          break
+        }
+        for (const fix of repaired.output.posts) {
           const channel = targets.find((t) => t.channelId === fix.channelId)
           const index = drafts.findIndex(
             (d) => d.channelId === fix.channelId && d.storyUrl === fix.storyUrl,
@@ -863,6 +918,13 @@ export const execute = internalAction({
         if (!tagByOrg.has(row.organizationId))
           tagByOrg.set(row.organizationId, await ensureTag(ctx, user._id, row.organizationId))
         const mode = automation.postingMode as 'draft' | 'queue' | 'spread'
+        // The row goes in before the call, so a run that dies mid-way leaves a trace of a post that
+        // may be in Buffer (the sweeper fails it) instead of a post Buffer has and Dispatchlet forgot.
+        const postId = await ctx.runMutation(internal.runs.savePost, {
+          ...base,
+          status: 'publishing',
+          publishingAt: Date.now(),
+        })
         try {
           const created = await createBufferPost(ctx, user._id, {
             channelId: channel.channelId,
@@ -875,8 +937,8 @@ export const execute = internalAction({
             tagId: tagByOrg.get(row.organizationId) ?? null,
           })
           if (mode === 'spread') dueAt += SPREAD_GAP_MS
-          await ctx.runMutation(internal.runs.savePost, {
-            ...base,
+          await ctx.runMutation(internal.runs.markSent, {
+            postId,
             status:
               mode === 'draft' || created.status === 'draft'
                 ? 'draft'
@@ -902,15 +964,20 @@ export const execute = internalAction({
           if (rateLimited) {
             const retryAt =
               error instanceof BufferBudgetError ? error.retryAt : Date.now() + 15 * 60_000
+            await ctx.runMutation(internal.runs.markSent, {
+              postId,
+              status: 'held',
+              reason: 'Waiting for Buffer to accept more posts.',
+            })
             held = {
               retryAt,
-              from: drafts.indexOf(draft),
+              from: drafts.indexOf(draft) + 1,
               share: error instanceof BufferBudgetError && error.reason === 'share',
             }
             break
           }
           const reason = error instanceof Error ? error.message : String(error)
-          await ctx.runMutation(internal.runs.savePost, { ...base, status: 'failed', reason })
+          await ctx.runMutation(internal.runs.markSent, { postId, status: 'failed', reason })
           await say('publish', `${channel.name}: Buffer did not take the post. ${reason}`)
           if (error instanceof BufferPostError && error.kind === 'limit')
             atLimit.add(channel.channelId)
@@ -973,6 +1040,17 @@ export const execute = internalAction({
   },
 })
 
+/** Books sendHeld for a run and notes when, so the sweeper can tell a waiting run from a lost one. */
+export const bookHeldRetry = internalMutation({
+  args: { runId: v.id('runs'), at: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { runId, at }) => {
+    await ctx.db.patch(runId, { heldRetryAt: at })
+    await ctx.scheduler.runAt(at, internal.runs.sendHeld, { runId })
+    return null
+  },
+})
+
 export const heldPosts = internalQuery({
   args: { runId: v.id('runs') },
   handler: async (ctx, { runId }) => {
@@ -1002,6 +1080,7 @@ export const markSent = internalMutation({
     bufferStatus: v.optional(v.string()),
     externalLink: v.optional(v.string()),
     dueAt: v.optional(v.number()),
+    publishingAt: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, { postId, ...patch }) => {
@@ -1013,15 +1092,22 @@ export const markSent = internalMutation({
     })
     if (patch.bufferPostId) {
       const run = await ctx.db.get(post.runId)
+      // A post sent after the run finished is one that was held: the run log says so.
       if (run)
         await ctx.db.patch(post.runId, {
           posted: (run.posted ?? 0) + 1,
-          steps: [
-            ...run.steps,
-            { step: 'publish', at: Date.now(), note: 'A held post was sent to Buffer.' },
-          ],
+          ...(post.status === 'held' || (post.status === 'publishing' && run.finishedAt)
+            ? {
+                steps: [
+                  ...run.steps,
+                  { step: 'publish', at: Date.now(), note: 'A held post was sent to Buffer.' },
+                ],
+              }
+            : {}),
         })
       await emitPostEvent(ctx, postId, 'post.created')
+      if (!post.bufferPostId)
+        await ctx.scheduler.runAfter(0, internal.buffer.addPostNote, { postId })
     }
     return null
   },
@@ -1035,18 +1121,46 @@ export const sendHeld = internalAction({
     const loaded = await ctx.runQuery(internal.runs.heldPosts, { runId })
     if (!loaded?.automation || !loaded.held.length) return null
     const { automation, held, channels } = loaded
+    // Deleted or paused while the posts waited: they stay out of Buffer, like the main pass.
+    if (automation.deletedAt || automation.status !== 'active') {
+      for (const post of held)
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: 'skipped',
+          reason: `The automation was ${automation.deletedAt ? 'deleted' : 'paused'} before Buffer could take this post.`,
+        })
+      return null
+    }
     const mode = automation.postingMode as 'draft' | 'queue' | 'spread'
     const tagByOrg = new Map<string, string | null>()
+    const atLimit = await channelsAtLimit(ctx, automation.userId, [
+      ...new Set(held.map((p) => p.channelId)),
+    ])
     let dueAt = Date.now() + SPREAD_FIRST_MS
     for (const post of held) {
       const row = channels.find((c) => c.channelId === post.channelId)
       if (!row) continue
+      if (atLimit.has(post.channelId)) {
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: 'skipped',
+          reason: `${row.displayName ?? row.name} is at its daily posting limit in Buffer.`,
+        })
+        continue
+      }
       try {
         if (!tagByOrg.has(row.organizationId))
           tagByOrg.set(
             row.organizationId,
             await ensureTag(ctx, automation.userId, row.organizationId),
           )
+        // As in the main pass: the row says `publishing` before the call, so a send that dies
+        // half-way is failed by the sweeper rather than sent again.
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: 'publishing',
+          publishingAt: Date.now(),
+        })
         const created = await createBufferPost(ctx, automation.userId, {
           channelId: post.channelId,
           service: post.service,
@@ -1072,8 +1186,19 @@ export const sendHeld = internalAction({
           dueAt: created.dueAt ? Date.parse(created.dueAt) : undefined,
         })
       } catch (error) {
-        if (error instanceof BufferBudgetError) {
-          await ctx.scheduler.runAt(error.retryAt + 30_000, internal.runs.sendHeld, { runId })
+        // Still out of calls, or Buffer asked us to slow down: the rest wait for the next window.
+        const rateLimited =
+          error instanceof BufferBudgetError ||
+          (error instanceof BufferApiError && error.status === 429)
+        if (rateLimited) {
+          const retryAt =
+            error instanceof BufferBudgetError ? error.retryAt : Date.now() + 15 * 60_000
+          await ctx.runMutation(internal.runs.markSent, {
+            postId: post._id,
+            status: 'held',
+            reason: 'Waiting for Buffer to accept more posts.',
+          })
+          await ctx.runMutation(internal.runs.bookHeldRetry, { runId, at: retryAt + 30_000 })
           return null
         }
         await ctx.runMutation(internal.runs.markSent, {
@@ -1145,6 +1270,8 @@ export const get = query({
 export async function getRunFor(ctx: QueryCtx, userId: Id<'users'>, runId: Id<'runs'>) {
   const run = await ctx.db.get(runId)
   if (!run || run.userId !== userId || !run.automationId) return null
+  const automation = await ctx.db.get(run.automationId)
+  if (!automation || automation.deletedAt) return null
   return await runView(ctx, run, userId)
 }
 
@@ -1158,7 +1285,7 @@ export const shared = query({
       .withIndex('by_shareToken', (q) => q.eq('shareToken', token))
       .first()
     if (!run?.userId || !run.automationId) return null
-    return await runView(ctx, run, run.userId)
+    return await runView(ctx, run, run.userId, true)
   },
 })
 
@@ -1228,7 +1355,12 @@ export async function emitPostEvent(
   )
 }
 
-export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users'>) {
+export async function runView(
+  ctx: QueryCtx,
+  run: Doc<'runs'>,
+  userId: Id<'users'>,
+  isShared = false,
+) {
   const runId = run._id
   {
     const automation = run.automationId ? await ctx.db.get(run.automationId) : null
@@ -1275,6 +1407,7 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
         decision: s.decision,
         reason: s.reason,
         savedAsIdea: Boolean(s.ideaId),
+        review: isShared ? null : (s.review ?? null),
       })),
       posts: posts.map((p) => ({
         _id: p._id,
@@ -1298,6 +1431,73 @@ export async function runView(ctx: QueryCtx, run: Doc<'runs'>, userId: Id<'users
     }
   }
 }
+
+/** Editorial feedback is private. Buffer posts keep their actual status. */
+export const skipStory = mutation({
+  args: { storyId: v.id('stories'), reason: v.string() },
+  handler: async (ctx, { storyId, reason }) => {
+    const story = await ctx.db.get(storyId)
+    if (!story) throw new Error('Story not found')
+    await ownAutomation(ctx, story.automationId)
+    const run = await ctx.db.get(story.runId)
+    if (!run?.finishedAt) throw new Error('Wait for this run to finish before reviewing it.')
+    if (!['kept', 'dry'].includes(story.decision))
+      throw new Error('Only a selected story can be skipped.')
+    const clean = reason.trim()
+    if (clean.length < 3 || clean.length > 500)
+      throw new Error('Give a reason between 3 and 500 characters.')
+    if (story.review) return null
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_run', (q) => q.eq('runId', story.runId))
+      .collect()
+    const related = posts.filter((p) => p.storyId === storyId)
+    if (related.some((p) => p.approvingAt && Date.now() - p.approvingAt < 10 * 60_000))
+      throw new Error('A post is being approved. Wait for it to finish, then try again.')
+    await ctx.db.patch(storyId, { review: { reason: clean, at: Date.now() } })
+    for (const post of related) await ctx.db.patch(post._id, { reviewSkipped: true })
+    return null
+  },
+})
+
+/** Undo the editorial skip; any explicitly accepted playbook rule stays in the playbook. */
+export const undoSkipStory = mutation({
+  args: { storyId: v.id('stories') },
+  handler: async (ctx, { storyId }) => {
+    const story = await ctx.db.get(storyId)
+    if (!story) throw new Error('Story not found')
+    await ownAutomation(ctx, story.automationId)
+    await ctx.db.patch(storyId, { review: undefined })
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_run', (q) => q.eq('runId', story.runId))
+      .collect()
+    for (const post of posts.filter((p) => p.storyId === storyId))
+      await ctx.db.patch(post._id, { reviewSkipped: undefined })
+    return null
+  },
+})
+
+/** Accept the exact rule the person reviewed, merging into the latest playbook atomically. */
+export const applyStoryRule = mutation({
+  args: { storyId: v.id('stories'), rule: v.string() },
+  handler: async (ctx, { storyId, rule }) => {
+    const story = await ctx.db.get(storyId)
+    if (!story) throw new Error('Story not found')
+    const automation = await ownAutomation(ctx, story.automationId)
+    if (!story.review) throw new Error('Skip this story and give a reason first.')
+    if (story.review.appliedVersion) return story.review.appliedVersion
+    const version = await addExcludeRuleFor(ctx, automation.userId, automation._id, rule)
+    await ctx.db.patch(storyId, {
+      review: {
+        ...story.review,
+        appliedRule: rule.trim(),
+        appliedVersion: version,
+      },
+    })
+    return version
+  },
+})
 
 /** Changes one of this person's drafts before approving it, from the home or run page. */
 export const editDraft = action({
@@ -1522,21 +1722,52 @@ const ABANDONED_AFTER = 15 * 60_000
 export const abandonedRuns = internalQuery({
   args: { now: v.number() },
   handler: async (ctx, { now }) => {
-    const out: { _id: Id<'runs'>; freeRun: boolean }[] = []
-    for (const kind of ['scheduled', 'now', 'dry']) {
-      const rows = await ctx.db
-        .query('runs')
-        .withIndex('by_kind_startedAt', (q) =>
-          q
-            .eq('kind', kind)
-            .gt('startedAt', now - 2 * 86_400_000)
-            .lt('startedAt', now - ABANDONED_AFTER),
-        )
+    // Only unfinished runs are read, however many finished ones the day had.
+    const rows = await ctx.db
+      .query('runs')
+      .withIndex('by_finishedAt_startedAt', (q) =>
+        q.eq('finishedAt', undefined).lt('startedAt', now - ABANDONED_AFTER),
+      )
+      .collect()
+    return rows.map((run) => ({ _id: run._id, freeRun: Boolean(run.freeRun) }))
+  },
+})
+
+/** How long a post may sit in `publishing` before its run is taken to have died mid-call. */
+const PUBLISHING_STALE_AFTER = ABANDONED_AFTER
+/** How long a held post waits before the sweeper asks for it to be sent again. */
+const HELD_STALE_AFTER = 2 * 3_600_000
+
+/**
+ * Posts whose run died around them: `publishing` rows older than the action limit (Buffer may or
+ * may not have the post), and `held` rows whose sendHeld never came back.
+ */
+export const stalePosts = internalQuery({
+  args: { now: v.number() },
+  handler: async (ctx, { now }) => {
+    // Few posts are ever `publishing` at once, so reading them all and checking the stamp is cheap.
+    const publishing = (
+      await ctx.db
+        .query('posts')
+        .withIndex('by_status_createdAt', (q) => q.eq('status', 'publishing'))
         .collect()
-      for (const run of rows)
-        if (!run.finishedAt) out.push({ _id: run._id, freeRun: Boolean(run.freeRun) })
+    ).filter((p) => (p.publishingAt ?? p.createdAt) < now - PUBLISHING_STALE_AFTER)
+    const held = await ctx.db
+      .query('posts')
+      .withIndex('by_status_createdAt', (q) =>
+        q.eq('status', 'held').lt('createdAt', now - HELD_STALE_AFTER),
+      )
+      .collect()
+    // Held posts wait as long as a day for the person's share, with a sendHeld booked for then.
+    // Only a run with no booking, or one whose booked send never came back, is sent again.
+    const heldRuns: Id<'runs'>[] = []
+    for (const runId of new Set(held.map((p) => p.runId))) {
+      const run = await ctx.db.get(runId)
+      if (!run) continue
+      if (run.heldRetryAt && run.heldRetryAt > now - HELD_STALE_AFTER) continue
+      heldRuns.push(runId)
     }
-    return out
+    return { publishing: publishing.map((p) => p._id), heldRuns }
   },
 })
 
@@ -1555,6 +1786,16 @@ export const sweepAbandoned = internalAction({
         counts: false,
       })
     }
+    const stale = await ctx.runQuery(internal.runs.stalePosts, { now: Date.now() })
+    for (const postId of stale.publishing)
+      await ctx.runMutation(internal.runs.markSent, {
+        postId,
+        status: 'failed',
+        reason:
+          'The run stopped while this post was being sent. Check Buffer before sending again.',
+      })
+    for (const runId of stale.heldRuns)
+      await ctx.runMutation(internal.runs.bookHeldRetry, { runId, at: Date.now() })
     return runs.length
   },
 })

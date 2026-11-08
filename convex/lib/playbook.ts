@@ -110,6 +110,12 @@ export type ParseResult =
 
 const sentences = (lines: string[]) => lines.map((l) => l.trim()).filter(Boolean)
 
+/** The 1-based line a trimmed sentence came from, however it was indented; 1 if it is not there. */
+const lineOf = (lines: string[], sentence: string) => {
+  const at = lines.findIndex((raw) => raw.trim() === sentence)
+  return at < 0 ? 1 : at + 1
+}
+
 function parseSource(line: string): Playbook['sources'][number] {
   let priority: 'high' | 'normal' = 'normal'
   let rest = line.trim()
@@ -184,15 +190,18 @@ export function parsePlaybook(text: string): ParseResult {
   const searchQueries: string[] = []
   for (const l of sentences(body.Searches)) {
     const m = l.match(/^search the web for ["“](.+?)["”]\.?$/i)
-    if (!m) return fail(lines.indexOf(l) + 1, 'Write searches as: Search the web for "query".')
+    if (!m) return fail(lineOf(lines, l), 'Write searches as: Search the web for "query".')
     searchQueries.push(m[1]!)
   }
   let freshnessHours = 48
+  let freshnessAt = 1
   const include: string[] = []
   for (const l of sentences(body['Post about'])) {
     const hours = /^only stories from the last/i.test(l) ? parseFreshness(l) : null
-    if (hours) freshnessHours = hours
-    else include.push(l)
+    if (hours) {
+      freshnessHours = hours
+      freshnessAt = lineOf(lines, l)
+    } else include.push(l)
   }
   const exclude = sentences(body.Skip)
   const toneLines = sentences(body.Tone)
@@ -221,14 +230,15 @@ export function parsePlaybook(text: string): ParseResult {
     const service = m ? SERVICE_BY_NAME[m[1]!.toLowerCase()] : undefined
     if (!m || !service)
       return fail(
-        lines.indexOf(l) + 1,
+        lineOf(lines, l),
         'Start each format with X:, LinkedIn:, Threads:, Bluesky: or Mastodon:.',
       )
     let style = m[2]!
     const max = style.match(/\bup to (\d+) characters\.?/i)
     const maxLength = max ? Number(max[1]) : null
     if (max) style = style.replace(max[0], '').trim()
-    const thread = /\bthread\b/i.test(style)
+    // Only the phrase the renderer writes turns threads on; "never a thread" in the style does not.
+    const thread = /\ba thread when the story needs one\b/i.test(style)
     style = style.replace(/\s*a thread when the story needs one\.?/i, '').trim()
     const link = style.match(/\blink:\s*(.+)$/i)
     const linkBack = link ? link[1]!.trim() : null
@@ -247,6 +257,11 @@ export function parsePlaybook(text: string): ParseResult {
     formats,
   }
   const checked = Playbook.safeParse(playbook)
-  if (!checked.success) return fail(1, checked.error.issues[0]?.message ?? 'Not a valid playbook.')
+  if (!checked.success) {
+    const issue = checked.error.issues[0]
+    // Point at the line that set the value where there is one; the name line otherwise.
+    const line = issue?.path[0] === 'freshnessHours' ? freshnessAt : 1
+    return fail(line, issue?.message ?? 'Not a valid playbook.')
+  }
   return { ok: true, playbook: checked.data }
 }

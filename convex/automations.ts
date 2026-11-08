@@ -445,8 +445,12 @@ export async function updateConfigFor(
       if (!changes.channelIds.length || changes.channelIds.some((c) => !known.has(c)))
         throw new Error('Pick at least one channel, from your Buffer channels')
     }
+    if (changes.cadence) {
+      const problem = cadenceProblem(changes.cadence)
+      if (problem) throw new Error(problem)
+    }
     const patch: Partial<Doc<'automations'>> = { updatedAt: Date.now() }
-    if (changes.cadence) patch.cadence = changes.cadence
+    if (changes.cadence) patch.cadence = normalCadence(changes.cadence)
     if (changes.channelIds) patch.channelIds = changes.channelIds
     if (changes.postingMode) patch.postingMode = changes.postingMode
     if (changes.maxPostsPerRun !== undefined) patch.maxPostsPerRun = changes.maxPostsPerRun
@@ -454,6 +458,32 @@ export async function updateConfigFor(
     if (changes.cadence) await scheduleNext(ctx, { ...automation, ...patch })
     return null
   }
+}
+
+const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+/** Why a cadence from the API, MCP or app cannot be scheduled, or null when it can. */
+/** The cadence as the scheduler reads it: a three-letter lowercase weekday, none for daily. */
+export function normalCadence(
+  cadence: Doc<'automations'>['cadence'],
+): Doc<'automations'>['cadence'] {
+  return {
+    ...cadence,
+    weekday:
+      cadence.preset === 'weekly' && cadence.weekday
+        ? cadence.weekday.toLowerCase().slice(0, 3)
+        : null,
+  }
+}
+
+export function cadenceProblem(cadence: Doc<'automations'>['cadence']): string | null {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(cadence.time))
+    return 'Give the time as HH:MM, from 00:00 to 23:59.'
+  if (cadence.preset === 'weekly') {
+    if (!cadence.weekday || !WEEKDAYS.includes(cadence.weekday.toLowerCase().slice(0, 3)))
+      return 'A weekly cadence needs a weekday, such as monday.'
+  }
+  return null
 }
 
 export const setStatus = mutation({
@@ -573,7 +603,7 @@ export const dashboard = query({
       })
     }
     const drafts = recentPosts
-      .filter((p) => p.status === 'draft' && p.bufferPostId)
+      .filter((p) => p.status === 'draft' && p.bufferPostId && !p.reviewSkipped)
       .sort((a, b) => b.createdAt - a.createdAt)
       .map((p) => ({
         _id: p._id,

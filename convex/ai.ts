@@ -1,7 +1,12 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { internalAction, internalMutation, internalQuery } from './_generated/server'
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+} from './_generated/server'
 import { FIXTURES } from './evals/setupAnswers'
 import { usageValidator } from './schema'
 import { anthropicClient, callStructured, modelFor, STRUCTURED_MAX_TOKENS } from './lib/ai/client'
@@ -222,6 +227,17 @@ export const startRun = internalMutation({
 })
 
 /** Stores one model call and adds it to the run's totals. */
+/** Adds to this hour's bucket of AI spend, which runs.load sums for the daily cap. */
+async function addSpend(ctx: MutationCtx, userId: Id<'users'> | undefined, usd: number) {
+  const hourStart = Math.floor(Date.now() / 3_600_000) * 3_600_000
+  const bucket = await ctx.db
+    .query('aiSpend')
+    .withIndex('by_hour_user', (q) => q.eq('hourStart', hourStart).eq('userId', userId))
+    .first()
+  if (bucket) await ctx.db.patch(bucket._id, { usd: bucket.usd + usd })
+  else await ctx.db.insert('aiSpend', { hourStart, userId, usd })
+}
+
 export const recordCall = internalMutation({
   args: {
     runId: v.id('runs'),
@@ -238,6 +254,7 @@ export const recordCall = internalMutation({
     const run = await ctx.db.get(args.runId)
     if (!run) throw new Error('Run not found')
     await ctx.db.insert('aiCalls', { ...args, userId: run.userId, createdAt: Date.now() })
+    await addSpend(ctx, run.userId, args.costUsd)
     await ctx.db.patch(args.runId, {
       usage: addUsage(run.usage, args.usage),
       costUsd: Math.round((run.costUsd + args.costUsd) * 10_000) / 10_000,
@@ -261,6 +278,7 @@ export const recordStandalone = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert('aiCalls', { ...args, createdAt: Date.now() })
+    await addSpend(ctx, args.userId, args.costUsd)
     return null
   },
 })

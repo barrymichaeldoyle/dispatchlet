@@ -181,6 +181,8 @@ export default defineSchema({
     status: v.string(),
     startedAt: v.number(),
     finishedAt: v.optional(v.number()),
+    /** When sendHeld is next booked for this run's held posts, so the sweeper does not book another. */
+    heldRetryAt: v.optional(v.number()),
     /** The step log, newest last. */
     steps: v.array(v.object({ step: v.string(), at: v.number(), note: v.string() })),
     usage: usageValidator,
@@ -204,6 +206,7 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_automation_startedAt', ['automationId', 'startedAt'])
     .index('by_kind_startedAt', ['kind', 'startedAt'])
+    .index('by_finishedAt_startedAt', ['finishedAt', 'startedAt'])
     .index('by_shareToken', ['shareToken']),
   /** Every story a run considered, with the decision, so the next run never repeats one. */
   stories: defineTable({
@@ -220,6 +223,14 @@ export default defineSchema({
     /** kept, skipped_dup, skipped_quality, skipped_limit, dry (kept on a dry run, not covered). */
     decision: v.string(),
     reason: v.string(),
+    review: v.optional(
+      v.object({
+        reason: v.string(),
+        at: v.number(),
+        appliedRule: v.optional(v.string()),
+        appliedVersion: v.optional(v.number()),
+      }),
+    ),
     dupOf: v.optional(v.id('stories')),
     /** Buffer's idea id once the person saved this story to their Ideas board. */
     ideaId: v.optional(v.string()),
@@ -247,6 +258,7 @@ export default defineSchema({
     status: v.string(),
     reason: v.optional(v.string()),
     bufferPostId: v.optional(v.string()),
+    reviewSkipped: v.optional(v.boolean()),
     bufferStatus: v.optional(v.string()),
     externalLink: v.optional(v.string()),
     dueAt: v.optional(v.number()),
@@ -261,14 +273,26 @@ export default defineSchema({
     approvingAt: v.optional(v.number()),
     /** When the status poll last asked Buffer about this post (status.dueForCheck). */
     statusCheckedAt: v.optional(v.number()),
+    /** When the row went to `publishing`, so the sweeper knows a stuck send from a fresh one. */
+    publishingAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])
     .index('by_user_createdAt', ['userId', 'createdAt'])
     .index('by_createdAt', ['createdAt'])
     .index('by_approveToken', ['approveToken'])
-    .index('by_bufferPostId', ['bufferPostId']),
+    .index('by_bufferPostId', ['bufferPostId'])
+    .index('by_status_createdAt', ['status', 'createdAt']),
   /** Every model call, with what it cost, so the cost per run is measured and not guessed. */
+  /** AI spend by the hour it happened, so the daily cap reads 24 rows rather than every call. */
+  aiSpend: defineTable({
+    hourStart: v.number(),
+    /** One row per person an hour, so concurrent runs do not all write the same row. */
+    userId: v.optional(v.id('users')),
+    usd: v.number(),
+  })
+    .index('by_hour', ['hourStart'])
+    .index('by_hour_user', ['hourStart', 'userId']),
   aiCalls: defineTable({
     runId: v.optional(v.id('runs')),
     userId: v.optional(v.id('users')),
@@ -374,8 +398,12 @@ export default defineSchema({
     launchEmailSentAt: v.optional(v.number()),
     token: v.string(),
     ip: v.optional(v.string()),
+    /** Place in the list when added; rows from before this field fall back to a count. */
+    position: v.optional(v.number()),
   })
     .index('by_email', ['email'])
     .index('by_token', ['token'])
     .index('by_ip_createdAt', ['ip', 'createdAt']),
+  /** One row: how many are on the waiting list, so the count and positions need no scan. */
+  waitlistStats: defineTable({ count: v.number() }),
 })

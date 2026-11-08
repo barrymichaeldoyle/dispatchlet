@@ -139,6 +139,10 @@ async function approve(
   // the post twice. The claim is released if Buffer refuses, so the person can try again.
   const claim = await ctx.runMutation(internal.approvals.claimApproval, { postId: post._id })
   if (claim === 'done') return 'This post is already in the queue.'
+  if (claim === 'skipped')
+    throw new ApprovalRefused(
+      'This story was skipped. Undo the skip on the run page before approving it.',
+    )
   if (claim === 'busy')
     return 'This draft is already being approved. It will be in the queue in a moment.'
   try {
@@ -163,10 +167,16 @@ const CLAIM_MS = 10 * 60_000
 
 export const claimApproval = internalMutation({
   args: { postId: v.id('posts') },
-  returns: v.union(v.literal('claimed'), v.literal('busy'), v.literal('done')),
+  returns: v.union(
+    v.literal('claimed'),
+    v.literal('busy'),
+    v.literal('done'),
+    v.literal('skipped'),
+  ),
   handler: async (ctx, { postId }) => {
     const post = await ctx.db.get(postId)
     if (!post || post.status !== 'draft') return 'done' as const
+    if (post.reviewSkipped) return 'skipped' as const
     if (post.approvingAt && Date.now() - post.approvingAt < CLAIM_MS) return 'busy' as const
     await ctx.db.patch(postId, { approvingAt: Date.now() })
     return 'claimed' as const
@@ -182,7 +192,13 @@ export const releaseApproval = internalMutation({
   },
 })
 
+/** A refusal in our own words, safe to show on the public approve page. */
+class ApprovalRefused extends Error {}
+
 /** From the email link. The token is single use and only ever points at a draft. */
+/** How long an approve link in an email keeps working: a forwarded digest should not last forever. */
+const APPROVE_LINK_LIFE_MS = 30 * 86_400_000
+
 export const approveByToken = internalAction({
   args: { token: v.string() },
   returns: v.object({ ok: v.boolean(), status: v.number(), message: v.string() }),
@@ -194,13 +210,23 @@ export const approveByToken = internalAction({
         status: 404,
         message: 'This link is not valid, or the post was already approved.',
       }
+    if (Date.now() - post.createdAt > APPROVE_LINK_LIFE_MS)
+      return {
+        ok: false,
+        status: 410,
+        message: 'This link has expired. Approve the post from the app instead.',
+      }
     try {
       return { ok: true, status: 200, message: await approve(ctx, post, 'email') }
     } catch (error) {
+      // Buffer's own refusal is worth repeating; anything else stays in the log, not on a public page.
+      const ours = error instanceof BufferPostError || error instanceof ApprovalRefused
+      if (!ours)
+        console.log(`Approve by link failed: ${error instanceof Error ? error.message : error}`)
       return {
         ok: false,
         status: 502,
-        message: error instanceof Error ? error.message : 'Something went wrong.',
+        message: ours ? error.message : 'Something went wrong. Try again from the app.',
       }
     }
   },
@@ -279,6 +305,8 @@ export const editForUser = internalAction({
     const found = await ctx.runQuery(internal.approvals.draftForEdit, { userId, postId })
     if (!found) throw new Error('Post not found')
     const { post, channelName, limit } = found
+    if (post.reviewSkipped)
+      throw new Error('Undo the story skip on the run page before editing this draft.')
     if (post.status !== 'draft' || !post.bufferPostId)
       throw new Error('Only a draft waiting in Buffer can be edited here.')
     const clean = text.replace(/\r\n/g, '\n').trim()

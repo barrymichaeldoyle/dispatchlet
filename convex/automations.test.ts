@@ -2,6 +2,7 @@ import { convexTest } from 'convex-test'
 import { describe, expect, it } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
+import { cadenceProblem, normalCadence } from './automations'
 import schema from './schema'
 
 const modules = import.meta.glob('./**/*.*s')
@@ -150,5 +151,27 @@ describe('when the playbook comes back', () => {
     const automation = await t.run((ctx) => ctx.db.get(id))
     expect(automation).toMatchObject({ status: 'failed', generationError: 'The model was busy.' })
     expect(await t.run((ctx) => ctx.db.query('playbookVersions').collect())).toHaveLength(0)
+  })
+})
+
+describe('checking a cadence before it is saved', () => {
+  it('wants a real time of day and a weekday for weekly runs', () => {
+    expect(cadenceProblem({ preset: 'daily', time: '08:00', weekday: null })).toBeNull()
+    expect(cadenceProblem({ preset: 'daily', time: '25:00', weekday: null })).toMatch(/HH:MM/)
+    expect(cadenceProblem({ preset: 'daily', time: '8am', weekday: null })).toMatch(/HH:MM/)
+    expect(cadenceProblem({ preset: 'weekly', time: '08:00', weekday: null })).toMatch(/weekday/)
+    expect(cadenceProblem({ preset: 'weekly', time: '08:00', weekday: 'funday' })).toMatch(
+      /weekday/,
+    )
+    expect(cadenceProblem({ preset: 'weekly', time: '08:00', weekday: 'Monday' })).toBeNull()
+  })
+
+  it('stores the weekday the way the scheduler reads it', () => {
+    expect(normalCadence({ preset: 'weekly', time: '08:00', weekday: 'Monday' })).toEqual({
+      preset: 'weekly',
+      time: '08:00',
+      weekday: 'mon',
+    })
+    expect(normalCadence({ preset: 'daily', time: '08:00', weekday: 'mon' }).weekday).toBeNull()
   })
 })

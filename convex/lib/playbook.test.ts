@@ -122,6 +122,20 @@ describe('the playbook text', () => {
     expect(parsePlaybook('# A\n\n## Searches\nlook for cats')).toMatchObject({ ok: false, line: 4 })
   })
 
+  it('points at the freshness line when the hours are out of range, however indented', () => {
+    expect(
+      parsePlaybook('# A\n\n## Post about\nCats.\n  Only stories from the last 2 hours.'),
+    ).toMatchObject({ ok: false, line: 5 })
+  })
+
+  it('only turns threads on for the phrase the renderer writes', () => {
+    const parsed = parsePlaybook('# A\n\n## Formats\nBluesky: Terse. Never a thread.')
+    expect(parsed.ok && parsed.playbook.formats[0]).toMatchObject({
+      style: 'Terse. Never a thread.',
+      thread: false,
+    })
+  })
+
   it('accepts a bare minimum and fills the defaults', () => {
     const parsed = parsePlaybook('# Cats\n## About\nCats.\n## Tone\nDry.\n')
     expect(parsed.ok && parsed.playbook).toMatchObject({

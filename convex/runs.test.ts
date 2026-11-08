@@ -1,7 +1,7 @@
 import { convexTest } from 'convex-test'
-import { describe, expect, it } from 'vitest'
-import { internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { api, internal } from './_generated/api'
+import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
 
 const modules = import.meta.glob('./**/*.*s')
@@ -327,7 +327,12 @@ describe('posts deleted in Buffer', () => {
 })
 
 describe('the first dry run', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('starts by itself once, for an automation that has never run, while dry runs are left', async () => {
+    vi.stubEnv('SIGNUP_OPEN', 'true')
     const t = convexTest(schema, modules)
     const { userId, automationId } = await seed(t)
     const versionId = await t.run((ctx) =>
@@ -632,6 +637,82 @@ describe('when the status poll asks Buffer about a post', () => {
   })
 })
 
+/** One row of Buffer's posts query, as the status poll reads it. */
+const statusRow = (id: string, status: string) => ({
+  node: { id, status, sentAt: null, externalLink: null, error: null },
+})
+
+describe('when the first page of statuses is full of other posts', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('asks once more for the tagged posts, and marks nothing deleted', async () => {
+    vi.stubEnv('TOKEN_ENC_KEY', btoa('n'.repeat(32)))
+    vi.stubEnv('SERVER_EVENTS', 'off')
+    const { encryptSecret } = await import('./lib/crypto')
+    const { saveBufferConnection } = await import('./buffer')
+    const { STATUS_PAGE } = await import('./status')
+    const t = convexTest(schema, modules)
+    const { postId } = await draftAndStory(t)
+    const post = (await t.run((ctx) => ctx.db.get(postId)))!
+    await t.run((ctx) =>
+      ctx.db.patch(postId, { status: 'scheduled', dueAt: 0, createdAt: Date.now() }),
+    )
+    const accessTokenEnc = await encryptSecret('test-access')
+    await t.run(async (ctx) => {
+      await saveBufferConnection(ctx, post.userId, {
+        bufferAccountId: 'buffer-1',
+        accessTokenEnc,
+        expiresAt: Date.now() + 3_600_000,
+        scope: 'posts:write',
+      })
+      const connection = await ctx.db.query('bufferConnections').first()
+      await ctx.db.patch(connection!._id, { tags: [{ organizationId: 'o1', tagId: 'tag-1' }] })
+      await ctx.db.insert('bufferChannels', {
+        userId: post.userId,
+        organizationId: 'o1',
+        channelId: 'c1',
+        service: 'twitter',
+        name: 'GPP',
+        usable: true,
+        syncedAt: Date.now(),
+      })
+    })
+    const fetch = vi.fn().mockImplementation(async (_url: string, init: { body: string }) => {
+      const { variables } = JSON.parse(init.body)
+      const edges = variables.tags
+        ? [statusRow('b-1', 'sent')]
+        : Array.from({ length: STATUS_PAGE }, (_, i) => statusRow(`other-${i}`, 'sent'))
+      return Response.json({ data: { posts: { edges } } })
+    })
+    vi.stubGlobal('fetch', fetch)
+    await t.action(internal.status.poll, {})
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(fetch.mock.calls[1]![1].body).variables.tags).toEqual({ in: ['tag-1'] })
+    expect((await t.run((ctx) => ctx.db.get(postId)))?.status).toBe('sent')
+  })
+
+  it('keeps a post sent for approval in Buffer as a draft here', async () => {
+    const t = convexTest(schema, modules)
+    const { postId } = await draftAndStory(t)
+    await t.mutation(internal.status.apply, {
+      updates: [
+        {
+          bufferPostId: 'b-1',
+          status: 'needs_approval',
+          sentAt: null,
+          externalLink: null,
+          error: null,
+        },
+      ],
+    })
+    const post = await t.run((ctx) => ctx.db.get(postId))
+    expect(post).toMatchObject({ status: 'draft', bufferStatus: 'needs_approval' })
+  })
+})
+
 describe('a run whose channels are all locked', () => {
   it('is skipped, says why, and does not count as a failure', async () => {
     const { channelIssue } = await import('./runs')
@@ -717,6 +798,21 @@ describe('a fair share of the Buffer budget', () => {
       expect((await reserve('interactive')).ok).toBe(true)
     } finally {
       delete process.env.BUFFER_BACKGROUND_CALLS_PER_USER
+    }
+  })
+
+  it('caps app clicks an hour too, so one person cannot spend the shared allowance', async () => {
+    const t = convexTest(schema, modules)
+    const { userId } = await seed(t)
+    process.env.BUFFER_INTERACTIVE_CALLS_PER_HOUR = '2'
+    try {
+      const reserve = () =>
+        t.mutation(internal.buffer.reserveCalls, { userId, calls: 1, priority: 'interactive' })
+      expect((await reserve()).ok).toBe(true)
+      expect((await reserve()).ok).toBe(true)
+      expect(await reserve()).toMatchObject({ ok: false, ceiling: true })
+    } finally {
+      delete process.env.BUFFER_INTERACTIVE_CALLS_PER_HOUR
     }
   })
 })
@@ -823,6 +919,118 @@ async function draftAndStory(t: ReturnType<typeof convexTest>) {
   })
 }
 
+async function noteFixture(scope = 'posts:write notes:write') {
+  vi.stubEnv('BUFFER_NOTES', 'true')
+  vi.stubEnv('SITE_URL', 'https://dispatchlet.example/')
+  vi.stubEnv('TOKEN_ENC_KEY', btoa('n'.repeat(32)))
+  vi.stubEnv('SERVER_EVENTS', 'off')
+  const { encryptSecret } = await import('./lib/crypto')
+  const { saveBufferConnection } = await import('./buffer')
+  const accessTokenEnc = await encryptSecret('test-access')
+  const t = convexTest(schema, modules)
+  const { postId } = await draftAndStory(t)
+  const post = (await t.run((ctx) => ctx.db.get(postId)))!
+  await t.run((ctx) =>
+    saveBufferConnection(ctx, post.userId, {
+      bufferAccountId: 'buffer-1',
+      accessTokenEnc,
+      scope,
+      expiresAt: Date.now() + 3_600_000,
+    }),
+  )
+  const fetch = vi.fn().mockImplementation(async () =>
+    Response.json({
+      data: {
+        createCollaborationNote: {
+          __typename: 'CreateCollaborationNoteSuccess',
+          edge: { node: { id: 'note-1' } },
+        },
+      },
+    }),
+  )
+  vi.stubGlobal('fetch', fetch)
+  return { t, post, fetch }
+}
+
+describe('Buffer notes linking back to a run', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    vi.useRealTimers()
+  })
+
+  it('requests notes access only when enabled', async () => {
+    const { bufferScopes } = await import('./auth')
+    vi.stubEnv('BUFFER_NOTES', 'false')
+    expect(bufferScopes()).not.toContain('notes:write')
+    vi.stubEnv('BUFFER_NOTES', 'true')
+    expect(bufferScopes()).toContain('notes:write')
+    expect(bufferScopes()).not.toContain('notes:read')
+  })
+
+  it.each(['new', 'held'] as const)('adds a note after persisting a %s post', async (kind) => {
+    vi.useFakeTimers()
+    const { t, post, fetch } = await noteFixture()
+    if (kind === 'new') {
+      const { _id, _creationTime, createdAt: _createdAt, ...args } = post
+      await t.mutation(internal.runs.savePost, args)
+    } else {
+      await t.run((ctx) => ctx.db.patch(post._id, { status: 'held', bufferPostId: undefined }))
+      await t.mutation(internal.runs.markSent, {
+        postId: post._id,
+        status: 'scheduled',
+        bufferPostId: 'b-1',
+      })
+    }
+    await t.finishAllScheduledFunctions(vi.runAllTimers)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    const [url, init] = fetch.mock.calls[0]!
+    expect(url).toBe('https://api.buffer.com')
+    const request = JSON.parse(init.body)
+    expect(request.query).toContain('createCollaborationNote')
+    expect(request.variables.input).toEqual({
+      subject: { postId: 'b-1' },
+      text: `Created by Dispatchlet. View the run: https://dispatchlet.example/app/a/${post.automationId}/runs/${post.runId}`,
+      annotations: [],
+    })
+  })
+
+  it('skips connections without the new permission and skips when disabled', async () => {
+    const { t, post, fetch } = await noteFixture('posts:write')
+    await t.action(internal.buffer.addPostNote, { postId: post._id })
+    vi.stubEnv('BUFFER_NOTES', 'false')
+    await t.action(internal.buffer.addPostNote, { postId: post._id })
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['typed error', 'timeout', 'budget'])(
+    'leaves the saved post intact without retrying on a %s',
+    async (failure) => {
+      const { t, post, fetch } = await noteFixture()
+      if (failure === 'timeout') fetch.mockRejectedValue(new Error('Request timed out'))
+      else if (failure === 'typed error')
+        fetch.mockImplementation(async () =>
+          Response.json({
+            data: {
+              createCollaborationNote: { __typename: 'InvalidInputError', message: 'Unavailable' },
+            },
+          }),
+        )
+      else {
+        vi.stubEnv('BUFFER_BACKGROUND_CALLS_PER_USER', '1')
+        await t.mutation(internal.buffer.reserveCalls, {
+          userId: post.userId,
+          calls: 1,
+          priority: 'background',
+        })
+      }
+      await expect(t.action(internal.buffer.addPostNote, { postId: post._id })).resolves.toBeNull()
+      expect(fetch).toHaveBeenCalledTimes(failure === 'budget' ? 0 : 1)
+      expect(await t.run((ctx) => ctx.db.get(post._id))).toEqual(post)
+    },
+  )
+})
+
 describe('double clicks', () => {
   it('approve a draft once, and free it again if Buffer refused', async () => {
     const t = convexTest(schema, modules)
@@ -843,5 +1051,313 @@ describe('double clicks', () => {
       kind: 'saved',
       ideaId: 'idea-1',
     })
+  })
+})
+
+async function reviewFixture(t: ReturnType<typeof convexTest>) {
+  const { postId, storyId } = await draftAndStory(t)
+  const savedPost = await t.run(async (ctx) => {
+    const post = (await ctx.db.get(postId)) as Doc<'posts'>
+    await ctx.db.patch(storyId, { decision: 'kept' })
+    await ctx.db.patch(post.runId, { finishedAt: Date.now(), status: 'done' })
+    await ctx.db.patch(postId, { createdAt: Date.now() })
+    return post
+  })
+  const user = t.withIdentity({ subject: `${savedPost.userId}|session` })
+  return { postId, storyId, post: savedPost, user }
+}
+
+describe('editorial feedback', () => {
+  it('skips without changing the playbook or Buffer status, blocks approval, and can be undone', async () => {
+    const t = convexTest(schema, modules)
+    const { user, postId, storyId } = await reviewFixture(t)
+    expect((await user.query(api.automations.dashboard, {}))?.drafts).toHaveLength(1)
+    await user.mutation(api.runs.skipStory, { storyId, reason: 'Too promotional' })
+    expect(await t.run((ctx) => ctx.db.get(storyId))).toMatchObject({
+      decision: 'kept',
+      review: { reason: 'Too promotional' },
+    })
+    expect(await t.run((ctx) => ctx.db.get(postId))).toMatchObject({
+      status: 'draft',
+      bufferPostId: 'b-1',
+      reviewSkipped: true,
+    })
+    expect(await t.run((ctx) => ctx.db.query('playbookVersions').collect())).toHaveLength(0)
+    expect((await user.query(api.automations.dashboard, {}))?.drafts).toHaveLength(0)
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('skipped')
+    await expect(user.action(api.runs.approve, { postId })).rejects.toThrow(
+      'This story was skipped',
+    )
+    await t.run((ctx) => ctx.db.patch(postId, { approveToken: 'skipped-story-token' }))
+    expect(
+      await t.action(internal.approvals.approveByToken, { token: 'skipped-story-token' }),
+    ).toMatchObject({ ok: false, message: expect.stringContaining('This story was skipped') })
+    await user.mutation(api.runs.undoSkipStory, { storyId })
+    expect((await user.query(api.automations.dashboard, {}))?.drafts).toHaveLength(1)
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
+  })
+
+  it('keeps reasons private on shared runs and saves them for the owner', async () => {
+    const t = convexTest(schema, modules)
+    const { user, storyId, post } = await reviewFixture(t)
+    await user.mutation(api.runs.skipStory, { storyId, reason: 'An internal editorial preference' })
+    const token = await user.mutation(api.runs.share, { runId: post.runId })
+    expect((await user.query(api.runs.get, { runId: post.runId }))?.stories[0].review?.reason).toBe(
+      'An internal editorial preference',
+    )
+    expect((await t.query(api.runs.shared, { token }))?.stories[0].review).toBeNull()
+  })
+
+  it('refuses another account, signed-out requests, unfinished runs, and empty feedback', async () => {
+    const t = convexTest(schema, modules)
+    const { user, storyId, post } = await reviewFixture(t)
+    const { userId } = await seed(t)
+    const other = t.withIdentity({ subject: `${userId}|session` })
+    for (const [client, message] of [
+      [other, 'Automation not found'],
+      [t, 'Not signed in'],
+    ] as const) {
+      await expect(
+        client.mutation(api.runs.skipStory, { storyId, reason: 'Off topic' }),
+      ).rejects.toThrow(message)
+      await expect(
+        client.mutation(api.runs.applyStoryRule, { storyId, rule: 'Skip rumours.' }),
+      ).rejects.toThrow(message)
+      await expect(client.mutation(api.runs.undoSkipStory, { storyId })).rejects.toThrow(message)
+    }
+    await expect(user.mutation(api.runs.skipStory, { storyId, reason: ' ' })).rejects.toThrow(
+      'Give a reason',
+    )
+    await t.run((ctx) => ctx.db.patch(post.runId, { finishedAt: undefined }))
+    await expect(
+      user.mutation(api.runs.skipStory, { storyId, reason: 'Off topic' }),
+    ).rejects.toThrow('Wait for this run')
+  })
+
+  it('does not race an approval already in flight', async () => {
+    const t = convexTest(schema, modules)
+    const { user, postId, storyId } = await reviewFixture(t)
+    await t.mutation(internal.approvals.claimApproval, { postId })
+    await expect(
+      user.mutation(api.runs.skipStory, { storyId, reason: 'Off topic' }),
+    ).rejects.toThrow('being approved')
+    expect((await t.run((ctx) => ctx.db.get(storyId)))?.review).toBeUndefined()
+  })
+
+  it('adds the reviewed rule to the latest playbook only once and keeps it after undo', async () => {
+    const t = convexTest(schema, modules)
+    const { user, storyId, post } = await reviewFixture(t)
+    const playbook = {
+      name: 'F1',
+      about: 'F1 news',
+      sources: [],
+      searchQueries: [],
+      freshnessHours: 48,
+      include: [],
+      exclude: [],
+      voice: { tone: 'Plain', notes: '', avoidSaying: [], emoji: 'none', hashtags: 'none' },
+      formats: [],
+    }
+    await t.mutation(internal.automations.storeGenerated, {
+      automationId: post.automationId,
+      playbook,
+    })
+    await expect(
+      user.mutation(api.runs.applyStoryRule, { storyId, rule: 'Skip promotions.' }),
+    ).rejects.toThrow('Skip this story')
+    await user.mutation(api.runs.skipStory, { storyId, reason: 'Too promotional' })
+    await user.mutation(api.automations.addExcludeRule, {
+      id: post.automationId,
+      rule: 'Skip rumours.',
+    })
+    const version = await user.mutation(api.runs.applyStoryRule, {
+      storyId,
+      rule: 'Skip promotions.',
+    })
+    expect(version).toBe(3)
+    expect(
+      await user.mutation(api.runs.applyStoryRule, { storyId, rule: 'Skip promotions.' }),
+    ).toBe(3)
+    const saved = await t.run(async (ctx) => {
+      const automation = await ctx.db.get(post.automationId)
+      return await ctx.db.get(automation!.playbookVersionId!)
+    })
+    expect(saved?.playbook.exclude).toEqual(['Skip rumours.', 'Skip promotions.'])
+    expect(await t.run((ctx) => ctx.db.query('playbookVersions').collect())).toHaveLength(3)
+    await user.mutation(api.runs.undoSkipStory, { storyId })
+    expect(await t.run((ctx) => ctx.db.get(saved!._id))).toEqual(saved)
+  })
+})
+
+async function storyFor(
+  t: ReturnType<typeof convexTest>,
+  automationId: Id<'automations'>,
+  runId: Id<'runs'>,
+) {
+  return await t.run((ctx) =>
+    ctx.db.insert('stories', {
+      automationId,
+      runId,
+      title: 't',
+      canonicalUrl: `https://e.com/${runId}`,
+      source: 'e.com',
+      publishedAt: '',
+      summary: '',
+      whyItMatters: '',
+      keyFacts: [],
+      confidence: 1,
+      decision: 'kept',
+      reason: '',
+      createdAt: 0,
+    }),
+  )
+}
+
+describe('a scheduled run while another is still going', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('is skipped, and goes ahead once the earlier run has finished', async () => {
+    vi.stubEnv('SIGNUP_OPEN', 'true')
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const going = await run(t, userId, automationId, 'now')
+    const runs = () =>
+      t.run((ctx) =>
+        ctx.db
+          .query('runs')
+          .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
+          .collect(),
+      )
+    await t.mutation(internal.runs.start, { automationId })
+    expect((await runs()).length).toBe(1)
+    await t.run((ctx) => ctx.db.patch(going, { finishedAt: Date.now(), status: 'done' }))
+    await t.mutation(internal.runs.start, { automationId })
+    expect((await runs()).length).toBe(2)
+  })
+})
+
+describe('posts a run left behind', () => {
+  it('fails a post stuck in publishing and retries a run whose held posts never went', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const stuckRun = await run(t, userId, automationId, 'now')
+    const heldRun = await run(t, userId, automationId, 'now')
+    const stuckStory = await storyFor(t, automationId, stuckRun)
+    const heldStory = await storyFor(t, automationId, heldRun)
+    const [stuck, held] = await t.run(async (ctx) => {
+      const base = { userId, automationId, channelId: 'c1', service: 'twitter', text: 'x' }
+      return [
+        await ctx.db.insert('posts', {
+          ...base,
+          runId: stuckRun,
+          storyId: stuckStory,
+          status: 'publishing',
+          createdAt: Date.now() - 20 * 60_000,
+        }),
+        await ctx.db.insert('posts', {
+          ...base,
+          runId: heldRun,
+          storyId: heldStory,
+          status: 'held',
+          createdAt: Date.now() - 3 * 3_600_000,
+        }),
+      ]
+    })
+    await t.action(internal.runs.sweepAbandoned, {})
+    expect(await t.run((ctx) => ctx.db.get(stuck))).toMatchObject({
+      status: 'failed',
+      reason: expect.stringMatching(/Check Buffer/),
+    })
+    expect((await t.run((ctx) => ctx.db.get(held)))?.status).toBe('held')
+    const booked = () =>
+      t.run(async (ctx) =>
+        (await ctx.db.system.query('_scheduled_functions').collect()).filter(
+          (f) => f.name === 'runs:sendHeld',
+        ),
+      )
+    expect(await booked()).toHaveLength(1)
+    expect((await t.run((ctx) => ctx.db.get(heldRun)))?.heldRetryAt).toBeDefined()
+    // The next sweep sees the booking and leaves the run alone, so sends never pile up.
+    await t.action(internal.runs.sweepAbandoned, {})
+    expect(await booked()).toHaveLength(1)
+  })
+
+  it('leaves a held run alone while its send is booked for the share to reset', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await storyFor(t, automationId, runId)
+    await t.run(async (ctx) => {
+      await ctx.db.patch(runId, { heldRetryAt: Date.now() + 20 * 3_600_000 })
+      await ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'held',
+        createdAt: Date.now() - 5 * 3_600_000,
+      })
+    })
+    await t.action(internal.runs.sweepAbandoned, {})
+    const scheduled = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect())
+    expect(scheduled.some((f) => f.name === 'runs:sendHeld')).toBe(false)
+  })
+
+  it('held posts are skipped when the automation was paused in the meantime', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await storyFor(t, automationId, runId)
+    const postId = await t.run(async (ctx) => {
+      await ctx.db.patch(automationId, { status: 'paused' })
+      return await ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'held',
+        createdAt: Date.now(),
+      })
+    })
+    await t.action(internal.runs.sendHeld, { runId })
+    expect(await t.run((ctx) => ctx.db.get(postId))).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/paused/),
+    })
+  })
+})
+
+describe('an old approve link', () => {
+  it('no longer approves after thirty days, and says so', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await storyFor(t, automationId, runId)
+    await t.run((ctx) =>
+      ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'draft',
+        bufferPostId: 'b-old',
+        approveToken: 'tok-old',
+        createdAt: Date.now() - 31 * 86_400_000,
+      }),
+    )
+    const res = await t.fetch('/approve?token=tok-old', { method: 'POST' })
+    expect(res.status).toBe(410)
+    expect(await res.text()).toContain('expired')
   })
 })
