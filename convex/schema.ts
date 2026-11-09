@@ -128,6 +128,8 @@ export default defineSchema({
     'kind',
     'sentAt',
   ]),
+  /** When each recurring job last completed, so alerts.health can tell when one has stopped. */
+  heartbeats: defineTable({ kind: v.string(), at: v.number() }).index('by_kind', ['kind']),
   /** An automation: the setup answers that are configuration, plus its schedule state. */
   automations: defineTable({
     userId: v.id('users'),

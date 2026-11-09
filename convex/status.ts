@@ -198,6 +198,7 @@ export const poll = internalAction({
         if (!(await ctx.runMutation(internal.status.claimStatusCall, {}))) {
           console.log('Status poll stopped: the daily status-call cap is reached.')
           await summary(true)
+          await ctx.runMutation(internal.alerts.beat, { kind: 'poll-statuses' })
           return null
         }
         checked++
@@ -240,6 +241,7 @@ export const poll = internalAction({
       }
     }
     if (wanted) await summary(false)
+    await ctx.runMutation(internal.alerts.beat, { kind: 'poll-statuses' })
     return null
   },
 })
@@ -302,6 +304,7 @@ export const pollMetrics = internalAction({
         console.log(`Metrics skipped: ${error instanceof Error ? error.message : String(error)}`)
       }
     }
+    await ctx.runMutation(internal.alerts.beat, { kind: 'poll-metrics' })
     return null
   },
 })

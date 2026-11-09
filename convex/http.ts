@@ -266,6 +266,22 @@ http.route({
 })
 
 /**
+ * Whether the recurring jobs and the run scheduler are keeping up (alerts.health). 503 when not,
+ * so an outside probe such as the health workflow fails and says so. The body names jobs only.
+ */
+http.route({
+  path: '/health',
+  method: 'GET',
+  handler: httpAction(async (ctx) => {
+    const report = await ctx.runQuery(internal.alerts.health, {})
+    return new Response(JSON.stringify(report), {
+      status: report.ok ? 200 : 503,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    })
+  }),
+})
+
+/**
  * The approve link from the digest email. Opening it only shows the draft and a button: email
  * security scanners open every link in a message, so a link that approved on sight could put a
  * draft in someone's queue without them. Pressing the button sends the POST below.

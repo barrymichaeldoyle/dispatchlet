@@ -1796,6 +1796,7 @@ export const sweepAbandoned = internalAction({
       })
     for (const runId of stale.heldRuns)
       await ctx.runMutation(internal.runs.bookHeldRetry, { runId, at: Date.now() })
+    await ctx.runMutation(internal.alerts.beat, { kind: 'sweep-abandoned' })
     return runs.length
   },
 })

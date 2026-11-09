@@ -22,5 +22,7 @@ crons.daily(
   {},
 )
 crons.interval('close abandoned runs', { minutes: 10 }, internal.runs.sweepAbandoned, {})
+// Emails the owner when one of the jobs above, or the run scheduler, has gone quiet (alerts.health).
+crons.interval('check health', { hours: 6 }, internal.alerts.checkHealth, {})
 
 export default crons

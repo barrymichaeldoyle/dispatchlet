@@ -1,0 +1,16 @@
+name: health
+
+# Asks production whether its recurring jobs and run scheduler are keeping up. Runs outside
+# Convex on purpose: if the scheduler there dies, so does the in-app check (alerts.checkHealth),
+# and a failed run here is what sends the email instead.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: curl --fail-with-body --silent --show-error --max-time 30 https://amiable-mosquito-364.convex.site/health
