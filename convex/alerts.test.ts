@@ -60,6 +60,24 @@ describe('the health check', () => {
     expect((await t.fetch('/health')).status).toBe(200)
   })
 
+  it('gives a fresh deployment time before a job that has never completed counts', async () => {
+    vi.useFakeTimers()
+    const t = convexTest(schema, modules)
+    expect((await t.query(internal.alerts.health, {})).ok).toBe(true)
+    await t.mutation(internal.alerts.beat, { kind: 'poll-statuses' })
+    vi.advanceTimersByTime(60 * 60_000)
+    await t.mutation(internal.alerts.beat, { kind: 'poll-statuses' })
+    await t.mutation(internal.alerts.beat, { kind: 'sweep-abandoned' })
+    // An hour in: the daily metrics job has had no chance yet.
+    expect((await t.query(internal.alerts.health, {})).ok).toBe(true)
+    vi.advanceTimersByTime(36 * 60 * 60_000)
+    await t.mutation(internal.alerts.beat, { kind: 'poll-statuses' })
+    await t.mutation(internal.alerts.beat, { kind: 'sweep-abandoned' })
+    expect((await t.query(internal.alerts.health, {})).stale).toEqual([
+      { kind: 'poll-metrics', sinceMs: null },
+    ])
+  })
+
   it('names a job that has never completed, and one that has gone quiet', async () => {
     vi.useFakeTimers()
     const t = convexTest(schema, modules)
@@ -128,6 +146,8 @@ describe('the health check', () => {
   it('emails the owner when unwell, once an hour at most, and not when well', async () => {
     vi.useFakeTimers()
     const t = convexTest(schema, modules)
+    await t.mutation(internal.alerts.beat, { kind: 'poll-metrics' })
+    vi.advanceTimersByTime(3 * 60 * 60_000)
     expect(await t.mutation(internal.alerts.checkHealth, {})).toBe(false)
     expect(await t.mutation(internal.alerts.checkHealth, {})).toBe(false)
     const notes = () =>

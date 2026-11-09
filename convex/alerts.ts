@@ -119,14 +119,16 @@ export type Health = {
 }
 
 export async function healthFor(ctx: Pick<QueryCtx, 'db'>, now = Date.now()): Promise<Health> {
+  const rows = await ctx.db.query('heartbeats').collect()
+  // A job that has never completed is only missing once heartbeats have been kept for longer
+  // than its allowed gap; otherwise a fresh deployment reports the daily jobs before their time.
+  const started = rows.length ? Math.min(...rows.map((r) => r._creationTime)) : now
   const stale: Health['stale'] = []
   for (const { kind, within } of HEARTBEATS) {
-    const row = await ctx.db
-      .query('heartbeats')
-      .withIndex('by_kind', (q) => q.eq('kind', kind))
-      .first()
-    if (!row) stale.push({ kind, sinceMs: null })
-    else if (row.at < now - within) stale.push({ kind, sinceMs: now - row.at })
+    const row = rows.find((r) => r.kind === kind)
+    if (!row) {
+      if (started < now - within) stale.push({ kind, sinceMs: null })
+    } else if (row.at < now - within) stale.push({ kind, sinceMs: now - row.at })
   }
   const overdue = await ctx.db
     .query('automations')
