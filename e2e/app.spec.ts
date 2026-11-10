@@ -32,6 +32,18 @@ test('while sign-in finishes, the page names each step', async ({ page }) => {
   await expect(page.locator('.signin-arrow.is-shot')).toHaveCount(1)
 })
 
+test('a start link goes straight on to Buffer, and only once', async ({ page }) => {
+  // With no answer from Convex the page stays on its way out, where it can be looked at.
+  await page.routeWebSocket(/convex\.cloud/, () => {})
+  await page.goto('/app?signin')
+  await expect(page.getByRole('heading', { name: 'Signing you in' })).toBeVisible()
+  await expect(page.locator('.signin-steps [data-active="true"]')).toHaveText('Opening Buffer.')
+  await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toHaveCount(0)
+  await expect(page).toHaveURL(/\/app$/)
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet' })).toBeVisible()
+})
+
 test('the launch-list link opens the landing page straight into the demo', async ({ page }) => {
   await page.goto('/?demo')
   await expect(page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })).toBeVisible()

@@ -167,7 +167,7 @@ function Home() {
             </figure>
             <h2>Try it on your own topic.</h2>
             <a
-              href="/app"
+              href="/app?signin"
               id="start"
               className="landing-start"
               data-enhanced={mounted ? 'true' : undefined}
@@ -370,7 +370,7 @@ function Home() {
               </span>
               Watch the full run
             </button>
-            <a href="/app">Start with Buffer</a>
+            <a href="/app?signin">Start with Buffer</a>
           </div>
         </section>
       </main>

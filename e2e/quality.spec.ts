@@ -171,5 +171,5 @@ test('optional analytics downloads cannot block the main experience', async ({ p
   await page.getByRole('dialog').getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(page.locator('.flow-post[data-selected="true"]')).toHaveCount(1)
   await page.getByRole('button', { name: 'Close walkthrough' }).click()
-  await expect(page.locator('#start')).toHaveAttribute('href', '/app')
+  await expect(page.locator('#start')).toHaveAttribute('href', '/app?signin')
 })

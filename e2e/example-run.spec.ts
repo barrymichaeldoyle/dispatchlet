@@ -297,6 +297,64 @@ for (const viewport of [
   })
 }
 
+for (const viewport of [
+  { width: 1470, height: 828 },
+  { width: 390, height: 844 },
+]) {
+  test(`typed words stay on the line they start on at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport)
+    await page.clock.install()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
+    const demo = page.getByRole('dialog')
+    await expect(demo).toBeVisible()
+    await pausePlayback(page)
+    // Where each typed character sits inside its own text block, for every block on screen.
+    const positions = () =>
+      demo.locator('.flow-text').evaluateAll((blocks) =>
+        blocks
+          .filter((block) => block.getClientRects().length > 0)
+          .map((block) => {
+            const origin = block.getBoundingClientRect()
+            const typed = block.querySelector('.flow-stream')?.firstChild
+            const range = document.createRange()
+            return Array.from({ length: typed?.textContent?.length ?? 0 }, (_, index) => {
+              range.setStart(typed!, index)
+              range.setEnd(typed!, index + 1)
+              const rect = range.getBoundingClientRect()
+              return [Math.round(rect.x - origin.x), Math.round(rect.y - origin.y)]
+            })
+          }),
+      )
+    let previous = 0
+    let wrapped = false
+    for (const [from, to] of [
+      [T.TYPE_START, T.TYPE_START + T.TYPE_DURATION],
+      [T.X_START, T.LI_START + T.LI_DURATION],
+    ]) {
+      let before: number[][][] = []
+      for (let time = from; time <= to + 100; time += 100) {
+        await page.clock.fastForward(time - previous)
+        previous = time
+        const now = await positions()
+        for (const [block, characters] of now.entries()) {
+          const earlier = before[block] ?? []
+          expect(
+            characters.slice(0, earlier.length),
+            `text block ${block} reflowed at ${time}ms`,
+          ).toEqual(earlier.slice(0, characters.length))
+          wrapped ||= characters.some(([, y]) => y !== characters[0][1])
+        }
+        before = now
+      }
+    }
+    // The check only means something if some of the text ran over more than one line.
+    expect(wrapped).toBe(true)
+  })
+}
+
 test('research skips previous coverage and spreads three fresh stories across both channels', async ({
   page,
 }) => {
@@ -381,6 +439,9 @@ test('restart begins a fresh run from playing, paused and partially typed states
 
 for (const viewport of [
   { width: 1280, height: 720 },
+  // A 13-inch MacBook Air with the browser's own bars taken off.
+  { width: 1470, height: 828 },
+  { width: 1440, height: 780 },
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ]) {
@@ -445,13 +506,13 @@ for (const viewport of [
     ]) {
       await expect(demo.locator(selector)).toBeVisible()
     }
-    // All four columns stay within the viewport. Short laptop screens scroll inside a column,
-    // because the reading size is not shrunk to fit; from 900px tall everything fits.
+    // All four columns stay within the viewport. The shortest screens scroll inside a column,
+    // because the reading size is not shrunk to fit; from 780px tall everything fits.
     for (const column of await columns.all()) {
       const rect = (await column.boundingBox())!
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width)
       expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height)
-      if (viewport.height >= 900) {
+      if (viewport.height >= 780) {
         const overflow = await column.evaluate((el) => el.scrollHeight - el.clientHeight)
         expect(
           overflow,
@@ -542,7 +603,7 @@ for (const viewport of [
     await page.clock.fastForward(T.DURATION)
     const start = demo.getByRole('link', { name: 'Start with Buffer' })
     await expect(start).toBeInViewport()
-    await expect(start).toHaveAttribute('href', '/app')
+    await expect(start).toHaveAttribute('href', '/app?signin')
     await page.keyboard.press('Escape')
     await expect(demo).not.toBeVisible()
     // Replay starts the clock-driven run again, so hold time still while checking it restarted.

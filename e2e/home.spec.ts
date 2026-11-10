@@ -9,7 +9,7 @@ test('home page loads with the tagline and a way to start', async ({ page }) => 
   )
   await expect(page.getByRole('link', { name: 'Start with Buffer' }).first()).toHaveAttribute(
     'href',
-    '/app',
+    '/app?signin',
   )
   await expect(page.getByText('Your first 10 runs are free, and no card is needed.')).toBeVisible()
 })
@@ -18,7 +18,7 @@ test('the start link works without JavaScript', async ({ browser, baseURL }) => 
   const context = await browser.newContext({ javaScriptEnabled: false })
   const page = await context.newPage()
   await page.goto(baseURL ?? 'http://localhost:3131')
-  await expect(page.locator('#start')).toHaveAttribute('href', '/app')
+  await expect(page.locator('#start')).toHaveAttribute('href', '/app?signin')
   await context.close()
 })
 
@@ -55,7 +55,7 @@ test('the closing section opens the demo and offers a start', async ({ page }) =
   await page.keyboard.press('Escape')
   await expect(
     page.locator('.landing-closing').getByRole('link', { name: 'Start with Buffer' }),
-  ).toHaveAttribute('href', '/app')
+  ).toHaveAttribute('href', '/app?signin')
 })
 
 test('the nudge under the demo plays it and returns focus to the play button', async ({ page }) => {

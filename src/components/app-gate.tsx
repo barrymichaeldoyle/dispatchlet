@@ -23,11 +23,43 @@ export function AppGate() {
   )
 }
 
+/** Where Convex Auth keeps this deployment's session; the name is the library's own. */
+const SESSION_KEY = `__convexAuthJWT_${(CONVEX_URL ?? '').replace(/[^a-zA-Z0-9]/g, '')}`
+
+function hasStoredSession() {
+  try {
+    return window.localStorage.getItem(SESSION_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
+/**
+ * How the visitor got here. `code` means Buffer has just sent them back, and `signin` means they
+ * pressed one of the site's own start links, so they have already asked to sign in.
+ */
+function readArrival() {
+  const params = new URLSearchParams(window.location.search)
+  return { returning: params.has('code'), asked: params.has('signin') }
+}
+
 function Gate() {
   const { isLoading, isAuthenticated } = useConvexAuth()
   const viewer = useQuery(api.users.viewer, isAuthenticated ? {} : 'skip')
-  if (isLoading || (isAuthenticated && viewer === undefined)) return <SigningIn />
-  if (!isAuthenticated || !viewer) return <SignIn />
+  const [arrival] = useState(readArrival)
+  // `signin` is spent on arrival, so coming back from Buffer without signing in, or reloading,
+  // shows the sign-in page rather than leaving for Buffer again.
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('signin')) return
+    url.searchParams.delete('signin')
+    window.history.replaceState(window.history.state, '', url)
+  }, [])
+  // "Signing you in" is only for a session that is on its way. A visitor with none goes straight
+  // to the sign-in page instead of seeing it flash past first.
+  const expected = arrival.returning || hasStoredSession()
+  if (isAuthenticated ? viewer === undefined : isLoading && expected) return <SigningIn />
+  if (!isAuthenticated || !viewer) return <SignIn asked={arrival.asked} />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
   return <AppShell timezone={viewer.timezone} name={viewer.name} email={viewer.email} />
 }
@@ -46,23 +78,24 @@ function Screen({ title, children }: { title: string; children?: React.ReactNode
   )
 }
 
-const STEPS = ['Checking with Buffer.', 'Reading your account.', 'Opening Dispatchlet.']
+const ARRIVING = ['Checking with Buffer.', 'Reading your account.', 'Opening Dispatchlet.']
+const LEAVING = ['Opening Buffer.']
 
 /**
  * The mark dispatches small arrows while sign-in finishes, and the line under it says which part
  * is running. Clicking the mark sends one more. With reduced motion the arrows stay put.
  */
-function SigningIn() {
+function SigningIn({ steps = ARRIVING }: { steps?: string[] }) {
   const [step, setStep] = useState(0)
   const [shots, setShots] = useState<number[]>([])
   const nextShot = useRef(0)
   useEffect(() => {
     const timer = window.setInterval(
-      () => setStep((value) => Math.min(value + 1, STEPS.length - 1)),
+      () => setStep((value) => Math.min(value + 1, steps.length - 1)),
       1100,
     )
     return () => window.clearInterval(timer)
-  }, [])
+  }, [steps])
   const dispatch = () => {
     const id = nextShot.current++
     setShots((value) => [...value, id])
@@ -94,7 +127,7 @@ function SigningIn() {
         </span>
       </div>
       <p className="signin-steps" aria-live="polite">
-        {STEPS.map((text, index) => (
+        {steps.map((text, index) => (
           <span key={text} data-active={index === step} aria-hidden={index !== step}>
             {text}
           </span>
@@ -127,11 +160,44 @@ function Arrow({
   )
 }
 
-function SignIn() {
+/**
+ * The sign-in page. A visitor who arrived from a start link has already asked to sign in, so they
+ * go straight to Buffer and see the signing-in screen on the way. The page itself is for everyone
+ * else: someone who opened the app directly, signed out, deleted their account, or came back
+ * from Buffer without finishing. While sign-up is closed nobody is sent on without seeing the
+ * launch-list note first.
+ */
+function SignIn({ asked }: { asked: boolean }) {
   const { signIn } = useAuthActions()
   const [pending, setPending] = useState(false)
+  const [stopped, setStopped] = useState(false)
   const deleted = new URLSearchParams(window.location.search).has('deleted')
   const open = useQuery(api.users.signupOpen)
+  const direct = asked && !deleted && !stopped && open !== false
+  const start = () => {
+    setPending(true)
+    void signIn('buffer', { redirectTo: '/app' }).catch(() => {
+      setPending(false)
+      setStopped(true)
+    })
+  }
+  const started = useRef(false)
+  useEffect(() => {
+    if (!direct || open === undefined || started.current) return
+    started.current = true
+    start()
+  })
+  // Going back from Buffer can restore this page as it was left, still waiting on a redirect.
+  useEffect(() => {
+    const restored = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      setPending(false)
+      setStopped(true)
+    }
+    window.addEventListener('pageshow', restored)
+    return () => window.removeEventListener('pageshow', restored)
+  }, [])
+  if (direct) return <SigningIn steps={LEAVING} />
   return (
     <Screen title={deleted ? 'Your account is deleted' : 'Sign in to Dispatchlet'}>
       {deleted ? (
@@ -142,15 +208,7 @@ function SignIn() {
       ) : (
         <p>Use your Buffer account. There is no separate password.</p>
       )}
-      <button
-        type="button"
-        className="app-gate-primary"
-        disabled={pending}
-        onClick={() => {
-          setPending(true)
-          void signIn('buffer', { redirectTo: '/app' }).catch(() => setPending(false))
-        }}
-      >
+      <button type="button" className="app-gate-primary" disabled={pending} onClick={start}>
         <BufferMark size={16} />
         <BusyLabel busy={pending} idle="Sign in with Buffer" working="Opening Buffer" />
       </button>

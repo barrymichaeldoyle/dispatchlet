@@ -1106,7 +1106,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
               )}
             </span>
             {complete ? (
-              <a href="/app" className="flow-join">
+              <a href="/app?signin" className="flow-join">
                 Start with Buffer <Icon kind="arrow" />
               </a>
             ) : null}

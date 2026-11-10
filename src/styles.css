@@ -257,21 +257,13 @@ html {
   visibility: visible;
 }
 .flow-text {
-  display: grid;
+  display: block;
 }
-.flow-text > span {
-  grid-area: 1 / 1;
-  min-width: 0;
-}
-.flow-measure {
+/* The untyped remainder holds its place in the line, so the wrapping is final from the start. */
+.flow-rest {
   visibility: hidden;
   user-select: none;
   pointer-events: none;
-}
-.flow-caret-space {
-  display: inline-block;
-  width: 2px;
-  margin-left: 2px;
 }
 .flow-reveal {
   opacity: 1;
@@ -311,14 +303,21 @@ html {
   position: relative;
   padding-top: 6px;
 }
+/* The caret takes no room in the line (an empty inline, with the bar hung off it), so it cannot
+   push a word onto the next line or open a break in the middle of one. */
 .flow-caret {
-  display: inline-block;
+  position: relative;
+  animation: flow-blink 900ms step-end infinite;
+}
+.flow-caret::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 50%;
   width: 2px;
   height: 1em;
-  margin-left: 2px;
-  vertical-align: -0.1em;
+  translate: 0 -50%;
   background: var(--color-pine);
-  animation: flow-blink 900ms step-end infinite;
 }
 .flow-submit-row {
   display: flex;
@@ -4031,6 +4030,40 @@ header nav button {
 .is-overview .flow-scene > .flow-panel-4 {
   grid-column: 4;
   grid-row: 1;
+}
+
+/* Laptop heights (a 13-inch screen leaves about 800px): the frame around the workspace and the
+   rows of the first column close up a little, so the answers and the playbook fit without
+   scrolling. Nothing is hidden and no text gets smaller. */
+@media (min-width: 1100px) and (min-height: 650px) and (max-height: 899px) {
+  .flow-dialog .flow-focus-header {
+    padding-block: 6px;
+  }
+  .flow-dialog .flow-workspace.is-overview {
+    padding-block: 12px;
+  }
+  .flow-dialog .flow-player {
+    min-height: 56px;
+    padding-block: 6px;
+  }
+  .flow-dialog .flow-focus-footer button {
+    min-height: 36px;
+  }
+  .flow-workspace.is-overview .flow-context {
+    gap: 10px;
+  }
+  .is-overview .setup-answers > div {
+    padding-block: 3px;
+  }
+  .is-overview .flow-submit-row {
+    margin-top: 8px;
+  }
+  .is-overview .flow-playbook-note {
+    margin: 4px 0 0;
+  }
+  .is-overview .flow-rule {
+    padding-block: 5px;
+  }
 }
 
 /* While research holds on the repeat, the still-empty posts column explains why it was skipped. */
