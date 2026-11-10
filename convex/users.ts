@@ -149,7 +149,8 @@ export const emailFor = internalQuery({
 
 /**
  * Deletes everything held for a user: the account, its sign-in records and sessions, the Buffer
- * connection and channels. The waiting list is separate and keeps its own consent.
+ * connection and channels, automations, runs, posts and model call records. The waiting list is
+ * separate and keeps its own consent.
  */
 export const deleteUserData = internalMutation({
   args: { userId: v.id('users') },
@@ -237,6 +238,19 @@ export const deleteUserData = internalMutation({
     )
     await deleteAll(runs)
     await deleteAll(automations)
+    // Model calls made outside a run, such as writing a playbook, carry only the user.
+    await deleteAll(
+      await ctx.db
+        .query('aiCalls')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .collect(),
+    )
+    // The hourly spend stays, without the person, so deleting an account does not lower the day's cap.
+    const spend = await ctx.db
+      .query('aiSpend')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    for (const row of spend) await ctx.db.patch(row._id, { userId: undefined })
     for (const table of [
       'apiTokens',
       'webhooks',

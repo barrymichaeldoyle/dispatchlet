@@ -137,6 +137,25 @@ describe('deleting an account', () => {
         usable: true,
         syncedAt: Date.now(),
       })
+      await ctx.db.insert('aiCalls', {
+        userId: id,
+        purpose: 'playbook',
+        model: 'm',
+        stopReason: null,
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheWriteTokens: 0,
+          cacheReadTokens: 0,
+          webSearches: 0,
+          webFetches: 0,
+        },
+        costUsd: 0.01,
+        durationMs: 1,
+        refusal: null,
+        createdAt: Date.now(),
+      })
+      await ctx.db.insert('aiSpend', { hourStart: 0, userId: id, usd: 0.01 })
       return id
     })
     const { token } = await t.mutation(internal.waitlist.add, {
@@ -153,7 +172,12 @@ describe('deleting an account', () => {
       connections: await ctx.db.query('bufferConnections').collect(),
       channels: await ctx.db.query('bufferChannels').collect(),
       waitlist: await ctx.db.query('waitlist').collect(),
+      aiCalls: await ctx.db.query('aiCalls').collect(),
+      aiSpend: await ctx.db.query('aiSpend').collect(),
     }))
+    expect(left.aiCalls).toHaveLength(0)
+    expect(left.aiSpend).toEqual([expect.objectContaining({ usd: 0.01 })])
+    expect(left.aiSpend[0].userId).toBeUndefined()
     expect(left.users).toHaveLength(0)
     expect(left.accounts).toHaveLength(0)
     expect(left.codes).toHaveLength(0)

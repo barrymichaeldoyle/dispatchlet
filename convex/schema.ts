@@ -294,7 +294,8 @@ export default defineSchema({
     usd: v.number(),
   })
     .index('by_hour', ['hourStart'])
-    .index('by_hour_user', ['hourStart', 'userId']),
+    .index('by_hour_user', ['hourStart', 'userId'])
+    .index('by_user', ['userId']),
   aiCalls: defineTable({
     runId: v.optional(v.id('runs')),
     userId: v.optional(v.id('users')),
@@ -308,6 +309,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index('by_run', ['runId'])
+    .index('by_user', ['userId'])
     .index('by_createdAt', ['createdAt']),
   /** One row per device that asked for push, as the browser's PushSubscription. */
   pushSubscriptions: defineTable({
