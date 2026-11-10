@@ -1,4 +1,4 @@
-# Launch day: opening sign-up (7 November)
+# Launch day: opening sign-up (10 November)
 
 Nothing here has been run. Every step is Barry's call.
 
@@ -9,7 +9,7 @@ Nothing here has been run. Every step is Barry's call.
   They get in by signing in again.
 - With the flag on, the waiting list form endpoint answers 410 and stores nothing, and sign-ins
   stop joining the list.
-- A daily job deletes the closed list. Unconfirmed and unsubscribed rows go at once. The rest go
+- A daily job deletes the closed list. Unsubscribed rows go at once. The rest go
   14 days after their launch email, so its unsubscribe link works until then. `waitlist:purge`
   deletes everything by hand. Both do nothing while the flag is off.
 
@@ -20,7 +20,7 @@ The branch is not pushed, so Cloudflare builds nothing from it. It holds one com
 - The landing page swaps the waiting list form for a "Start with Buffer" link to /app. The same
   link goes on the demo's end screen and in the closing section. The "Sign-up opens 7 November"
   copy goes.
-- Privacy and terms are dated 7 Nov 2026. They say the list has closed. They also cover API
+- Privacy and terms are dated 10 Nov 2026. They say the list has closed. They also cover API
   tokens, webhooks, run URLs, assistant connections, browser notifications and shared runs, which
   the 18 October policy does not mention.
 - The end-to-end tests are updated, and the unused waiting list components are removed.
@@ -55,7 +55,8 @@ promise as long as the launch email goes out within two weeks of opening.
    git switch launch && git rebase main && git switch main && git merge --ff-only launch && git push
    ```
 
-5. Send the launch email. It is safe to run again, because rows already sent are skipped.
+5. Send the launch email. It goes to everyone on the list who has not unsubscribed, confirmed or
+   not. It is safe to run again, because rows already sent are skipped.
 
    ```sh
    npx convex run email:sendLaunch --prod

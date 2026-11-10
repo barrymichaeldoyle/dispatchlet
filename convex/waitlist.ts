@@ -189,7 +189,6 @@ export const purgeIps = internalMutation({
   },
 })
 
-/** Confirmed, not unsubscribed, not yet sent the launch email. */
 /** Used to send a test copy of the launch email to someone on the list. */
 export const byEmail = internalQuery({
   args: { email: v.string() },
@@ -203,13 +202,17 @@ export const byEmail = internalQuery({
   },
 })
 
+/**
+ * Everyone on the list who has not unsubscribed and has not been sent the launch email yet,
+ * whether or not they clicked the link in the confirmation email.
+ */
 export const nextLaunchBatch = internalQuery({
   args: { limit: v.number() },
   returns: v.array(v.object({ _id: v.id('waitlist'), email: v.string(), token: v.string() })),
   handler: async (ctx, { limit }) => {
     const rows = await ctx.db.query('waitlist').collect()
     return rows
-      .filter((r) => r.confirmedAt && !r.unsubscribedAt && !r.launchEmailSentAt)
+      .filter((r) => !r.unsubscribedAt && !r.launchEmailSentAt)
       .slice(0, limit)
       .map((r) => ({ _id: r._id, email: r.email, token: r.token }))
   },
@@ -248,8 +251,8 @@ export const purge = internalMutation({
 const LAUNCH_GRACE = 14 * 24 * 60 * 60 * 1000
 
 /**
- * Daily, once sign-up is open: rows that will never get the launch email (unconfirmed or
- * unsubscribed) go straight away, and the rest go 14 days after it was sent. That keeps the
+ * Daily, once sign-up is open: rows that will never get the launch email (unsubscribed) go
+ * straight away, and the rest go 14 days after it was sent. That keeps the
  * privacy policy's promise to delete the list within 30 days of it closing, as long as
  * `email:sendLaunch` runs in the first two weeks. Does nothing while the list is open.
  */
@@ -262,7 +265,7 @@ export const purgeClosed = internalMutation({
     const rows = await ctx.db.query('waitlist').take(2000)
     let deleted = 0
     for (const row of rows) {
-      const neverSent = !row.confirmedAt || row.unsubscribedAt !== undefined
+      const neverSent = row.unsubscribedAt !== undefined
       const sentLongAgo = row.launchEmailSentAt !== undefined && row.launchEmailSentAt < cutoff
       if (neverSent || sentLongAgo) {
         await ctx.db.delete(row._id)

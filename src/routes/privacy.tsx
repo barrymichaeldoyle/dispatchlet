@@ -13,11 +13,11 @@ export const Route = createFileRoute('/privacy')({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="7 Nov 2026">
+    <LegalPage title="Privacy policy" updated="10 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
         covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opened
-        on 7 November 2026, and the waiting list closed then.
+        on 10 November 2026, and the waiting list closed then.
       </p>
 
       <h2>The website and waiting list</h2>

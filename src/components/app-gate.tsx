@@ -156,7 +156,7 @@ function SignIn() {
       </button>
       {open === false ? (
         <p className="app-gate-note">
-          Dispatchlet opens on 7 November. If you sign in before then, your Buffer email goes on the
+          Dispatchlet isn’t open yet. If you sign in before it is, your Buffer email goes on the
           launch list.
         </p>
       ) : null}
@@ -170,12 +170,12 @@ function Waitlisted({ email }: { email: string | null }) {
       {email ? (
         <p>
           Thanks for signing in. Dispatchlet isn’t open yet. We’ll email <strong>{email}</strong>{' '}
-          when sign-up opens on 7 November.
+          when sign-up opens.
         </p>
       ) : (
         <p>
           Thanks for signing in. Dispatchlet isn’t open yet. Buffer didn’t share an email address,
-          so add yours on <a href="/">dispatchlet.com</a> to hear when it opens on 7 November.
+          so add yours on <a href="/">dispatchlet.com</a> to hear when it opens.
         </p>
       )}
       <div className="app-gate-actions">

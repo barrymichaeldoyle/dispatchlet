@@ -4,7 +4,6 @@ test('the app page offers Buffer sign-in and stays out of search', async ({ page
   await page.goto('/app')
   await expect(page.getByRole('heading', { name: 'Sign in to Dispatchlet' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign in with Buffer' })).toBeEnabled()
-  await expect(page.getByText('your Buffer email goes on the launch list')).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
   const sitemap = await (await request.get('/sitemap.xml')).text()
   expect(sitemap).not.toContain('/app')

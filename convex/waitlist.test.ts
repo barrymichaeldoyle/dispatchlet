@@ -274,7 +274,7 @@ describe('purgeIps', () => {
 })
 
 describe('nextLaunchBatch', () => {
-  it('only returns confirmed, subscribed, unsent rows', async () => {
+  it('returns subscribed, unsent rows, confirmed or not', async () => {
     const tc = t()
     const now = Date.now()
     await tc.run(async (ctx) => {
@@ -309,7 +309,7 @@ describe('nextLaunchBatch', () => {
       })
     })
     const batch = await tc.query(internal.waitlist.nextLaunchBatch, { limit: 50 })
-    expect(batch.map((r) => r.email)).toEqual(['yes@example.com'])
+    expect(batch.map((r) => r.email)).toEqual(['yes@example.com', 'unconfirmed@example.com'])
   })
 })
 
@@ -352,10 +352,10 @@ describe('after sign-up opens', () => {
     await row('unsent@example.com', { confirmedAt: 1 })
     expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(0)
     vi.stubEnv('SIGNUP_OPEN', 'true')
-    expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(3)
+    expect(await tc.mutation(internal.waitlist.purgeClosed, {})).toBe(2)
     const left = await tc.run((ctx) => ctx.db.query('waitlist').collect())
     expect(new Set(left.map((r) => r.email))).toEqual(
-      new Set(['recent@example.com', 'unsent@example.com']),
+      new Set(['recent@example.com', 'unsent@example.com', 'unconfirmed@example.com']),
     )
   })
 })

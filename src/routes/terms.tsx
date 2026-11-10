@@ -13,13 +13,13 @@ export const Route = createFileRoute('/terms')({
 
 function Terms() {
   return (
-    <LegalPage title="Terms of use" updated="7 Nov 2026">
+    <LegalPage title="Terms of use" updated="10 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. These terms
         apply when you use dispatchlet.com, join the waiting list or use the Dispatchlet app. If you
         do not agree with them, do not use the site or the app.
       </p>
-      <p>Sign-up for the app opened on 7 November 2026. The waiting list closed then.</p>
+      <p>Sign-up for the app opened on 10 November 2026. The waiting list closed then.</p>
 
       <h2>Your account</h2>
       <p>
