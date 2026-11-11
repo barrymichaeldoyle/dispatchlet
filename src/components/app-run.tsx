@@ -17,10 +17,12 @@ import {
   metricLabel,
   serviceName,
   timeIn,
+  relativeWhen,
   whenIn,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
+import { usePageTitle } from '../lib/use-page-title'
 
 const DECISION_WORDS: Record<string, string> = {
   kept: 'Kept',
@@ -372,6 +374,8 @@ function RunView({
   shared?: boolean
 }) {
   const runId = run._id
+  const runName = `${run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'}, ${relativeWhen(run.startedAt, run.timezone)}`
+  usePageTitle(shared ? null : `${runName} · ${run.automationName}`)
   const approve = useAction(api.runs.approve)
   const share = useMutation(api.runs.share)
   const unshare = useMutation(api.runs.unshare)
@@ -395,22 +399,19 @@ function RunView({
   ).length
   const progress = run.finishedAt ? 1 : Math.max(0.08, stepsDone / 4)
   const tz = run.timezone
-  const title = run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'
   return (
     <>
       {shared || !id ? (
         <p className="app-crumbs">{run.automationName}, shared from Dispatchlet.</p>
       ) : (
-        <p className="app-crumbs">
+        <p className="app-crumbs is-always">
           <Link to="/app">Home</Link> /{' '}
           <Link to="/app/a/$id" params={{ id }}>
             {run.automationName}
           </Link>
         </p>
       )}
-      <h1>
-        {title}, {whenIn(run.startedAt, tz)}
-      </h1>
+      <h1>{runName}</h1>
       <p className="app-status-line">
         {live
           ? 'Running.'

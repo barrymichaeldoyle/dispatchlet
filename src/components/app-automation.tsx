@@ -1,4 +1,5 @@
 import { PageSkeleton } from './page-skeleton'
+import { usePageTitle } from '../lib/use-page-title'
 import { MissingItem } from './route-error'
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
@@ -37,6 +38,7 @@ const STATUS_WORDS: Record<string, string> = {
 
 export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const a = useQuery(api.automations.get, { id })
+  usePageTitle(a?.name)
   const runs = useQuery(api.runs.listByAutomation, { automationId: id })
   const perf = useQuery(api.automations.performance, { id })
   const setStatus = useMutation(api.automations.setStatus)

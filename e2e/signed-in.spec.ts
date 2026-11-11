@@ -160,3 +160,20 @@ test('signing out says so, and never shows the signing-in screen on the way', as
   expect(headings).not.toContain('Signing you in')
   expect(headings.at(-1)).toBe('Sign in to Dispatchlet')
 })
+
+test('each page names the tab and takes focus to its heading', async ({ page }) => {
+  await openSignedIn(page)
+  await expect(page).toHaveTitle('Home | Dispatchlet')
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused()
+  await page.locator('.app-row-title').first().click()
+  await expect(page).toHaveTitle('F1 On This Day | Dispatchlet')
+  await expect(page.getByRole('heading', { level: 1, name: 'F1 On This Day' })).toBeFocused()
+  await page.locator('.app-tabs').first().getByRole('button', { name: /^Runs/ }).click()
+  await page.locator('.app-runs a').first().click()
+  await expect(page).toHaveTitle(/^Scheduled run, .+ · F1 On This Day \| Dispatchlet$/)
+  await expect(
+    page.locator('.app-crumbs').getByRole('link', { name: 'F1 On This Day' }),
+  ).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+})

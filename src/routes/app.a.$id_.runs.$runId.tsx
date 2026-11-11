@@ -4,6 +4,7 @@ import { RunPage } from '../components/app-run'
 import { MissingItem } from '../components/route-error'
 
 export const Route = createFileRoute('/app/a/$id_/runs/$runId')({
+  head: () => ({ meta: [{ title: 'Run | Dispatchlet' }] }),
   component: () => {
     const { id, runId } = Route.useParams()
     return <RunPage id={id as Id<'automations'>} runId={runId as Id<'runs'>} />

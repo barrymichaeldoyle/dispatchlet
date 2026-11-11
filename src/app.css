@@ -3894,3 +3894,19 @@ a.app-week-count:hover {
     padding: 0 16px;
   }
 }
+
+/* Side bar group labels are labels, not headings, so each page's h1 is the first heading. */
+.app-side-group > .app-side-heading {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+.app-gate h1:focus {
+  outline: none;
+}
+/* The run page names its automation at every width; the other crumbs stay phone-only. */
+.app-frame .app-crumbs.is-always {
+  display: block;
+}

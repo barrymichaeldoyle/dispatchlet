@@ -1,5 +1,5 @@
 import { ConvexAuthProvider, useAuthActions } from '@convex-dev/auth/react'
-import { Link, Outlet } from '@tanstack/react-router'
+import { Link, Outlet, useLocation } from '@tanstack/react-router'
 import { ConvexReactClient, useConvexAuth, useMutation, useQuery } from 'convex/react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -286,8 +286,46 @@ function AppShell({
     if (detected) void setTimezone({ timezone: detected }).catch(() => {})
   }, [timezone, setTimezone])
   const channels = connection?.channels ?? []
+  const pathname = useLocation({ select: (location) => location.pathname })
+  const mainRef = useRef<HTMLElement>(null)
+  const firstPath = useRef(pathname)
+  // After moving to another page, focus goes to the page, then to its heading once that has
+  // rendered (pages show an outline while they load), so keyboard and screen-reader users start
+  // at the new content rather than back at the top of the side bar.
+  useEffect(() => {
+    if (pathname === firstPath.current) return
+    firstPath.current = pathname
+    const main = mainRef.current
+    if (!main) return
+    const stale = main.querySelector('h1')
+    const settle = () => {
+      const heading = main.querySelector<HTMLElement>('h1')
+      if (!heading || heading === stale || !heading.isConnected) return false
+      // Someone already typing in the new page keeps their place.
+      if (document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'))
+        return true
+      heading.tabIndex = -1
+      heading.focus({ preventScroll: true })
+      return true
+    }
+    if (!document.activeElement || !main.contains(document.activeElement))
+      main.focus({ preventScroll: true })
+    if (settle()) return
+    const observer = new MutationObserver(() => {
+      if (settle()) observer.disconnect()
+    })
+    observer.observe(main, { childList: true, subtree: true })
+    const stop = window.setTimeout(() => observer.disconnect(), 5000)
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(stop)
+    }
+  }, [pathname])
   return (
     <FeedbackProvider>
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
       <div className="app-frame">
         <aside className="app-side">
           <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
@@ -312,8 +350,10 @@ function AppShell({
           </nav>
           {automations && automations.length ? (
             <div className="app-side-group">
-              <h2>Automations</h2>
-              <ul>
+              <p className="app-side-heading" id="side-automations">
+                Automations
+              </p>
+              <ul aria-labelledby="side-automations">
                 {automations.map((a) => (
                   <li key={a._id} data-status={a.status}>
                     <Link to="/app/a/$id" params={{ id: a._id }}>
@@ -330,8 +370,10 @@ function AppShell({
           ) : null}
           {channels.length ? (
             <div className="app-side-group">
-              <h2>Channels</h2>
-              <ul>
+              <p className="app-side-heading" id="side-channels">
+                Channels
+              </p>
+              <ul aria-labelledby="side-channels">
                 {channels.map((c) => (
                   <li
                     key={c.channelId}
@@ -381,7 +423,7 @@ function AppShell({
             <SignOut />
           </div>
         </aside>
-        <main className="app-gate is-app">
+        <main className="app-gate is-app" id="main-content" tabIndex={-1} ref={mainRef}>
           <div className="app-gate-inner">
             <header className="app-top">
               <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">

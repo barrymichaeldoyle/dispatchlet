@@ -4,6 +4,7 @@ import { AutomationPage } from '../components/app-automation'
 import { MissingItem } from '../components/route-error'
 
 export const Route = createFileRoute('/app/a/$id')({
+  head: () => ({ meta: [{ title: 'Automation | Dispatchlet' }] }),
   component: () => {
     const { id } = Route.useParams()
     return <AutomationPage id={id as Id<'automations'>} />
