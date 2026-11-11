@@ -96,6 +96,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     else proceed()
   }
   const allowance = a.allowance
+  // runs.trigger refuses a dry run past the free allowance, so the buttons do not offer one.
+  const outOfDryRuns = Boolean(allowance && !allowance.ownKey && allowance.dryRunsLeft === 0)
+  const allowanceNoteId = `${assistantId}-allowance`
   const status = STATUS_WORDS[a.status] ?? a.status
   // The run going now, and the first dry run's result, drive the "what next" line under the title.
   const live = runs?.find((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000)
@@ -136,7 +139,8 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             <button
               type="button"
               className="app-gate-secondary"
-              disabled={busy !== null || running}
+              disabled={busy !== null || running || outOfDryRuns}
+              aria-describedby={outOfDryRuns ? allowanceNoteId : undefined}
               onClick={() => run(true)}
             >
               <BusyLabel busy={busy === 'dry'} idle="Dry run" working="Starting" />
@@ -266,7 +270,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             </div>
           </div>
         ) : a.status === 'ready' ? (
-          <p className="app-muted">Try a dry run, then enable it.</p>
+          <p className="app-muted">
+            {outOfDryRuns ? 'Enable it when you are ready.' : 'Try a dry run, then enable it.'}
+          </p>
         ) : null}
       </div>
       {a.generationError ? (
@@ -275,10 +281,22 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         </p>
       ) : null}
       {allowance && !allowance.ownKey ? (
-        <p className="app-muted">
-          Dispatchlet covers your free runs. {allowance.dryRunsLeft} dry{' '}
-          {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
-          <Link to="/app/settings">Add your own Anthropic key</Link> to lift the limit.
+        <p className="app-muted" id={allowanceNoteId}>
+          {outOfDryRuns ? (
+            <>
+              No dry runs left.{' '}
+              <Link to="/app/settings" hash="anthropic">
+                Add your own Anthropic key
+              </Link>{' '}
+              to do more dry runs.
+            </>
+          ) : (
+            <>
+              Dispatchlet covers your free runs. {allowance.dryRunsLeft} dry{' '}
+              {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
+              <Link to="/app/settings">Add your own Anthropic key</Link> to lift the limit.
+            </>
+          )}
         </p>
       ) : null}
       {error ? (
@@ -311,7 +329,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           panelId={assistantId}
           automation={a}
           onDryRun={() => run(true)}
-          dryRunDisabled={busy !== null || running || !a.playbook}
+          dryRunDisabled={busy !== null || running || !a.playbook || outOfDryRuns}
         />
       ) : null}
       <nav className="app-tabs" aria-label="Sections">
