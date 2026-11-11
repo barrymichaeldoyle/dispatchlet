@@ -19,9 +19,14 @@ export function allowanceFor(user: {
   if (user.anthropicKeyEnc) return { ownKey: true, runsLeft: null, dryRunsLeft: null }
   return {
     ownKey: false,
-    runsLeft: Math.max(0, num('FREE_RUNS_PER_USER', 10) - (user.freeRunsUsed ?? 0)),
+    runsLeft: Math.max(0, freeRunsPerUser() - (user.freeRunsUsed ?? 0)),
     dryRunsLeft: Math.max(0, num('FREE_DRY_RUNS_PER_USER', 3) - (user.freeDryRunsUsed ?? 0)),
   }
+}
+
+/** Free runs each account gets before it needs its own key, for "8 of 10" on home. */
+export function freeRunsPerUser(): number {
+  return num('FREE_RUNS_PER_USER', 10)
 }
 
 /** Live automations per account, and playbooks written a day on Dispatchlet's key. */

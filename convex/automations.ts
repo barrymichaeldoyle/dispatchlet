@@ -674,6 +674,10 @@ export const dashboard = query({
         /** When each post of the last week reached Buffer, for the activity strip. */
         postTimes: sent.map((p) => p.createdAt),
         runTimes: runsThisWeek.filter((r) => r.kind !== 'dry').map((r) => r.startedAt),
+        /** Runs of the last week that failed, so the strip can tell a bad day from a quiet one. */
+        failTimes: runsThisWeek
+          .filter((r) => r.kind !== 'dry' && r.status === 'failed')
+          .map((r) => r.startedAt),
       })
     }
     const drafts = recentPosts
@@ -691,6 +695,28 @@ export const dashboard = query({
         limit: limits.get(p.channelId) ?? SERVICE_LIMITS[p.service as Service]?.maxLength ?? 280,
         createdAt: p.createdAt,
       }))
+    const automationNames = new Map(automations.map((a) => [a._id, a.name]))
+    const avatars = new Map(channels.map((c) => [c.channelId, c.avatar ?? null]))
+    /** What went to Buffer lately, newest first, so home shows the posts and not just counts. */
+    const recent = recentPosts
+      .filter((p) => p.bufferPostId && p.status !== 'draft' && automationNames.has(p.automationId))
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 5)
+      .map((p) => ({
+        _id: p._id,
+        runId: p.runId,
+        automationId: p.automationId,
+        automationName: automationNames.get(p.automationId) ?? '',
+        channelName: names.get(p.channelId) ?? p.service,
+        channelAvatar: avatars.get(p.channelId) ?? null,
+        channelId: p.channelId,
+        bufferPostId: p.bufferPostId ?? null,
+        service: p.service,
+        status: p.status,
+        text: p.text,
+        createdAt: p.createdAt,
+        at: p.sentAt ?? p.dueAt ?? p.plannedFor ?? null,
+      }))
     const user = await ctx.db.get(userId)
     const active = automations.filter((a) => a.status === 'active' && a.nextRunAt)
     return {
@@ -698,6 +724,10 @@ export const dashboard = query({
       drafts,
       postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length,
       nextRunAt: active.length ? Math.min(...active.map((a) => a.nextRunAt!)) : null,
+      nextRunName: active.length
+        ? active.reduce((a, b) => (b.nextRunAt! < a.nextRunAt! ? b : a)).name
+        : null,
+      recent,
       timezone: user?.timezone ?? 'UTC',
     }
   },

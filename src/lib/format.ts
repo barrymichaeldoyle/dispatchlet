@@ -19,6 +19,30 @@ export function whenIn(at: number, timeZone: string, now = Date.now()): string {
   return sameDay ? timeIn(at, timeZone) : `${dateIn(at, timeZone)} at ${timeIn(at, timeZone)}`
 }
 
+/**
+ * "Today, 09:00", "Tomorrow, 09:00", "Yesterday, 21:15", "Thu, 09:00" within the coming week,
+ * then "15 Oct, 09:00". For the home page, where a date alone makes people count days.
+ */
+export function relativeWhen(at: number, timeZone: string, now = Date.now()): string {
+  const time = timeIn(at, timeZone)
+  const dayNumber = (t: number) => {
+    const [y, m, d] = new Date(t)
+      .toLocaleDateString('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
+      .split('-')
+      .map(Number)
+    return Date.UTC(y!, m! - 1, d!) / 86_400_000
+  }
+  const days = dayNumber(at) - dayNumber(now)
+  if (days === 0) return `Today, ${time}`
+  if (days === 1) return `Tomorrow, ${time}`
+  if (days === -1) return `Yesterday, ${time}`
+  if (days > 1 && days < 7) {
+    const weekday = new Date(at).toLocaleDateString('en-GB', { timeZone, weekday: 'short' })
+    return `${weekday}, ${time}`
+  }
+  return `${dateIn(at, timeZone)}, ${time}`
+}
+
 /** A time zone as people say it: "Johannesburg time" for Africa/Johannesburg. */
 export function zoneName(timeZone: string): string {
   if (!timeZone.includes('/')) return timeZone

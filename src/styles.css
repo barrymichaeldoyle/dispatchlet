@@ -6821,3 +6821,274 @@ header nav button {
 .app-side-account .app-side-who {
   margin-bottom: 8px;
 }
+
+/* Home, 11 Nov: pine kept for actions and status, plain headings, posts shown, clearer strip. */
+.app-gate .app-section > h2 {
+  color: var(--color-ink);
+}
+.app-gate .app-section.is-danger > h2 {
+  color: var(--color-danger);
+}
+.app-gate .app-home-head {
+  margin-bottom: 4px;
+}
+.app-gate .app-home-head h1 {
+  font-size: clamp(26px, 3vw, 34px);
+}
+.app-stats > div {
+  display: flex;
+  flex-direction: column;
+}
+.app-stats > div[data-zero='true'] dd {
+  color: var(--color-muted);
+}
+.app-stats > div[data-attention='true'] dd a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 2px;
+}
+.app-stats-of {
+  margin-left: 2px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-muted);
+}
+.app-gate .app-stats dd.app-stats-note {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--color-muted);
+}
+.app-gate .app-stats dd.app-stats-meter {
+  position: relative;
+  height: 4px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--color-rule);
+  overflow: hidden;
+}
+.app-stats-meter > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--color-pine);
+}
+.app-stats > div[data-attention='true'] .app-stats-meter > span {
+  background: var(--color-danger);
+}
+.app-stats > div[data-attention='true'] .app-stats-note a {
+  color: var(--color-pine);
+}
+
+/* Automation rows: the name reads as a title, links underline on hover, times in ink. */
+.app-row {
+  grid-template-columns: minmax(160px, 1fr) minmax(200px, 1.4fr) auto minmax(132px, auto);
+  gap: 28px;
+}
+.app-row-name a.app-row-title {
+  color: var(--color-ink);
+  text-decoration: none;
+}
+.app-row-name a.app-row-title:hover {
+  color: var(--color-pine);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.app-row-last a.app-row-run {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+.app-row-last a.app-row-run:hover {
+  color: var(--color-ink);
+  text-decoration-color: currentColor;
+}
+.app-row-last > span[data-status='failed'] {
+  color: var(--color-danger);
+}
+.app-row[data-status='active'] .app-row-next strong {
+  color: var(--color-ink);
+}
+.app-row:not([data-status='active']) .app-row-next strong {
+  color: var(--color-muted);
+}
+.app-week-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.app-week-caption {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.app-week {
+  grid-template-columns: repeat(7, 32px);
+  gap: 4px;
+}
+.app-week-count {
+  width: 32px;
+}
+.app-week-day {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.app-week li[data-today='true'] .app-week-day {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+.app-week li[data-failed='true'] .app-week-count {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  font-weight: 600;
+}
+.app-week li[data-today='true'] .app-week-count {
+  outline: 0;
+  border-width: 2px;
+}
+.app-week li[data-today='true']:not([data-posts='true']):not([data-failed='true']) .app-week-count {
+  border-color: var(--color-muted);
+}
+
+/* Recent posts: each one as it reads, with where it went and how to find it. */
+.app-recent {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.app-recent-post {
+  display: grid;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.app-recent-post:first-child {
+  padding-top: 4px;
+}
+.app-recent-post:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.app-gate .app-recent-post p {
+  margin: 0;
+}
+.app-recent-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: 14px;
+}
+.app-recent-state {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-tint);
+  color: var(--color-pine);
+  font-size: 12px;
+  font-weight: 500;
+}
+.app-recent-post[data-status='failed'] .app-recent-state {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+.app-recent-post[data-status='sent'] .app-recent-state {
+  background: none;
+  padding: 0;
+  color: var(--color-muted);
+}
+.app-gate .app-recent-post .app-recent-text {
+  max-width: 72ch;
+  font-size: 15px;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.app-recent-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+}
+
+/* Side bar: the current page as a fill with a bar, a focus ring that hugs it, status as a dot. */
+.app-side-nav a,
+.app-side-nav .app-nav-button,
+.app-side-group li a {
+  position: relative;
+  border-radius: var(--radius-control);
+}
+.app-side-nav a:focus-visible,
+.app-side-nav .app-nav-button:focus-visible,
+.app-side-group li a:focus-visible,
+.app-side-small:focus-visible {
+  outline-offset: -2px;
+}
+.app-side-nav a[aria-current='page']::before,
+.app-side-group li a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  inset: 8px auto 8px 0;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-pine);
+}
+.app-side-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-side-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-muted);
+  opacity: 0.6;
+}
+.app-side-group li[data-status='active'] .app-side-dot {
+  background: var(--color-pine);
+  opacity: 1;
+}
+.app-side-group li[data-status='failed'] .app-side-dot {
+  background: var(--color-danger);
+  opacity: 1;
+}
+.app-side-group li[data-status='failed'] .app-side-state {
+  color: var(--color-danger);
+}
+.app-side-channel-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+.app-side-problem {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+/* Signing out is rare: a quiet text button under the name, not a second big control. */
+.app-side-account .app-gate-secondary {
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-muted);
+  font-size: 13px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}
+.app-side-account .app-gate-secondary:hover {
+  color: var(--color-ink);
+  background: none;
+}
+
+@media (max-width: 720px) {
+  .app-row {
+    grid-template-columns: 1fr;
+  }
+}

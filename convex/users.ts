@@ -9,7 +9,7 @@ import { deleteFeedbackFor } from './feedback'
 import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 import { httpsUrl } from './lib/buffer'
 import { decryptSecret, encryptSecret } from './lib/crypto'
-import { allowanceFor } from './lib/limits'
+import { allowanceFor, freeRunsPerUser } from './lib/limits'
 
 /** Who is signed in, and whether they may use the app yet (see lib/allowlist). */
 export const viewer = query({
@@ -26,6 +26,8 @@ export const viewer = query({
       allowed: v.boolean(),
       ownKey: v.boolean(),
       runsLeft: v.union(v.number(), v.null()),
+      /** The free allowance runsLeft counts down from. */
+      runsAllowed: v.number(),
       dryRunsLeft: v.union(v.number(), v.null()),
       keyInvalid: v.boolean(),
     }),
@@ -49,6 +51,7 @@ export const viewer = query({
       timezone: user.timezone ?? null,
       allowed: isAllowlisted(bufferId, email),
       ...allowanceFor(user),
+      runsAllowed: freeRunsPerUser(),
       keyInvalid: Boolean(user.anthropicKeyInvalidAt),
     }
   },

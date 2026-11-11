@@ -5,6 +5,7 @@ import {
   channelProblem,
   ideaLinkState,
   metricLabel,
+  relativeWhen,
   serviceList,
   zoneName,
 } from './format'
@@ -102,5 +103,22 @@ describe('a time zone in words', () => {
 
   it('leaves UTC as it is', () => {
     expect(zoneName('UTC')).toBe('UTC')
+  })
+})
+
+describe('times on the home page', () => {
+  const zone = 'Africa/Johannesburg'
+  // 11 Nov 2026, 20:50 in Johannesburg (UTC+2).
+  const now = Date.UTC(2026, 10, 11, 18, 50)
+  it('names today, tomorrow and yesterday in the person’s zone', () => {
+    expect(relativeWhen(Date.UTC(2026, 10, 11, 7, 0), zone, now)).toBe('Today, 09:00')
+    expect(relativeWhen(Date.UTC(2026, 10, 12, 7, 0), zone, now)).toBe('Tomorrow, 09:00')
+    expect(relativeWhen(Date.UTC(2026, 10, 10, 7, 0), zone, now)).toBe('Yesterday, 09:00')
+    // 22:30 UTC on the 11th is already the 12th in Johannesburg.
+    expect(relativeWhen(Date.UTC(2026, 10, 11, 22, 30), zone, now)).toBe('Tomorrow, 00:30')
+  })
+  it('uses the weekday within a week, then the date', () => {
+    expect(relativeWhen(Date.UTC(2026, 10, 14, 7, 0), zone, now)).toBe('Sat, 09:00')
+    expect(relativeWhen(Date.UTC(2026, 10, 20, 7, 0), zone, now)).toBe('20 Nov, 09:00')
   })
 })

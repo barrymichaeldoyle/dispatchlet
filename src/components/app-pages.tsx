@@ -6,6 +6,7 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
+import { Avatar } from './nav-icons'
 import { PostText } from './post-text'
 import {
   currentSubscription,
@@ -21,8 +22,8 @@ import {
   channelProblem,
   errorText as message,
   serviceName,
+  relativeWhen,
   usd,
-  whenIn,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
@@ -89,13 +90,11 @@ const STATUS_WORDS: Record<string, string> = {
   failed: 'paused after failures',
 }
 
-const RUN_KINDS: Record<string, string> = { scheduled: 'Scheduled run', now: 'Run', dry: 'Dry run' }
-
 type Dashboard = NonNullable<
   NonNullable<ReturnType<typeof useQuery<typeof api.automations.dashboard>>>
 >
 
-/** The home page: numbers first, then what needs a yes, then each automation as a row. */
+/** The home page: numbers first, then what needs a yes, each automation as a row, then the posts. */
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
   const data = useQuery(api.automations.dashboard)
@@ -105,7 +104,8 @@ export function AppHome() {
   const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
   if (!data || !data.automations.length || previewEmpty)
     return <EmptyHome firstName={firstName} viewer={viewer} />
-  const { automations, drafts, timezone } = data
+  const { automations, drafts, recent, timezone } = data
+  const runsLow = !viewer.ownKey && viewer.runsLeft !== null && viewer.runsLeft <= 3
   return (
     <>
       <div className="app-home-head">
@@ -119,26 +119,52 @@ export function AppHome() {
           <dt>Posts this week</dt>
           <dd className="tabular">{data.postsThisWeek}</dd>
         </div>
-        <div data-attention={drafts.length > 0}>
-          <dt>Waiting for a yes</dt>
-          <dd className="tabular">{drafts.length}</dd>
+        <div data-attention={drafts.length > 0} data-zero={drafts.length === 0}>
+          <dt>Awaiting approval</dt>
+          <dd className="tabular">
+            {drafts.length ? <a href="#approvals">{drafts.length}</a> : 0}
+          </dd>
         </div>
         <div>
           <dt>Next run</dt>
-          <dd className="tabular" data-text={!data.nextRunAt}>
-            {data.nextRunAt ? whenIn(data.nextRunAt, timezone) : 'None yet'}
+          <dd data-text={!data.nextRunAt}>
+            {data.nextRunAt ? relativeWhen(data.nextRunAt, timezone) : 'Nothing scheduled'}
           </dd>
+          {data.nextRunAt && data.nextRunName && automations.length > 1 ? (
+            <dd className="app-stats-note">{data.nextRunName}</dd>
+          ) : null}
         </div>
-        <div>
+        <div data-attention={runsLow}>
           <dt>{viewer.ownKey ? 'Runs' : 'Free runs left'}</dt>
-          <dd className="tabular" data-text={viewer.ownKey}>
-            {viewer.ownKey ? 'On your key' : viewer.runsLeft}
-          </dd>
+          {viewer.ownKey || viewer.runsLeft === null ? (
+            <dd data-text="true">On your key</dd>
+          ) : (
+            <>
+              <dd className="tabular">
+                {viewer.runsLeft}
+                <span className="app-stats-of"> of {viewer.runsAllowed}</span>
+              </dd>
+              <dd className="app-stats-meter" aria-hidden="true">
+                <span
+                  style={{
+                    width: `${Math.min(100, (viewer.runsLeft / Math.max(1, viewer.runsAllowed)) * 100)}%`,
+                  }}
+                />
+              </dd>
+              {runsLow ? (
+                <dd className="app-stats-note">
+                  <Link to="/app/settings" hash="anthropic">
+                    Add your Anthropic key
+                  </Link>
+                </dd>
+              ) : null}
+            </>
+          )}
         </div>
       </dl>
       {drafts.length ? (
-        <section className="app-section is-plain">
-          <h2>Waiting for a yes</h2>
+        <section className="app-section is-plain" id="approvals">
+          <h2>Awaiting approval</h2>
           <ul className="app-drafts">
             {drafts.slice(0, 6).map((d) => (
               <DraftCard key={d._id} draft={d} />
@@ -154,7 +180,70 @@ export function AppHome() {
           ))}
         </ul>
       </section>
+      <section className="app-section">
+        <h2>Recent posts</h2>
+        {recent.length ? (
+          <ul className="app-recent">
+            {recent.map((p) => (
+              <RecentPost key={p._id} post={p} timezone={timezone} />
+            ))}
+          </ul>
+        ) : (
+          <p className="app-muted">
+            Nothing has gone to Buffer in the last week. Posts show up here as soon as a run sends
+            them.
+          </p>
+        )}
+      </section>
     </>
+  )
+}
+
+const POST_STATES: Record<string, string> = {
+  queued: 'In the Buffer queue',
+  scheduled: 'Scheduled',
+  publishing: 'Sending',
+  sent: 'Posted',
+  failed: 'Failed in Buffer',
+}
+
+/** One post that went to Buffer: where, when, what it says, and where to see it. */
+function RecentPost({ post, timezone }: { post: Dashboard['recent'][number]; timezone: string }) {
+  const state = POST_STATES[post.status] ?? post.status
+  const when = post.at ?? post.createdAt
+  const prefix = post.status === 'sent' ? '' : post.at ? 'for ' : 'added '
+  return (
+    <li className="app-recent-post" data-status={post.status}>
+      <p className="app-recent-head">
+        <Avatar src={post.channelAvatar} size={28} badge>
+          <ChannelMark channel={serviceName(post.service)} size={post.channelAvatar ? 9 : 14} />
+        </Avatar>
+        <strong>{post.channelName}</strong>
+        <span className="app-recent-state">{state}</span>
+        <span className="app-muted">
+          {prefix}
+          {relativeWhen(when, timezone)}
+        </span>
+      </p>
+      <PostText text={post.text} className="app-draft-text app-recent-text" />
+      <p className="app-recent-links">
+        <a
+          href={bufferChannelUrl(post.channelId, post.status, post.bufferPostId)}
+          target="_blank"
+          rel="noreferrer"
+          className="app-link"
+        >
+          Open in Buffer
+        </a>
+        <Link
+          to="/app/a/$id/runs/$runId"
+          params={{ id: post.automationId, runId: post.runId }}
+          className="app-link"
+        >
+          From {post.automationName}
+        </Link>
+      </p>
+    </li>
   )
 }
 
@@ -328,14 +417,20 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
 
 const DAY = 86_400_000
 
-/** The last seven days as cells: posts as a count in pine, a run with no post as a dot, today outlined. */
+/**
+ * The last seven days as cells: posts as a count in pine, a run with no post as a dot, a failed
+ * run in the danger colour, today outlined. Days are named in three letters so two Tuesdays
+ * and Thursdays can't be confused, and the full date is in the tooltip.
+ */
 function WeekStrip({
   postTimes,
   runTimes,
+  failTimes,
   timezone,
 }: {
   postTimes: number[]
   runTimes: number[]
+  failTimes: number[]
   timezone: string
 }) {
   const [now] = useState(() => Date.now())
@@ -344,31 +439,55 @@ function WeekStrip({
   const days = Array.from({ length: 7 }, (_, i) => {
     const at = now - (6 - i) * DAY
     const key = dayKey(at)
+    const posts = postTimes.filter((t) => dayKey(t) === key).length
+    const failed = failTimes.some((t) => dayKey(t) === key)
     return {
       key,
-      label: new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, weekday: 'narrow' }),
-      posts: postTimes.filter((t) => dayKey(t) === key).length,
+      label: new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, weekday: 'short' }),
+      full: new Date(at).toLocaleDateString('en-GB', {
+        timeZone: timezone,
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      }),
+      posts,
       ran: runTimes.some((t) => dayKey(t) === key),
+      failed: failed && posts === 0,
       today: i === 6,
     }
   })
+  const describe = (d: (typeof days)[number]) =>
+    d.posts
+      ? `${d.posts} ${d.posts === 1 ? 'post' : 'posts'}`
+      : d.failed
+        ? 'run failed'
+        : d.ran
+          ? 'ran, nothing posted'
+          : 'no run'
   return (
-    <ol className="app-week" aria-label="Posts in the last seven days">
-      {days.map((d) => (
-        <li
-          key={d.key}
-          data-today={d.today}
-          data-posts={d.posts > 0}
-          data-ran={d.ran}
-          title={`${d.key}: ${d.posts} ${d.posts === 1 ? 'post' : 'posts'}`}
-        >
-          <span className="app-week-day" aria-hidden="true">
-            {d.label}
-          </span>
-          <span className="app-week-count tabular">{d.posts > 0 ? d.posts : d.ran ? '·' : ''}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="app-week-wrap">
+      <span className="app-week-caption">Last 7 days</span>
+      <ol className="app-week" aria-label="Posts in the last seven days">
+        {days.map((d) => (
+          <li
+            key={d.key}
+            data-today={d.today}
+            data-posts={d.posts > 0}
+            data-ran={d.ran}
+            data-failed={d.failed}
+            title={`${d.today ? 'Today' : d.full}: ${describe(d)}`}
+          >
+            <span className="app-week-day" aria-hidden="true">
+              {d.today ? 'Today' : d.label}
+            </span>
+            <span className="app-week-count tabular" aria-hidden="true">
+              {d.posts > 0 ? d.posts : d.failed ? '!' : d.ran ? '·' : ''}
+            </span>
+            <span className="visually-hidden">{`${d.full}: ${describe(d)}`}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   )
 }
 
@@ -376,7 +495,7 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
   return (
     <li className="app-row" data-status={a.status}>
       <div className="app-row-name">
-        <Link to="/app/a/$id" params={{ id: a._id }}>
+        <Link to="/app/a/$id" params={{ id: a._id }} className="app-row-title">
           {a.name}
         </Link>
         <span className="app-muted">{describeCadence(a.cadence)}</span>
@@ -384,21 +503,35 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
       <div className="app-row-last">
         {a.lastRun ? (
           <>
-            <Link to="/app/a/$id/runs/$runId" params={{ id: a._id, runId: a.lastRun._id }}>
-              {RUN_KINDS[a.lastRun.kind] ?? 'Run'} {whenIn(a.lastRun.startedAt, a.timezone)}
-            </Link>
-            <span>{a.lastRun.finished ? a.lastRun.note : 'Running.'}</span>
+            <span className="app-muted">
+              Last {a.lastRun.kind === 'dry' ? 'dry run' : 'run'} ·{' '}
+              <Link
+                to="/app/a/$id/runs/$runId"
+                params={{ id: a._id, runId: a.lastRun._id }}
+                className="app-row-run"
+              >
+                {relativeWhen(a.lastRun.startedAt, a.timezone)}
+              </Link>
+            </span>
+            <span data-status={a.lastRun.status}>
+              {a.lastRun.finished ? a.lastRun.note : 'Running now.'}
+            </span>
           </>
         ) : (
           <span className="app-muted">No runs yet. Try a dry run.</span>
         )}
       </div>
-      <WeekStrip postTimes={a.postTimes} runTimes={a.runTimes} timezone={timezone} />
+      <WeekStrip
+        postTimes={a.postTimes}
+        runTimes={a.runTimes}
+        failTimes={a.failTimes}
+        timezone={timezone}
+      />
       <div className="app-row-next">
         {a.status === 'active' && a.nextRunAt ? (
           <>
             <span className="app-muted">Next run</span>
-            <strong className="tabular">{whenIn(a.nextRunAt, a.timezone)}</strong>
+            <strong>{relativeWhen(a.nextRunAt, a.timezone)}</strong>
           </>
         ) : (
           <>

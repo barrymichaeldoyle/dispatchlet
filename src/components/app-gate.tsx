@@ -311,7 +311,10 @@ function AppShell({
                   <li key={a._id} data-status={a.status}>
                     <Link to="/app/a/$id" params={{ id: a._id }}>
                       <span className="app-side-name">{a.name}</span>
-                      <span className="app-side-state">{SIDE_STATES[a.status] ?? a.status}</span>
+                      <span className="app-side-state">
+                        <span className="app-side-dot" aria-hidden="true" />
+                        {SIDE_STATES[a.status] ?? a.status}
+                      </span>
                     </Link>
                   </li>
                 ))}
@@ -332,12 +335,17 @@ function AppShell({
                       <Avatar src={c.avatar} size={24} badge>
                         <ChannelMark channel={serviceName(c.service)} size={c.avatar ? 9 : 14} />
                       </Avatar>
-                      <span className="app-side-name">{c.name}</span>
-                      {c.usable ? null : (
-                        <span className="visually-hidden">
-                          {` (${channelProblem(c.problem, c.service)})`}
-                        </span>
-                      )}
+                      <span className="app-side-channel-text">
+                        <span className="app-side-name">{c.name}</span>
+                        {c.usable ? null : (
+                          <span className="app-side-problem">
+                            {CHANNEL_PROBLEMS[c.problem ?? ''] ?? 'needs attention'}
+                            <span className="visually-hidden">
+                              {`: ${channelProblem(c.problem, c.service)}`}
+                            </span>
+                          </span>
+                        )}
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -387,8 +395,15 @@ function AppShell({
 
 const SIDE_STATES: Record<string, string> = {
   generating: 'writing',
-  ready: 'not enabled',
+  ready: 'off',
   active: 'on',
   paused: 'paused',
-  failed: 'paused',
+  failed: 'failing',
+}
+
+/** Why a channel in the side list is greyed out, short enough to sit under its name. */
+const CHANNEL_PROBLEMS: Record<string, string> = {
+  unsupported: 'can’t post here yet',
+  disconnected: 'disconnected in Buffer',
+  locked: 'locked in Buffer',
 }
