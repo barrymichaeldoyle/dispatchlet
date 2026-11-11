@@ -1200,7 +1200,7 @@ function PlaybookEditor({
             summary={`${form.freshnessHours % 24 === 0 ? `${form.freshnessHours / 24} days` : `${form.freshnessHours} hours`} of news · ${form.include.length} include ${form.include.length === 1 ? 'rule' : 'rules'} · ${form.exclude.length} skip ${form.exclude.length === 1 ? 'rule' : 'rules'}`}
           >
             <label>
-              <span>Only stories from the last</span>
+              <span>For recent news, only stories from the last</span>
               <select
                 {...fieldProps(`freshnessHours`)}
                 value={form.freshnessHours}

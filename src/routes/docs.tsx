@@ -56,7 +56,7 @@ goodnewsnetwork.org
 Search the web for "conservation success this week".
 
 ## Post about
-Only stories from the last 2 days.
+For recent news, only stories from the last 2 days.
 A measurable outcome, such as a species count.
 
 ## Skip
@@ -72,11 +72,11 @@ X: One fact, one line, the link last.
 LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source article`}</pre>
       <p>
         A source line is a site or URL, an optional note after a comma, and “Check first” for the
-        ones to open on every run. “Only stories from the last N days” sets how far back a run
-        looks. A format line starts with the channel name; “Up to N characters” tightens that
-        channel’s limit, “A thread when the story needs one” allows threads, and “Link:” says where
-        the link goes. If a line is not understood, the editor names it and keeps the last good
-        version.
+        ones to open on every run. “For recent news, only stories from the last N days” sets how far
+        back a news run looks; history and on-this-day research ignore it. A format line starts with
+        the channel name; “Up to N characters” tightens that channel’s limit, “A thread when the
+        story needs one” allows threads, and “Link:” says where the link goes. If a line is not
+        understood, the editor names it and keeps the last good version.
       </p>
 
       <h2>A run</h2>

@@ -58,7 +58,7 @@ describe('playbook form validation', () => {
       ['Stories for readers.', 'about'],
       ['example.com, Reporting', 'sources.0.url'],
       ['Search the web for "news today".', 'searchQueries'],
-      ['Only stories from the last 2 days.', 'freshnessHours'],
+      ['For recent news, only stories from the last 2 days.', 'freshnessHours'],
       ['Verified stories', 'include'],
       ['Rumours', 'exclude'],
       ['Direct', 'voice.tone'],

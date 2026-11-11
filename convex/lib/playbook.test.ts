@@ -72,7 +72,7 @@ describe('the playbook text', () => {
     ])
     expect(text).toContain('positive.news, Solutions journalism. Check first.')
     expect(text).toContain('Search the web for "conservation success this week".')
-    expect(text).toContain('Only stories from the last 2 days.')
+    expect(text).toContain('For recent news, only stories from the last 2 days.')
     expect(text).toContain(
       'LinkedIn: Three short paragraphs: what happened, why it matters, the link. Up to 1200 characters. Link: the source article',
     )
@@ -95,7 +95,7 @@ describe('the playbook text', () => {
         { service: 'bluesky', style: 'Terse.', maxLength: null, thread: true, linkBack: null },
       ],
     })
-    expect(text).toContain('Only stories from the last 36 hours.')
+    expect(text).toContain('For recent news, only stories from the last 36 hours.')
     expect(text).toContain('Bluesky: Terse. A thread when the story needs one.')
     const parsed = parsePlaybook(text)
     expect(parsed.ok && parsed.playbook.freshnessHours).toBe(36)
@@ -126,6 +126,19 @@ describe('the playbook text', () => {
     expect(
       parsePlaybook('# A\n\n## Post about\nCats.\n  Only stories from the last 2 hours.'),
     ).toMatchObject({ ok: false, line: 5 })
+  })
+
+  it('reads the freshness line with or without "For recent news,", and never as a rule', () => {
+    for (const line of [
+      'Only stories from the last 3 days.',
+      'For recent news, only stories from the last 3 days.',
+    ]) {
+      const parsed = parsePlaybook(`# A\n\n## Post about\n${line}\nCats.`)
+      expect(parsed).toMatchObject({
+        ok: true,
+        playbook: { freshnessHours: 72, include: ['Cats.'] },
+      })
+    }
   })
 
   it('only turns threads on for the phrase the renderer writes', () => {

@@ -71,10 +71,14 @@ const SERVICE_BY_NAME = Object.fromEntries(
 const SECTIONS = ['About', 'Sources', 'Searches', 'Post about', 'Skip', 'Tone', 'Formats'] as const
 type Section = (typeof SECTIONS)[number]
 
+/**
+ * How far back a news run looks. History and on-this-day research ignore it, so the line says
+ * which research it is for. Older playbooks without "For recent news," still parse.
+ */
 const freshnessLine = (hours: number) =>
   hours % 24 === 0
-    ? `Only stories from the last ${hours / 24 === 1 ? 'day' : `${hours / 24} days`}.`
-    : `Only stories from the last ${hours} hours.`
+    ? `For recent news, only stories from the last ${hours / 24 === 1 ? 'day' : `${hours / 24} days`}.`
+    : `For recent news, only stories from the last ${hours} hours.`
 
 /** The playbook as the text the user edits. Deterministic: the same playbook gives the same text. */
 export function renderPlaybook(p: Playbook): string {
@@ -201,7 +205,9 @@ export function parsePlaybook(text: string): ParseResult {
   let freshnessAt = 1
   const include: string[] = []
   for (const l of sentences(body['Post about'])) {
-    const hours = /^only stories from the last/i.test(l) ? parseFreshness(l) : null
+    const hours = /^(for recent news, )?only stories from the last/i.test(l)
+      ? parseFreshness(l)
+      : null
     if (hours) {
       freshnessHours = hours
       freshnessAt = lineOf(lines, l)
