@@ -43,6 +43,26 @@ export function relativeWhen(at: number, timeZone: string, now = Date.now()): st
   return `${dateIn(at, timeZone)}, ${time}`
 }
 
+/**
+ * What "Save as drafts" can promise about email, from the person's notification settings. The
+ * approve email only goes out for 'every' or 'drafts', and only with email on (runs.finish).
+ */
+export function draftEmailNote(prefs: string, emailEnabled: boolean): string {
+  if (!emailEnabled)
+    return 'Email is off in Settings, so drafts wait for you on Home and in Buffer.'
+  if (prefs === 'problems' || prefs === 'never')
+    return `Approval emails are off (notifications: ${prefs === 'never' ? 'never' : 'only problems'}), so drafts wait for you on Home and in Buffer.`
+  return 'Each run that makes drafts emails you an approve link for each one.'
+}
+
+/** relativeWhen in the middle of a sentence: "for tomorrow, 09:00", "sent today, 09:02". */
+export function relativeWhenInline(at: number, timeZone: string, now = Date.now()): string {
+  const text = relativeWhen(at, timeZone, now)
+  return /^(Today|Tomorrow|Yesterday)/.test(text)
+    ? text.charAt(0).toLowerCase() + text.slice(1)
+    : text
+}
+
 /** A time zone as people say it: "Johannesburg time" for Africa/Johannesburg. */
 export function zoneName(timeZone: string): string {
   if (!timeZone.includes('/')) return timeZone

@@ -3910,3 +3910,30 @@ a.app-week-count:hover {
 .app-frame .app-crumbs.is-always {
   display: block;
 }
+
+/* Runs tab: each run's outcome named in a small label; a failure in the alert colour, not grey. */
+.app-runs-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.app-runs-status {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-tint);
+  color: var(--color-pine);
+  font-size: 12px;
+  font-weight: 500;
+}
+.app-runs-status[data-status='failed'] {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+.app-runs-status[data-status='skipped'] {
+  background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+  color: var(--color-muted);
+}
+.app-runs li[data-status='failed'] .app-runs-outcome {
+  color: var(--color-ink);
+}

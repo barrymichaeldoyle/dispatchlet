@@ -24,6 +24,7 @@ import {
   errorText as message,
   serviceName,
   relativeWhen,
+  relativeWhenInline,
   usd,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
@@ -256,21 +257,14 @@ function homeStatus({ data, viewer }: { data: Dashboard; viewer: Viewer }): {
   if (upcomingAt)
     return {
       tone: 'ok',
-      text: `All good. The next post goes out ${lowerFirst(relativeWhen(upcomingAt, data.timezone))}.`,
+      text: `All good. The next post goes out ${relativeWhenInline(upcomingAt, data.timezone)}.`,
     }
   if (data.nextRunAt)
     return {
       tone: 'ok',
-      text: `All good. ${data.nextRunName ?? 'The next run'} runs ${lowerFirst(relativeWhen(data.nextRunAt, data.timezone))}.`,
+      text: `All good. ${data.nextRunName ?? 'The next run'} runs ${relativeWhenInline(data.nextRunAt, data.timezone)}.`,
     }
   return { tone: 'idle', text: 'Nothing is scheduled. Turn an automation on to start posting.' }
-}
-
-/** "tomorrow, 09:00" in the middle of a sentence; weekday and month names keep their capital. */
-function lowerFirst(text: string): string {
-  return /^(Today|Tomorrow|Yesterday)/.test(text)
-    ? text.charAt(0).toLowerCase() + text.slice(1)
-    : text
 }
 
 const POST_STATES: Record<string, string> = {
@@ -295,9 +289,7 @@ function RecentPost({ post, timezone }: { post: Dashboard['recent'][number]; tim
         <strong>{post.channelName}</strong>
         <span className="app-recent-state">{state}</span>
         <span className="app-muted">
-          {prefix
-            ? `${prefix}${lowerFirst(relativeWhen(when, timezone))}`
-            : relativeWhen(when, timezone)}
+          {prefix ? `${prefix}${relativeWhenInline(when, timezone)}` : relativeWhen(when, timezone)}
         </span>
       </p>
       <PostText text={post.text} className="app-draft-text app-recent-text" />
@@ -1215,7 +1207,13 @@ function EmailPrefs() {
               onChange={(e) => run({ emailEnabled: e.target.checked })}
             />
             <span>Email</span>
-            <span className="app-muted">With approve links for drafts.</span>
+            <span className="app-muted">
+              {usage.emailPrefs === 'never'
+                ? 'Nothing is sent while “When” is Never.'
+                : usage.emailPrefs === 'problems'
+                  ? 'Only when something goes wrong; drafts are not emailed.'
+                  : 'With approve links for drafts.'}
+            </span>
           </label>
         </li>
         <PushChoice />

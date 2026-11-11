@@ -4,6 +4,7 @@ import {
   channelHint,
   channelProblem,
   ideaLinkState,
+  draftEmailNote,
   metricLabel,
   relativeWhen,
   serviceList,
@@ -120,5 +121,15 @@ describe('times on the home page', () => {
   it('uses the weekday within a week, then the date', () => {
     expect(relativeWhen(Date.UTC(2026, 10, 14, 7, 0), zone, now)).toBe('Sat, 09:00')
     expect(relativeWhen(Date.UTC(2026, 10, 20, 7, 0), zone, now)).toBe('20 Nov, 09:00')
+  })
+})
+
+describe('what drafts promise about email', () => {
+  it('promises an approve link only when one will be sent', () => {
+    expect(draftEmailNote('every', true)).toMatch(/emails you an approve link/)
+    expect(draftEmailNote('drafts', true)).toMatch(/emails you an approve link/)
+    expect(draftEmailNote('problems', true)).toMatch(/Approval emails are off .*only problems/)
+    expect(draftEmailNote('never', true)).toMatch(/Approval emails are off .*never/)
+    expect(draftEmailNote('every', false)).toMatch(/^Email is off in Settings/)
   })
 })

@@ -18,7 +18,7 @@ import {
   serviceName,
   timeIn,
   relativeWhen,
-  whenIn,
+  relativeWhenInline,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
@@ -186,9 +186,12 @@ const REVIEW_REASONS = [
 function StoryReview({
   story,
   hasBufferPosts,
+  published,
 }: {
   story: RunData['stories'][number]
   hasBufferPosts: boolean
+  /** Its post already went out or is booked: skipping teaches future runs, it doesn't un-post. */
+  published: boolean
 }) {
   const skip = useMutation(api.runs.skipStory)
   const undo = useMutation(api.runs.undoSkipStory)
@@ -288,7 +291,10 @@ function StoryReview({
   if (!open)
     return (
       <button type="button" className="app-link" onClick={() => setOpen(true)}>
-        Skip this story
+        {published ? 'Not a good pick? Tell future runs' : 'Skip this story'}
+        {published ? (
+          <span className="visually-hidden">. This does not remove the post from Buffer.</span>
+        ) : null}
       </button>
     )
   const cleanReason = reason === 'Something else' ? details.trim() : reason
@@ -522,6 +528,11 @@ function RunView({
                       hasBufferPosts={run.posts.some(
                         (p) => p.storyId === s._id && Boolean(p.bufferPostId),
                       )}
+                      published={run.posts.some(
+                        (p) =>
+                          p.storyId === s._id &&
+                          ['sent', 'scheduled', 'queued', 'publishing'].includes(p.status),
+                      )}
                     />
                   ) : null}
                   {!shared && id && IDEA_DECISIONS.has(s.decision) ? (
@@ -550,11 +561,11 @@ function RunView({
                     <span className="app-muted">
                       {POST_WORDS[p.status] ?? p.status}
                       {p.dueAt
-                        ? ` for ${whenIn(p.dueAt, tz)}`
+                        ? ` for ${relativeWhenInline(p.dueAt, tz)}`
                         : p.plannedFor
-                          ? `, planned for ${whenIn(p.plannedFor, tz)}`
+                          ? `, planned for ${relativeWhenInline(p.plannedFor, tz)}`
                           : ''}
-                      {p.sentAt ? ` at ${whenIn(p.sentAt, tz)}` : ''}
+                      {p.sentAt ? ` ${relativeWhenInline(p.sentAt, tz)}` : ''}
                     </span>
                   </p>
                   {story ? <p className="app-muted app-draft-story">{story.title}</p> : null}

@@ -11,6 +11,8 @@ import { describePlan, MAX_PLANNED_STORIES, WEEKDAYS } from '../../convex/lib/pl
 import { describeCadence, nextRunAt } from '../../convex/lib/schedule'
 import { ChannelMark } from './brand-icons'
 import {
+  relativeWhen,
+  draftEmailNote,
   channelProblem,
   errorText,
   metricLabel,
@@ -36,8 +38,16 @@ const STATUS_WORDS: Record<string, string> = {
   failed: 'paused after 3 failed runs',
 }
 
+/** A run's outcome in one word, so a failure is named and not just greyed out. */
+const RUN_STATUS: Record<string, string> = {
+  done: 'Done',
+  failed: 'Failed',
+  skipped: 'Skipped',
+}
+
 export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const a = useQuery(api.automations.get, { id })
+  const viewer = useQuery(api.users.viewer)
   usePageTitle(a?.name)
   const runs = useQuery(api.runs.listByAutomation, { automationId: id })
   const perf = useQuery(api.automations.performance, { id })
@@ -173,7 +183,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <div data-attention={a.status === 'active'}>
             <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
             <dd data-text={!(a.status === 'active' && a.nextRunAt)}>
-              {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
+              {a.status === 'active' && a.nextRunAt
+                ? relativeWhen(a.nextRunAt, a.timezone)
+                : status}
             </dd>
           </div>
           <div>
@@ -187,7 +199,14 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <div>
             <dt>{allowance?.ownKey ? 'AI usage' : 'Free runs left'}</dt>
             <dd className="tabular" data-text={Boolean(allowance?.ownKey)}>
-              {allowance?.ownKey ? 'On your key' : (allowance?.runsLeft ?? '—')}
+              {allowance?.ownKey ? (
+                'On your key'
+              ) : (
+                <>
+                  {allowance?.runsLeft ?? '—'}
+                  {viewer ? <span className="app-stats-of"> of {viewer.runsAllowed}</span> : null}
+                </>
+              )}
             </dd>
           </div>
         </dl>
@@ -360,10 +379,18 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
                 <li key={r._id} data-status={r.finishedAt ? r.status : 'running'}>
                   <div className="app-runs-when">
                     <Link to="/app/a/$id/runs/$runId" params={{ id, runId: r._id }}>
-                      {whenIn(r.startedAt, a.timezone)}
+                      {relativeWhen(r.startedAt, a.timezone)}
                     </Link>
-                    <span className="app-muted">
-                      {r.kind === 'dry' ? 'Dry run' : r.kind === 'now' ? 'Run now' : 'Scheduled'}
+                    <span className="app-runs-meta">
+                      <span
+                        className="app-runs-status"
+                        data-status={r.finishedAt ? r.status : 'running'}
+                      >
+                        {r.finishedAt ? (RUN_STATUS[r.status] ?? r.status) : 'Running'}
+                      </span>
+                      <span className="app-muted">
+                        {r.kind === 'dry' ? 'Dry run' : r.kind === 'now' ? 'Run now' : 'Scheduled'}
+                      </span>
                     </span>
                   </div>
                   <p className="app-runs-outcome">
@@ -423,6 +450,7 @@ type Loaded = NonNullable<ReturnType<typeof useQuery<typeof api.automations.get>
 
 function ScheduleEditor({ a }: { a: Loaded }) {
   const connection = useQuery(api.buffer.myConnection)
+  const usage = useQuery(api.users.usage)
   const update = useMutation(api.automations.updateConfig)
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   const [message, setMessage] = useState('')
@@ -610,7 +638,9 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           [
             'draft',
             'Save as drafts',
-            'They wait in Buffer for your approval. Each run emails you an approve link for each draft.',
+            `They wait in Buffer for your approval. ${
+              usage ? draftEmailNote(usage.emailPrefs, usage.emailEnabled) : ''
+            }`.trim(),
           ],
           ['queue', 'Add to the queue', 'Into the next free slots on each channel.'],
           [
