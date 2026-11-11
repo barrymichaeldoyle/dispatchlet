@@ -3507,3 +3507,156 @@ a.app-week-count:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/*
+ * Polish, 11 Nov (3): field borders at half strength (still 3:1 against the card in both themes),
+ * pine on focus; the schedule's time sized to its value and story counts as a segmented control;
+ * a finished run without a spent progress bar; story rows as plain rows with a status badge.
+ */
+.app-select,
+.app-form input:not([type='checkbox'], [type='radio']),
+.app-form textarea,
+.app-form select,
+.app-editor {
+  border-color: color-mix(in srgb, var(--color-ink) 50%, var(--color-card));
+  border-radius: var(--radius-control);
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.app-select:focus-visible,
+.app-form input:not([type='checkbox'], [type='radio']):focus-visible,
+.app-form textarea:focus-visible,
+.app-form select:focus-visible {
+  border-color: var(--color-pine);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-pine) 25%, transparent);
+}
+.app-editor {
+  overflow: hidden;
+}
+
+.app-schedule input[type='time'] {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+.app-segments {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 0;
+  padding: 3px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-paper);
+}
+.app-segments .app-radio {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 6px;
+  color: var(--color-muted);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+.app-segments .app-radio input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.app-segments .app-radio:hover {
+  color: var(--color-ink);
+}
+.app-segments .app-radio[data-checked='true'] {
+  background: var(--color-card);
+  color: var(--color-ink);
+  box-shadow: 0 0 0 1px var(--color-rule);
+}
+.app-segments .app-radio:has(input:focus-visible) {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 1px;
+}
+
+.app-run[data-live='false'] .app-run-bar {
+  display: none;
+}
+.app-gate .app-run[data-live='false'] {
+  padding-block: 12px;
+}
+
+.app-gate .app-stories li,
+.app-gate .app-stories li[data-kept='true'] {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-rule);
+  border-radius: 0;
+  background: none;
+}
+.app-gate .app-stories li[data-kept='true'] + li[data-kept='true'] {
+  margin-top: 0;
+}
+.app-gate .app-section .app-stories > li:last-child {
+  border-bottom: 0;
+}
+.app-story-decision {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-muted) 14%, transparent);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.app-stories li[data-kept='true'] .app-story-decision {
+  background: var(--color-tint);
+  color: var(--color-pine);
+}
+.app-story-head > a {
+  color: var(--color-ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+.app-story-head > a:hover {
+  color: var(--color-pine);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.app-stories .app-link {
+  color: var(--color-muted);
+  font-size: 13px;
+  text-decoration: none;
+}
+.app-stories .app-link:hover {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
+/* A post's story, named once above the post in small type, so it doesn't read as the post twice. */
+.app-gate .app-draft-story {
+  font-size: 13px;
+}
+.app-gate .app-draft-story::before {
+  content: 'Story · ';
+  opacity: 0.7;
+}
+.app-runs-when a {
+  text-decoration: none;
+}
+.app-runs-when a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.app-gate .app-schedule > h2:first-child {
+  margin-top: 0;
+}
+.app-gate .app-schedule > h2 {
+  margin-top: 28px;
+}

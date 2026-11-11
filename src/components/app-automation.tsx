@@ -355,11 +355,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
               {runs.map((r) => (
                 <li key={r._id} data-status={r.finishedAt ? r.status : 'running'}>
                   <div className="app-runs-when">
-                    <Link
-                      to="/app/a/$id/runs/$runId"
-                      params={{ id, runId: r._id }}
-                      className="tabular"
-                    >
+                    <Link to="/app/a/$id/runs/$runId" params={{ id, runId: r._id }}>
                       {whenIn(r.startedAt, a.timezone)}
                     </Link>
                     <span className="app-muted">
@@ -527,6 +523,9 @@ function ScheduleEditor({ a }: { a: Loaded }) {
         </p>
       ) : null}
       <h2>Channels</h2>
+      {channels.length ? null : (
+        <p className="app-muted">Connect Buffer to choose where this automation posts.</p>
+      )}
       <ul className="app-choices">
         {channels.map((c) => (
           <li key={c.channelId} data-checked={a.channelIds.includes(c.channelId)}>
@@ -553,9 +552,9 @@ function ScheduleEditor({ a }: { a: Loaded }) {
         ))}
       </ul>
       <h2>Stories a run, at most</h2>
-      <div className="app-field">
+      <div className="app-field app-segments" role="radiogroup" aria-label="Stories a run, at most">
         {storyChoices.map((n) => (
-          <label key={n} className="app-radio tabular">
+          <label key={n} className="app-radio tabular" data-checked={a.maxPostsPerRun === n}>
             <input
               type="radio"
               name="max"

@@ -407,7 +407,7 @@ function RunView({
         </p>
       )}
       <h1>
-        {title}, {whenIn(run.startedAt, tz)}.
+        {title}, {whenIn(run.startedAt, tz)}
       </h1>
       <p className="app-status-line">
         {live
@@ -554,7 +554,7 @@ function RunView({
                       {p.sentAt ? ` at ${whenIn(p.sentAt, tz)}` : ''}
                     </span>
                   </p>
-                  {story ? <p className="app-muted">{story.title}</p> : null}
+                  {story ? <p className="app-muted app-draft-story">{story.title}</p> : null}
                   {editing === p._id ? (
                     <DraftEditor
                       postId={p._id}
