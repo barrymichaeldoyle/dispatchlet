@@ -673,11 +673,13 @@ export const dashboard = query({
         postsThisWeek: sent.length,
         /** When each post of the last week reached Buffer, for the activity strip. */
         postTimes: sent.map((p) => p.createdAt),
-        runTimes: runsThisWeek.filter((r) => r.kind !== 'dry').map((r) => r.startedAt),
-        /** Runs of the last week that failed, so the strip can tell a bad day from a quiet one. */
-        failTimes: runsThisWeek
-          .filter((r) => r.kind !== 'dry' && r.status === 'failed')
-          .map((r) => r.startedAt),
+        /** The week's real runs, so each day of the strip can open its run. */
+        weekRuns: runsThisWeek
+          .filter((r) => r.kind !== 'dry')
+          .map((r) => ({ _id: r._id, at: r.startedAt, status: r.status })),
+        /** Whether a run can start from home: there is a playbook and no run going. */
+        canRun: Boolean(a.playbookVersionId) && a.status !== 'generating',
+        running: Boolean(last && !last.finishedAt && Date.now() - last.startedAt < 15 * 60_000),
       })
     }
     const drafts = recentPosts
@@ -697,26 +699,41 @@ export const dashboard = query({
       }))
     const automationNames = new Map(automations.map((a) => [a._id, a.name]))
     const avatars = new Map(channels.map((c) => [c.channelId, c.avatar ?? null]))
+    const toCard = (p: Doc<'posts'>) => ({
+      _id: p._id,
+      runId: p.runId,
+      automationId: p.automationId,
+      automationName: automationNames.get(p.automationId) ?? '',
+      channelName: names.get(p.channelId) ?? p.service,
+      channelAvatar: avatars.get(p.channelId) ?? null,
+      channelId: p.channelId,
+      bufferPostId: p.bufferPostId ?? null,
+      service: p.service,
+      status: p.status,
+      text: p.text,
+      createdAt: p.createdAt,
+      at: p.sentAt ?? p.dueAt ?? p.plannedFor ?? null,
+    })
+    const inBuffer = recentPosts.filter(
+      (p) => p.bufferPostId && p.status !== 'draft' && automationNames.has(p.automationId),
+    )
+    const now = Date.now()
+    /** The next post Buffer will publish, when its time is known, for the "Up next" card. */
+    const upcoming =
+      inBuffer
+        .filter(
+          (p) =>
+            (p.status === 'scheduled' || p.status === 'queued') &&
+            (p.dueAt ?? p.plannedFor ?? 0) > now,
+        )
+        .sort((a, b) => (a.dueAt ?? a.plannedFor!) - (b.dueAt ?? b.plannedFor!))
+        .map(toCard)[0] ?? null
     /** What went to Buffer lately, newest first, so home shows the posts and not just counts. */
-    const recent = recentPosts
-      .filter((p) => p.bufferPostId && p.status !== 'draft' && automationNames.has(p.automationId))
+    const recent = inBuffer
+      .filter((p) => p._id !== upcoming?._id)
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 5)
-      .map((p) => ({
-        _id: p._id,
-        runId: p.runId,
-        automationId: p.automationId,
-        automationName: automationNames.get(p.automationId) ?? '',
-        channelName: names.get(p.channelId) ?? p.service,
-        channelAvatar: avatars.get(p.channelId) ?? null,
-        channelId: p.channelId,
-        bufferPostId: p.bufferPostId ?? null,
-        service: p.service,
-        status: p.status,
-        text: p.text,
-        createdAt: p.createdAt,
-        at: p.sentAt ?? p.dueAt ?? p.plannedFor ?? null,
-      }))
+      .map(toCard)
     const user = await ctx.db.get(userId)
     const active = automations.filter((a) => a.status === 'active' && a.nextRunAt)
     return {
@@ -728,6 +745,7 @@ export const dashboard = query({
         ? active.reduce((a, b) => (b.nextRunAt! < a.nextRunAt! ? b : a)).name
         : null,
       recent,
+      upcoming,
       timezone: user?.timezone ?? 'UTC',
     }
   },

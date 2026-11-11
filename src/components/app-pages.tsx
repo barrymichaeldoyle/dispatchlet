@@ -1,5 +1,5 @@
 import { useAuthActions } from '@convex-dev/auth/react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -104,12 +104,19 @@ export function AppHome() {
   const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
   if (!data || !data.automations.length || previewEmpty)
     return <EmptyHome firstName={firstName} viewer={viewer} />
-  const { automations, drafts, recent, timezone } = data
+  const { automations, drafts, recent, upcoming, timezone } = data
   const runsLow = !viewer.ownKey && viewer.runsLeft !== null && viewer.runsLeft <= 3
+  const status = homeStatus({ data, viewer })
   return (
     <>
       <div className="app-home-head">
-        <h1>{firstName ? `Welcome back, ${firstName}` : 'Welcome back'}</h1>
+        <div>
+          <h1>{firstName ? `Welcome back, ${firstName}` : 'Welcome back'}</h1>
+          <p className="app-home-status" data-tone={status.tone} role="status">
+            <span className="app-home-status-dot" aria-hidden="true" />
+            {status.text}
+          </p>
+        </div>
         <Link to="/app/new" className="app-gate-primary">
           New automation
         </Link>
@@ -172,6 +179,14 @@ export function AppHome() {
           </ul>
         </section>
       ) : null}
+      {upcoming ? (
+        <section className="app-section is-next">
+          <h2>Up next</h2>
+          <ul className="app-recent">
+            <RecentPost post={upcoming} timezone={timezone} />
+          </ul>
+        </section>
+      ) : null}
       <section className="app-section">
         <h2>Automations</h2>
         <ul className="app-rows">
@@ -199,6 +214,52 @@ export function AppHome() {
   )
 }
 
+/**
+ * One line under the greeting: the most pressing thing first, or that all is well and when the
+ * next post goes out.
+ */
+function homeStatus({ data, viewer }: { data: Dashboard; viewer: Viewer }): {
+  tone: 'ok' | 'warn' | 'idle'
+  text: string
+} {
+  const failing = data.automations.filter((a) => a.status === 'failed')
+  if (failing.length === 1)
+    return { tone: 'warn', text: `${failing[0]!.name} stopped after failed runs. Take a look.` }
+  if (failing.length > 1)
+    return { tone: 'warn', text: `${failing.length} automations stopped after failed runs.` }
+  if (viewer.keyInvalid)
+    return { tone: 'warn', text: 'Anthropic turned down your key. Update it in settings.' }
+  if (!viewer.ownKey && viewer.runsLeft === 0)
+    return {
+      tone: 'warn',
+      text: 'Your free runs are used up. Add your Anthropic key to keep going.',
+    }
+  if (data.drafts.length)
+    return {
+      tone: 'warn',
+      text: `${data.drafts.length} ${data.drafts.length === 1 ? 'post is' : 'posts are'} waiting for your approval.`,
+    }
+  const upcomingAt = data.upcoming?.at
+  if (upcomingAt)
+    return {
+      tone: 'ok',
+      text: `All good. The next post goes out ${lowerFirst(relativeWhen(upcomingAt, data.timezone))}.`,
+    }
+  if (data.nextRunAt)
+    return {
+      tone: 'ok',
+      text: `All good. ${data.nextRunName ?? 'The next run'} runs ${lowerFirst(relativeWhen(data.nextRunAt, data.timezone))}.`,
+    }
+  return { tone: 'idle', text: 'Nothing is scheduled. Turn an automation on to start posting.' }
+}
+
+/** "tomorrow, 09:00" in the middle of a sentence; weekday and month names keep their capital. */
+function lowerFirst(text: string): string {
+  return /^(Today|Tomorrow|Yesterday)/.test(text)
+    ? text.charAt(0).toLowerCase() + text.slice(1)
+    : text
+}
+
 const POST_STATES: Record<string, string> = {
   queued: 'In the Buffer queue',
   scheduled: 'Scheduled',
@@ -221,8 +282,9 @@ function RecentPost({ post, timezone }: { post: Dashboard['recent'][number]; tim
         <strong>{post.channelName}</strong>
         <span className="app-recent-state">{state}</span>
         <span className="app-muted">
-          {prefix}
-          {relativeWhen(when, timezone)}
+          {prefix
+            ? `${prefix}${lowerFirst(relativeWhen(when, timezone))}`
+            : relativeWhen(when, timezone)}
         </span>
       </p>
       <PostText text={post.text} className="app-draft-text app-recent-text" />
@@ -423,14 +485,14 @@ const DAY = 86_400_000
  * and Thursdays can't be confused, and the full date is in the tooltip.
  */
 function WeekStrip({
+  automationId,
   postTimes,
-  runTimes,
-  failTimes,
+  weekRuns,
   timezone,
 }: {
+  automationId: Id<'automations'>
   postTimes: number[]
-  runTimes: number[]
-  failTimes: number[]
+  weekRuns: Dashboard['automations'][number]['weekRuns']
   timezone: string
 }) {
   const [now] = useState(() => Date.now())
@@ -440,8 +502,12 @@ function WeekStrip({
     const at = now - (6 - i) * DAY
     const key = dayKey(at)
     const posts = postTimes.filter((t) => dayKey(t) === key).length
-    const failed = failTimes.some((t) => dayKey(t) === key)
+    const runs = weekRuns.filter((r) => dayKey(r.at) === key).sort((x, y) => y.at - x.at)
+    const failed = runs.some((r) => r.status === 'failed')
+    // The day opens its latest run that did something: a failure, or else the newest.
+    const run = runs.find((r) => r.status === 'failed' && posts === 0) ?? runs[0] ?? null
     return {
+      run,
       key,
       label: new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, weekday: 'short' }),
       full: new Date(at).toLocaleDateString('en-GB', {
@@ -451,7 +517,7 @@ function WeekStrip({
         month: 'short',
       }),
       posts,
-      ran: runTimes.some((t) => dayKey(t) === key),
+      ran: runs.length > 0,
       failed: failed && posts === 0,
       today: i === 6,
     }
@@ -480,10 +546,23 @@ function WeekStrip({
             <span className="app-week-day" aria-hidden="true">
               {d.today ? 'Today' : d.label}
             </span>
-            <span className="app-week-count tabular" aria-hidden="true">
-              {d.posts > 0 ? d.posts : d.failed ? '!' : d.ran ? '·' : ''}
-            </span>
-            <span className="visually-hidden">{`${d.full}: ${describe(d)}`}</span>
+            {d.run ? (
+              <Link
+                to="/app/a/$id/runs/$runId"
+                params={{ id: automationId, runId: d.run._id }}
+                className="app-week-count tabular"
+                aria-label={`${d.full}: ${describe(d)}. Open the run.`}
+              >
+                {d.posts > 0 ? d.posts : d.failed ? '!' : '·'}
+              </Link>
+            ) : (
+              <>
+                <span className="app-week-count tabular" aria-hidden="true">
+                  {d.posts > 0 ? d.posts : ''}
+                </span>
+                <span className="visually-hidden">{`${d.full}: ${describe(d)}`}</span>
+              </>
+            )}
           </li>
         ))}
       </ol>
@@ -499,6 +578,7 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
           {a.name}
         </Link>
         <span className="app-muted">{describeCadence(a.cadence)}</span>
+        <RowActions a={a} />
       </div>
       <div className="app-row-last">
         {a.lastRun ? (
@@ -522,9 +602,9 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
         )}
       </div>
       <WeekStrip
+        automationId={a._id}
         postTimes={a.postTimes}
-        runTimes={a.runTimes}
-        failTimes={a.failTimes}
+        weekRuns={a.weekRuns}
         timezone={timezone}
       />
       <div className="app-row-next">
@@ -541,6 +621,65 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
         )}
       </div>
     </li>
+  )
+}
+
+/** Run now and pause or resume, right on the row, so the common jobs skip the automation page. */
+function RowActions({ a }: { a: Dashboard['automations'][number] }) {
+  const trigger = useMutation(api.runs.trigger)
+  const setStatus = useMutation(api.automations.setStatus)
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState<'run' | 'status' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  if (!a.canRun) return null
+  const act = (name: 'run' | 'status', work: () => Promise<unknown>) => {
+    setBusy(name)
+    setError(null)
+    work()
+      .catch((reason: unknown) => setError(message(reason, 'That did not work. Try again.')))
+      .finally(() => setBusy(null))
+  }
+  const on = a.status === 'active'
+  return (
+    <span className="app-row-actions">
+      <button
+        type="button"
+        className="app-link"
+        disabled={busy !== null || a.running}
+        onClick={() =>
+          act('run', () =>
+            trigger({ automationId: a._id, dry: false }).then((runId) =>
+              navigate({ to: '/app/a/$id/runs/$runId', params: { id: a._id, runId } }),
+            ),
+          )
+        }
+      >
+        <BusyLabel
+          busy={busy === 'run'}
+          idle={a.running ? 'Running' : 'Run now'}
+          working="Starting"
+        />
+      </button>
+      <button
+        type="button"
+        className="app-link"
+        disabled={busy !== null}
+        onClick={() =>
+          act('status', () => setStatus({ id: a._id, status: on ? 'paused' : 'active' }))
+        }
+      >
+        <BusyLabel
+          busy={busy === 'status'}
+          idle={on ? 'Pause' : a.status === 'ready' ? 'Turn on' : 'Resume'}
+          working={on ? 'Pausing' : 'Turning on'}
+        />
+      </button>
+      {error ? (
+        <span className="app-connection-error" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </span>
   )
 }
 
