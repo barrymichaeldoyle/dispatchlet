@@ -3461,3 +3461,49 @@ a.app-week-count:hover {
 .app-gate .setup-hint.setup-lede {
   margin: 0 0 24px;
 }
+
+/*
+ * Polish, 11 Nov (2): the connection banner as a card with its action beside the words, the
+ * playbook's rows to the card's edge, a save bar that docks only with unsaved changes, and
+ * stand-alone action links that underline on hover rather than all the time.
+ */
+.app-gate .app-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 14px 16px 14px 20px;
+  border: 1px solid color-mix(in srgb, var(--color-pine) 45%, var(--color-rule));
+  border-radius: var(--radius-card);
+  background: var(--color-tint);
+}
+.app-gate .app-banner p {
+  flex: 1 1 280px;
+  margin: 0;
+}
+.app-gate .app-banner .app-gate-primary {
+  min-height: 40px;
+  border-radius: var(--radius-control);
+}
+
+.app-playbook .app-form:has(> .app-playbook-section) {
+  max-width: none;
+}
+.app-playbook > .app-playbook-save[data-dirty='false'] {
+  position: static;
+}
+
+.app-playbook-section-action,
+.app-recent-links a,
+.app-row-actions .app-link,
+.app-playbook-regenerate .app-link {
+  text-decoration: none;
+}
+.app-playbook-section > summary:hover .app-playbook-section-action,
+.app-recent-links a:hover,
+.app-row-actions .app-link:hover:not(:disabled),
+.app-playbook-regenerate .app-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

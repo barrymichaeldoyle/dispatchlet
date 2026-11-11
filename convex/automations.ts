@@ -20,7 +20,7 @@ import {
   runsPerMinute,
   scheduleSpreadMinutes,
 } from './lib/limits'
-import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
+import { Playbook, parsePlaybook, renderPlaybook, serviceLabel } from './lib/playbook'
 import { MAX_PLANNED_STORIES, normalPlan, planProblem, type PublicationPlan } from './lib/plan'
 import { nextRunAt, type Cadence } from './lib/schedule'
 import {
@@ -689,7 +689,7 @@ export const dashboard = query({
         _id: p._id,
         runId: p.runId,
         automationId: p.automationId,
-        channelName: names.get(p.channelId) ?? p.service,
+        channelName: names.get(p.channelId) ?? serviceLabel(p.service),
         channelId: p.channelId,
         bufferPostId: p.bufferPostId ?? null,
         service: p.service,
@@ -704,7 +704,7 @@ export const dashboard = query({
       runId: p.runId,
       automationId: p.automationId,
       automationName: automationNames.get(p.automationId) ?? '',
-      channelName: names.get(p.channelId) ?? p.service,
+      channelName: names.get(p.channelId) ?? serviceLabel(p.service),
       channelAvatar: avatars.get(p.channelId) ?? null,
       channelId: p.channelId,
       bufferPostId: p.bufferPostId ?? null,

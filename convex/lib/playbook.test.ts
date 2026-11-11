@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parsePlaybook, renderPlaybook, type Playbook } from './playbook'
+import { parsePlaybook, renderPlaybook, serviceLabel, type Playbook } from './playbook'
 
 const GOOD_NEWS: Playbook = {
   name: 'Good News Today',
@@ -144,5 +144,13 @@ describe('the playbook text', () => {
       sources: [],
       voice: { tone: 'Dry.', emoji: 'none' },
     })
+  })
+})
+
+describe('serviceLabel', () => {
+  it('names a network the way people do, and leaves an unknown one as it is', () => {
+    expect(serviceLabel('twitter')).toBe('X')
+    expect(serviceLabel('linkedin')).toBe('LinkedIn')
+    expect(serviceLabel('somethingnew')).toBe('somethingnew')
   })
 })

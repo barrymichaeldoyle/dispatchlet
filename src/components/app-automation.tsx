@@ -168,7 +168,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         <dl className="app-stats">
           <div data-attention={a.status === 'active'}>
             <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
-            <dd className="tabular" data-text={!(a.status === 'active' && a.nextRunAt)}>
+            <dd data-text={!(a.status === 'active' && a.nextRunAt)}>
               {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
             </dd>
           </div>
@@ -1432,7 +1432,12 @@ function PlaybookEditor({
           Write it again
         </button>
       </div>
-      <div className="app-gate-actions app-playbook-save" role="group" aria-label="Save playbook">
+      <div
+        className="app-gate-actions app-playbook-save"
+        role="group"
+        aria-label="Save playbook"
+        data-dirty={dirty || state === 'saving'}
+      >
         {problem ? (
           <p className="app-connection-error" role="alert">
             {problem}

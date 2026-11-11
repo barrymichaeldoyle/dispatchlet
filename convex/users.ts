@@ -1,4 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
+import { serviceLabel } from './lib/playbook'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
@@ -367,8 +368,8 @@ export const usage = query({
     for (const p of posts)
       if (p.bufferPostId)
         byChannel.set(
-          names.get(p.channelId) ?? p.service,
-          (byChannel.get(names.get(p.channelId) ?? p.service) ?? 0) + 1,
+          names.get(p.channelId) ?? serviceLabel(p.service),
+          (byChannel.get(names.get(p.channelId) ?? serviceLabel(p.service)) ?? 0) + 1,
         )
     return {
       month: now.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' }),

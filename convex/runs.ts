@@ -73,7 +73,7 @@ import {
   type PublicationPlan,
   type QueueSchedule,
 } from './lib/plan'
-import type { Playbook } from './lib/playbook'
+import { type Playbook, serviceLabel } from './lib/playbook'
 import { keyFor } from './users'
 import { postView } from './views'
 import { emit } from './webhooks'
@@ -1706,7 +1706,7 @@ export async function emitPostEvent(
     post.userId,
     type,
     {
-      post: postView(post, channel?.displayName ?? channel?.name ?? post.service),
+      post: postView(post, channel?.displayName ?? channel?.name ?? serviceLabel(post.service)),
       automation: automation ? { id: automation._id, name: automation.name } : null,
       ...extra,
     },
@@ -1775,7 +1775,7 @@ export async function runView(
         storyId: p.storyId,
         channelId: p.channelId,
         bufferPostId: p.bufferPostId ?? null,
-        channelName: names.get(p.channelId) ?? p.service,
+        channelName: names.get(p.channelId) ?? serviceLabel(p.service),
         service: p.service,
         text: p.text,
         thread: p.thread ?? null,

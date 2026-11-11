@@ -60,6 +60,10 @@ export const SERVICE_NAMES: Record<Service, string> = {
   bluesky: 'Bluesky',
   mastodon: 'Mastodon',
 }
+/** A network's name for people ("X", not "twitter"), for when the channel's own name is gone. */
+export function serviceLabel(service: string): string {
+  return SERVICE_NAMES[service as Service] ?? service
+}
 const SERVICE_BY_NAME = Object.fromEntries(
   (Object.entries(SERVICE_NAMES) as [Service, string][]).map(([s, n]) => [n.toLowerCase(), s]),
 ) as Record<string, Service>

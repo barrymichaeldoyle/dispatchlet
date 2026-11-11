@@ -1,4 +1,5 @@
 import { v } from 'convex/values'
+import { serviceLabel } from './lib/playbook'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -41,7 +42,7 @@ export const digestFor = internalQuery({
       posts: posts
         .filter((p) => p.bufferPostId)
         .map((p) => ({
-          channelName: names.get(p.channelId) ?? p.service,
+          channelName: names.get(p.channelId) ?? serviceLabel(p.service),
           text: p.text,
           status:
             p.status === 'draft'
@@ -110,7 +111,7 @@ export const markApproved = internalMutation({
           {
             step: 'approve',
             at: Date.now(),
-            note: `${channel?.name ?? post.service}: approved from ${APPROVED_FROM[from] ?? from} and ${dated ? 'scheduled for its date' : 'added to the queue'}.`,
+            note: `${channel?.name ?? serviceLabel(post.service)}: approved from ${APPROVED_FROM[from] ?? from} and ${dated ? 'scheduled for its date' : 'added to the queue'}.`,
           },
         ],
       })
@@ -286,7 +287,7 @@ export const draftForEdit = internalQuery({
     const limits = SERVICE_LIMITS[post.service as Service]
     return {
       post,
-      channelName: channel?.displayName ?? channel?.name ?? post.service,
+      channelName: channel?.displayName ?? channel?.name ?? serviceLabel(post.service),
       limit: channel?.maxLength ?? limits?.maxLength ?? 280,
     }
   },
