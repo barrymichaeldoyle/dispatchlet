@@ -79,7 +79,7 @@ function stubServices(found: number | ReturnType<typeof candidates>, queues: Que
   const researchSystems: string[] = []
   const researchPrompts: string[] = []
   const created: { channelId: string; dueAt: string | undefined; mode: string }[] = []
-  const approved: { mode: string; dueAt: string | undefined }[] = []
+  const approved: { mode: string; dueAt: string | undefined; text?: string }[] = []
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input)
     const body = JSON.parse(
@@ -126,17 +126,17 @@ function stubServices(found: number | ReturnType<typeof candidates>, queues: Que
         },
       })
     if (String(body.query).includes('DispatchletApprove')) {
-      const mode = String(body.query).includes('customScheduled') ? 'customScheduled' : 'addToQueue'
-      approved.push({ mode, dueAt: body.variables.dueAt })
+      const edit = body.variables.input
+      approved.push(
+        edit
+          ? { mode: edit.mode, dueAt: edit.dueAt, text: edit.text }
+          : { mode: 'addToQueue', dueAt: undefined },
+      )
       return Response.json({
         data: {
           editPost: {
             __typename: 'PostActionSuccess',
-            post: {
-              id: body.variables.id,
-              status: 'scheduled',
-              dueAt: body.variables.dueAt ?? null,
-            },
+            post: { id: 'b-1', status: 'scheduled', dueAt: edit?.dueAt ?? null },
           },
         },
       })
@@ -652,7 +652,13 @@ describe('on this day without a publication plan', () => {
     const [first, second] = await postsOf(t, runId)
     expect(first).toMatchObject({ status: 'draft', plannedFor: Date.parse('2026-11-17T06:57:00Z') })
     await t.action(internal.approvals.approveForUser, { userId, postId: first!._id })
-    expect(approved).toEqual([{ mode: 'customScheduled', dueAt: '2026-11-17T06:57:00.000Z' }])
+    expect(approved).toEqual([
+      {
+        mode: 'customScheduled',
+        dueAt: '2026-11-17T06:57:00.000Z',
+        text: 'A short factual post.\n\nhttps://news0.example.com/story-0',
+      },
+    ])
     expect((await t.run((ctx) => ctx.db.get(first!._id)))?.status).toBe('scheduled')
     vi.setSystemTime(Date.parse('2026-11-17T08:00:00Z'))
     await expect(

@@ -136,6 +136,10 @@ async function approve(
     bufferPostId?: string
     status: string
     plannedFor?: number
+    service: string
+    text: string
+    thread?: string[]
+    linkAttachment?: { url: string; title: string; description: string }
   },
   from: ApprovedFrom,
 ): Promise<string> {
@@ -166,7 +170,7 @@ async function approve(
       ctx,
       post.userId,
       post.bufferPostId,
-      post.plannedFor,
+      dated ? { dueAt: post.plannedFor!, post } : undefined,
     )
     await ctx.runMutation(internal.approvals.markApproved, {
       postId: post._id,

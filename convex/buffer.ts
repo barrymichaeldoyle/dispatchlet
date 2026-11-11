@@ -1043,15 +1043,21 @@ export async function approveBufferPost(
   ctx: ActionCtx,
   userId: Id<'users'>,
   bufferPostId: string,
-  /** A dated post (on this day) is scheduled for its own time instead of joining the queue. */
-  dueAt?: number,
+  /**
+   * A dated post (on this day) is scheduled for its own time instead of joining the queue. Buffer
+   * refuses a schedule change without the content, so the post's text and thread go again.
+   */
+  at?: {
+    dueAt: number
+    post: Pick<CreatePostInput, 'service' | 'text' | 'thread' | 'linkAttachment'>
+  },
 ): Promise<{ status: string; dueAt: number | undefined }> {
   const { editPost } = await bufferCallFor<{
     editPost: MutationPayload & { post?: { id: string; status: string; dueAt: string | null } }
   }>(
     ctx,
     userId,
-    dueAt === undefined
+    at === undefined
       ? `mutation DispatchletApprove($id: PostId!) {
       editPost(input: { id: $id, saveToDraft: false, mode: addToQueue }) {
         __typename
@@ -1059,16 +1065,25 @@ export async function approveBufferPost(
         ... on MutationError { message }
       }
     }`
-      : `mutation DispatchletApproveAt($id: PostId!, $dueAt: DateTime!) {
-      editPost(input: { id: $id, saveToDraft: false, mode: customScheduled, dueAt: $dueAt }) {
+      : `mutation DispatchletApproveAt($input: EditPostInput!) {
+      editPost(input: $input) {
         __typename
         ... on PostActionSuccess { post { id status dueAt } }
         ... on MutationError { message }
       }
     }`,
-    dueAt === undefined
+    at === undefined
       ? { id: bufferPostId }
-      : { id: bufferPostId, dueAt: new Date(dueAt).toISOString() },
+      : {
+          input: {
+            id: bufferPostId,
+            saveToDraft: false,
+            mode: 'customScheduled',
+            dueAt: new Date(at.dueAt).toISOString(),
+            text: at.post.text,
+            ...(postMetadata(at.post) ? { metadata: postMetadata(at.post) } : {}),
+          },
+        },
     'interactive',
   )
   if (editPost.post)
