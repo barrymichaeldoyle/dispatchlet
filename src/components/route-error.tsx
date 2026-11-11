@@ -21,8 +21,9 @@ export function RouteError() {
 export function MissingItem({ what }: { what: 'automation' | 'run' }) {
   return (
     <div className="app-route-error">
+      <h1>{what === 'run' ? 'Run not found' : 'Automation not found'}</h1>
       <p>This {what} does not exist, or it is not yours.</p>
-      <Link to="/app" className="app-link">
+      <Link to="/app" className="app-gate-secondary">
         Back to the app
       </Link>
     </div>

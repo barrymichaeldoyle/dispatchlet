@@ -1,3 +1,4 @@
+import { MissingItem } from './route-error'
 import { Link } from '@tanstack/react-router'
 import { ConvexProvider, ConvexReactClient, useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
@@ -153,7 +154,7 @@ function copyLink(token: string): Promise<string> {
 export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'> }) {
   const run = useQuery(api.runs.get, { runId })
   if (run === undefined) return <p className="app-muted">Loading.</p>
-  if (run === null) return <p>This run does not exist, or it is not yours.</p>
+  if (run === null) return <MissingItem what="run" />
   return <RunView run={run} id={id} />
 }
 

@@ -3660,3 +3660,20 @@ a.app-week-count:hover {
 .app-gate .app-schedule > h2 {
   margin-top: 28px;
 }
+
+/* A phone keeps Run now as the one full-width button; the other actions share a row beneath. */
+@media (max-width: 720px) {
+  .app-home-head .app-gate-actions {
+    gap: 8px;
+  }
+  .app-home-head .app-gate-actions .app-gate-secondary {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0 12px;
+  }
+}
+
+/* Nothing to save: the status line says so, without a disabled Save button beside it. */
+.app-playbook > .app-playbook-save[data-dirty='false'] .app-gate-primary {
+  display: none;
+}

@@ -1,3 +1,4 @@
+import { MissingItem } from './route-error'
 import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -61,7 +62,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     return () => window.clearInterval(timer)
   }, [open])
   if (a === undefined) return <p className="app-muted">Loading.</p>
-  if (a === null) return <p>This automation does not exist, or it is not yours.</p>
+  if (a === null) return <MissingItem what="automation" />
   // The same rule as runs.trigger: an unfinished run older than 15 minutes counts as abandoned.
   const running = runs?.some((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000) ?? false
   const act = (name: string, work: () => Promise<unknown>) => {
