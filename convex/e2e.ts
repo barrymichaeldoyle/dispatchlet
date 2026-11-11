@@ -3,6 +3,7 @@ import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { DataModel, Id } from './_generated/dataModel'
 import { internalMutation, type MutationCtx } from './_generated/server'
+import { renderPlaybook, type Playbook } from './lib/playbook'
 
 /**
  * A sign-in for the browser tests, so screens behind Buffer sign-in can be tested end to end.
@@ -46,6 +47,41 @@ export const E2eSignIn = ConvexCredentials<DataModel>({
     return { userId }
   },
 })
+
+/** A complete playbook, so the automation page renders as it would for a real one. */
+const PLAYBOOK: Playbook = {
+  name: 'F1 On This Day',
+  about: 'Formula 1 history on the date it happened: title deciders, firsts and famous races.',
+  sources: [
+    {
+      label: 'Formula 1',
+      url: 'https://www.formula1.com',
+      note: 'Official race history.',
+      priority: 'high',
+    },
+    { label: 'Motorsport.com', url: null, note: 'Archive features.', priority: 'normal' },
+  ],
+  searchQueries: ['Formula 1 on this day', 'F1 history today'],
+  freshnessHours: 48,
+  include: ['Championship deciders', 'First wins'],
+  exclude: ['Rumours'],
+  voice: {
+    tone: 'Warm and factual.',
+    notes: '',
+    avoidSaying: ['legendary'],
+    emoji: 'none',
+    hashtags: 'few',
+  },
+  formats: [
+    {
+      service: 'twitter',
+      style: 'One short post.',
+      maxLength: null,
+      thread: false,
+      linkBack: null,
+    },
+  ],
+}
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -150,8 +186,8 @@ async function seed(ctx: MutationCtx, userId: Id<'users'>) {
   const versionId = await ctx.db.insert('playbookVersions', {
     automationId,
     version: 1,
-    playbook: { name: 'F1 On This Day' },
-    text: '# F1 On This Day',
+    playbook: PLAYBOOK,
+    text: renderPlaybook(PLAYBOOK),
     createdBy: 'e2e',
     createdAt: now - 10 * DAY,
   })
