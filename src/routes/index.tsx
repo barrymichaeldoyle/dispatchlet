@@ -35,7 +35,7 @@ export const Route = createFileRoute('/')({
       {
         property: 'og:image:alt',
         content:
-          'Dispatchlet: an agent that researches and writes your Buffer posts. Built for Buffer Commit.',
+          'Dispatchlet: fresh posts on your topic, researched and written for you. An example post and the run that wrote it.',
       },
       { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:site', content: '@barrymdoyle' },
@@ -46,7 +46,7 @@ export const Route = createFileRoute('/')({
       {
         name: 'twitter:image:alt',
         content:
-          'Dispatchlet: an agent that researches and writes your Buffer posts. Built for Buffer Commit.',
+          'Dispatchlet: fresh posts on your topic, researched and written for you. An example post and the run that wrote it.',
       },
     ],
     links: [{ rel: 'canonical', href: SITE_URL }],
