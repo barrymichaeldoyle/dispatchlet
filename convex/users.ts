@@ -164,8 +164,7 @@ export const emailFor = internalQuery({
 
 /**
  * Deletes everything held for a user: the account, its sign-in records and sessions, the Buffer
- * connection and channels, automations, runs, posts and model call records. The waiting list is
- * separate and keeps its own consent.
+ * connection and channels, automations, runs, posts and model call records.
  */
 export const deleteUserData = internalMutation({
   args: { userId: v.id('users') },

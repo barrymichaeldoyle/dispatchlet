@@ -102,7 +102,7 @@ describe('time zone', () => {
 })
 
 describe('deleting an account', () => {
-  it('deletes the user, sign-in records, sessions, Buffer grant and channels, but not the waiting list', async () => {
+  it('deletes the user, sign-in records, sessions, Buffer grant and channels', async () => {
     const t = convexTest(schema, modules)
     const userId = await t.run(async (ctx) => {
       const id = await ctx.db.insert('users', { email: 'a@example.com' })
@@ -158,10 +158,6 @@ describe('deleting an account', () => {
       await ctx.db.insert('aiSpend', { hourStart: 0, userId: id, usd: 0.01 })
       return id
     })
-    const { token } = await t.mutation(internal.waitlist.add, {
-      email: 'a@example.com',
-      source: 'buffer-sign-in',
-    })
     await t.mutation(internal.users.deleteUserData, { userId })
     const left = await t.run(async (ctx) => ({
       users: await ctx.db.query('users').collect(),
@@ -171,7 +167,6 @@ describe('deleting an account', () => {
       refresh: await ctx.db.query('authRefreshTokens').collect(),
       connections: await ctx.db.query('bufferConnections').collect(),
       channels: await ctx.db.query('bufferChannels').collect(),
-      waitlist: await ctx.db.query('waitlist').collect(),
       aiCalls: await ctx.db.query('aiCalls').collect(),
       aiSpend: await ctx.db.query('aiSpend').collect(),
     }))
@@ -185,6 +180,5 @@ describe('deleting an account', () => {
     expect(left.refresh).toHaveLength(0)
     expect(left.connections).toHaveLength(0)
     expect(left.channels).toHaveLength(0)
-    expect(left.waitlist.map((row) => row.token)).toEqual([token])
   })
 })

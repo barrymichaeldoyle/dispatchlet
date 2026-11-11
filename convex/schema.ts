@@ -551,23 +551,4 @@ export default defineSchema({
     .index('by_hash', ['hash'])
     .index('by_user', ['userId'])
     .index('by_automation', ['automationId']),
-  waitlist: defineTable({
-    email: v.string(),
-    createdAt: v.number(),
-    source: v.string(),
-    campaign: v.optional(v.string()),
-    confirmedAt: v.optional(v.number()),
-    unsubscribedAt: v.optional(v.number()),
-    invitedAt: v.optional(v.number()),
-    launchEmailSentAt: v.optional(v.number()),
-    token: v.string(),
-    ip: v.optional(v.string()),
-    /** Place in the list when added; rows from before this field fall back to a count. */
-    position: v.optional(v.number()),
-  })
-    .index('by_email', ['email'])
-    .index('by_token', ['token'])
-    .index('by_ip_createdAt', ['ip', 'createdAt']),
-  /** One row: how many are on the waiting list, so the count and positions need no scan. */
-  waitlistStats: defineTable({ count: v.number() }),
 })

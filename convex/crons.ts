@@ -3,7 +3,6 @@ import { internal } from './_generated/api'
 
 const crons = cronJobs()
 
-crons.daily('purge waitlist ips', { hourUTC: 3, minuteUTC: 0 }, internal.waitlist.purgeIps)
 // Every 10 minutes, but it only calls Buffer for posts that can have changed (status.dueForCheck).
 crons.interval('poll post statuses', { minutes: 10 }, internal.status.poll, {})
 crons.daily('poll post metrics', { hourUTC: 4, minuteUTC: 30 }, internal.status.pollMetrics, {})
@@ -15,12 +14,6 @@ crons.daily(
   {},
 )
 crons.daily('purge webhook deliveries', { hourUTC: 3, minuteUTC: 20 }, internal.webhooks.purge, {})
-crons.daily(
-  'delete the closed waiting list',
-  { hourUTC: 3, minuteUTC: 30 },
-  internal.waitlist.purgeClosed,
-  {},
-)
 crons.interval('close abandoned runs', { minutes: 10 }, internal.runs.sweepAbandoned, {})
 // Emails the owner when one of the jobs above, or the run scheduler, has gone quiet (alerts.health).
 crons.interval('check health', { hours: 6 }, internal.alerts.checkHealth, {})

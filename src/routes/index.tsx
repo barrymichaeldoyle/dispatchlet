@@ -93,8 +93,6 @@ export const Route = createFileRoute('/')({
   }),
 })
 
-type Notice = 'confirmed' | 'unsubscribed' | null
-
 /** The outcome, above the fold: one post it wrote and scheduled, from the demo's run. */
 const [HERO_STORY] = STORIES
 const [, HERO_POST] = HERO_STORY.posts[0]
@@ -118,21 +116,12 @@ function useIsClient(): boolean {
   )
 }
 
-function readNotice(): Notice {
-  const params = new URLSearchParams(window.location.search)
-  if (params.get('confirmed') === '1') return 'confirmed'
-  if (params.get('unsubscribed') === '1') return 'unsubscribed'
-  return null
-}
-
-function useNotice(): { notice: Notice; mounted: boolean } {
+function useLanding(): { mounted: boolean } {
   const mounted = useIsClient()
-  const notice = mounted ? readNotice() : null
   useEffect(() => {
     track('landing_viewed')
-    if (readNotice() === 'confirmed') track('waitlist_confirmed')
   }, [])
-  return { notice, mounted }
+  return { mounted }
 }
 
 /** True once the hero's start button has scrolled up out of view, so the header can offer it. */
@@ -153,7 +142,7 @@ function usePastHeroStart(): boolean {
 const SKIPPED = CANDIDATES.length - STORIES.length
 
 function Home() {
-  const { notice, mounted } = useNotice()
+  const { mounted } = useLanding()
   const pastStart = usePastHeroStart()
   const demo = useRef<ExampleRunHandle>(null)
   const playDemo = (event: MouseEvent<HTMLElement>) => {
@@ -240,9 +229,8 @@ function Home() {
               </a>
             </div>
             <p className="landing-notice" aria-live="polite">
-              {notice === 'unsubscribed'
-                ? 'You are off the list and will not get any more emails from it.'
-                : 'Your first 10 runs are free, and no card is needed. After that, use your own Anthropic key, about $0.07 a run.'}
+              Your first 10 runs are free, and no card is needed. After that, use your own Anthropic
+              key, about $0.07 a run.
             </p>
             <p className="landing-commit-line">
               <BrandText>

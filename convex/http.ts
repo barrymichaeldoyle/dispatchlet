@@ -3,11 +3,6 @@ import { internal } from './_generated/api'
 import { httpAction } from './_generated/server'
 import { registerApi } from './api/router'
 import { auth } from './auth'
-import { isSignupOpen } from './lib/allowlist'
-import { isValidEmail, normalizeEmail } from './lib/email'
-
-const HOUR = 60 * 60 * 1000
-const DEFAULT_RATE_LIMIT = 5
 
 const http = httpRouter()
 auth.addHttpRoutes(http)
@@ -15,23 +10,6 @@ registerApi(http)
 
 function siteUrl(): string {
   return process.env.SITE_URL ?? 'https://dispatchlet.com'
-}
-
-function corsHeaders(): Record<string, string> {
-  return {
-    'Access-Control-Allow-Origin': siteUrl(),
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Accept',
-    'Access-Control-Max-Age': '86400',
-    Vary: 'Origin',
-  }
-}
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-  })
 }
 
 function escapeHtml(text: string): string {
@@ -80,159 +58,14 @@ function pageHeaders(site: string, nonce: string): Record<string, string> {
   }
 }
 
-/**
- * IPs are stored hashed with a secret salt, so the list cannot be joined to anything by address.
- * Without the salt the hash would be reversible by trying every address, so it is refused.
- */
-async function hashIp(ip: string): Promise<string> {
-  const salt = process.env.IP_HASH_SALT
-  if (!salt)
-    throw new Error(
-      'IP_HASH_SALT is not set on this deployment. Set a long random value: npx convex env set IP_HASH_SALT <value>',
-    )
-  const data = new TextEncoder().encode(`${salt}:${ip}`)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-function clientIp(req: Request): string | undefined {
-  const cf = req.headers.get('cf-connecting-ip')
-  if (cf) return cf
-  const xff = req.headers.get('x-forwarded-for')
-  if (xff) return xff.split(',')[0]?.trim()
-  return undefined
-}
-
-function rateLimit(): number {
-  const n = Number(process.env.WAITLIST_RATE_LIMIT)
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_RATE_LIMIT
-}
-
-type Submission = { email: string; website: string; source: string; campaign: string }
-
-async function readSubmission(req: Request): Promise<Submission> {
-  const type = req.headers.get('content-type') ?? ''
-  let raw: Record<string, unknown> = {}
-  if (type.includes('application/json')) {
-    const value: unknown = await req.json().catch(() => null)
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      raw = value as Record<string, unknown>
-    }
-  } else {
-    const form = await req.formData().catch(() => null)
-    if (form) raw = Object.fromEntries(form.entries())
-  }
-  const str = (k: string) => (typeof raw[k] === 'string' ? (raw[k] as string) : '')
-  return {
-    email: str('email'),
-    website: str('website'),
-    source: str('source'),
-    campaign: str('campaign'),
-  }
-}
-
-function wantsJson(req: Request): boolean {
-  const accept = req.headers.get('accept') ?? ''
-  const type = req.headers.get('content-type') ?? ''
-  return accept.includes('application/json') || type.includes('application/json')
-}
-
-function referrerHost(req: Request): string | undefined {
-  const ref = req.headers.get('referer')
-  if (!ref) return undefined
-  try {
-    const host = new URL(ref).host
-    const own = new URL(siteUrl()).host
-    return host === own ? undefined : host
-  } catch {
-    return undefined
-  }
-}
-
-http.route({
-  path: '/waitlist',
-  method: 'OPTIONS',
-  handler: httpAction(async () => new Response(null, { status: 204, headers: corsHeaders() })),
-})
-
-http.route({
-  path: '/waitlist',
-  method: 'POST',
-  handler: httpAction(async (ctx, req) => {
-    const asJson = wantsJson(req)
-    // The list closes when sign-up opens: an old page or a bot gets told where to go instead.
-    if (isSignupOpen()) {
-      return asJson
-        ? json(410, { ok: false, error: 'closed' })
-        : page(410, 'Dispatchlet is open. Sign in with Buffer at dispatchlet.com/app.')
-    }
-    const body = await readSubmission(req)
-
-    // Honeypot: a filled "website" field means a bot. Say yes and store nothing.
-    if (body.website.trim() !== '') {
-      return asJson ? json(200, { ok: true }) : page(200, 'Thanks. Check your email to confirm.')
-    }
-
-    const email = normalizeEmail(body.email)
-    if (!isValidEmail(email)) {
-      return asJson
-        ? json(400, { ok: false, error: 'invalid_email' })
-        : page(400, 'That email does not look right.')
-    }
-
-    const rawIp = clientIp(req)
-    const ip = rawIp ? await hashIp(rawIp) : undefined
-    if (ip) {
-      const recent = await ctx.runQuery(internal.waitlist.recentCountByIp, {
-        ip,
-        since: Date.now() - HOUR,
-      })
-      if (recent >= rateLimit()) {
-        return asJson
-          ? json(429, { ok: false, error: 'rate_limited' })
-          : page(429, 'Too many tries, wait a minute.')
-      }
-    }
-
-    const source = body.source.trim() || referrerHost(req) || 'direct'
-    const campaign = body.campaign.trim() || undefined
-    // The IP comes from headers a direct caller can forge, so `add` also caps confirmation emails
-    // per address and in total before it stores a new row.
-    const result = await ctx.runMutation(internal.waitlist.add, { email, source, campaign, ip })
-    if (result.limited) {
-      return asJson
-        ? json(429, { ok: false, error: 'rate_limited' })
-        : page(429, 'Too many sign-ups right now, try again in an hour.')
-    }
-    if (result.isNew) {
-      await ctx.scheduler.runAfter(0, internal.email.sendConfirm, { email, token: result.token })
-    }
-    return asJson
-      ? json(200, { ok: true, position: result.position })
-      : page(200, `You are number ${result.position} on the list. Check your email to confirm.`)
-  }),
-})
-
-http.route({
-  path: '/waitlist/confirm',
-  method: 'GET',
-  handler: httpAction(async (ctx, req) => {
-    const token = new URL(req.url).searchParams.get('token') ?? ''
-    const ok = token !== '' && (await ctx.runMutation(internal.waitlist.confirm, { token }))
-    if (!ok) return page(404, 'This link is not valid.')
-    return Response.redirect(`${siteUrl()}/?confirmed=1`, 302)
-  }),
-})
-
+// The waiting list was deleted after launch. The launch email's unsubscribe link still lands
+// here, so it gets a page rather than a 404.
 http.route({
   path: '/waitlist/unsubscribe',
   method: 'GET',
-  handler: httpAction(async (ctx, req) => {
-    const token = new URL(req.url).searchParams.get('token') ?? ''
-    const ok = token !== '' && (await ctx.runMutation(internal.waitlist.unsubscribe, { token }))
-    if (!ok) return page(404, 'This link is not valid.')
-    return Response.redirect(`${siteUrl()}/?unsubscribed=1`, 302)
-  }),
+  handler: httpAction(async () =>
+    page(200, 'The waiting list has been deleted, so you will not get any more emails from it.'),
+  ),
 })
 
 /** Same length and bytes, in time that does not depend on where they first differ. */

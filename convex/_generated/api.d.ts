@@ -63,7 +63,6 @@ import type * as status from "../status.js";
 import type * as tokens from "../tokens.js";
 import type * as users from "../users.js";
 import type * as views from "../views.js";
-import type * as waitlist from "../waitlist.js";
 import type * as webhooks from "../webhooks.js";
 
 import type {
@@ -128,7 +127,6 @@ declare const fullApi: ApiFromModules<{
   tokens: typeof tokens;
   users: typeof users;
   views: typeof views;
-  waitlist: typeof waitlist;
   webhooks: typeof webhooks;
 }>;
 
