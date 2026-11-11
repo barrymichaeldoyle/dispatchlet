@@ -1,7 +1,14 @@
 import { convexTest, type TestConvex } from 'convex-test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api, internal } from './_generated/api'
-import { CHAT_LIMITS, type ChatReply } from './lib/ai/chat'
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
+import {
+  CHAT_LIMITS,
+  type ChatReply,
+  type ChatReplyWire,
+  ChatReplyWire as WireSchema,
+  fromWire,
+} from './lib/ai/chat'
 import { renderPlaybook, type Playbook } from './lib/playbook'
 import schema from './schema'
 
@@ -112,13 +119,31 @@ function providerMessage(content: unknown, stopReason = 'end_turn') {
   })
 }
 
-function model(...replies: ChatReply[]) {
+/** The reply as the model sends it: "unchanged" and empty values instead of nulls. */
+function toWire(r: ChatReply): ChatReplyWire {
+  const c = r.changes
+  return {
+    ...r,
+    changes: {
+      cadence: c?.cadence ? { ...c.cadence, weekday: c.cadence.weekday ?? '' } : null,
+      channelIds: c?.channelIds ?? [],
+      postingMode: c?.postingMode ?? 'unchanged',
+      maxPostsPerRun: c?.maxPostsPerRun ?? 0,
+      publicationPlan: c?.publicationPlan ?? null,
+      researchMode: c?.researchMode ?? 'unchanged',
+    },
+    featureRequest: r.featureRequest ?? '',
+    alternative: r.alternative ?? '',
+  }
+}
+
+function model(...replies: (ChatReply | Response)[]) {
   const requests: Record<string, any>[] = []
   const fetch = vi.fn<typeof globalThis.fetch>(async (input, init) => {
     requests.push(JSON.parse(await new Request(input, init).text()))
     const next = replies.shift()
     if (!next) throw new Error('Unexpected model call')
-    return providerMessage(next)
+    return next instanceof Response ? next : providerMessage(toWire(next))
   })
   vi.stubGlobal('fetch', fetch)
   return { fetch, requests }
@@ -703,5 +728,53 @@ describe('conversation limits and lifecycle', () => {
     expect(
       (await t.run((ctx) => ctx.db.query('automationChatBudgets').collect()))[0],
     ).toMatchObject({ reservedUsd: 0, chargedUsd: 1 })
+  })
+})
+
+describe('a request the API refuses', () => {
+  it('fails the turn without charging the shared budget', async () => {
+    const t = convexTest(schema, modules)
+    const { id, user } = await fixture(t)
+    model(
+      Response.json(
+        {
+          type: 'error',
+          error: { type: 'invalid_request_error', message: 'The compiled grammar is too large.' },
+        },
+        { status: 400 },
+      ),
+    )
+    const turnId = await user.mutation(api.automationChat.send, {
+      id,
+      requestId: 'refused',
+      message: 'Make it on this day.',
+    })
+    await t.action(internal.automationChatWorker.respond, { turnId })
+    const [turn] = (await user.query(api.automationChat.get, { id })).turns
+    expect(turn).toMatchObject({ status: 'failed' })
+    expect(
+      (await t.run((ctx) => ctx.db.query('automationChatBudgets').collect()))[0],
+    ).toMatchObject({ reservedUsd: 0, chargedUsd: 0 })
+  })
+})
+
+describe('the model-facing reply schema', () => {
+  it('stays small enough for structured outputs', () => {
+    // The API refuses schemas whose grammar is too large; nullable fields are what grow it.
+    // Six is the count verified against the live API on 2026-11-11.
+    const json = JSON.stringify((zodOutputFormat(WireSchema) as { schema: unknown }).schema)
+    const unions = (json.match(/"anyOf"/g) ?? []).length + (json.match(/"type":\[/g) ?? []).length
+    expect(unions).toBeLessThanOrEqual(6)
+  })
+
+  it('turns unchanged and empty values back into nulls', () => {
+    const wire = toWire(
+      reply({ kind: 'proposal', changes: config({ researchMode: 'anniversary', cadence }) }),
+    )
+    expect(wire.changes.postingMode).toBe('unchanged')
+    expect(fromWire(wire)).toEqual(
+      reply({ kind: 'proposal', changes: config({ researchMode: 'anniversary', cadence }) }),
+    )
+    expect(fromWire(toWire(reply())).changes).toBeNull()
   })
 })

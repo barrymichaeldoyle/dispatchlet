@@ -310,9 +310,11 @@ export const finish = internalMutation({
     output: v.optional(v.any()),
     record: v.optional(aiCallRecordValidator),
     error: v.optional(v.union(v.literal('service'), v.literal('declined'))),
+    /** The API refused the request, so the reservation is released without a charge. */
+    unbilled: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { turnId, output, record, error }) => {
+  handler: async (ctx, { turnId, output, record, error, unbilled }) => {
     let turn = await ctx.db.get(turnId)
     if (!turn) return null // Account/ conversation deletion must not recreate private data.
     if (record && !turn.callRecorded) {
@@ -327,7 +329,11 @@ export const finish = internalMutation({
       return null
     }
     if (!record)
-      await settle(ctx, turn, turn.startedAt !== undefined ? CHAT_LIMITS.reservationUsd : 0)
+      await settle(
+        ctx,
+        turn,
+        turn.startedAt !== undefined && !unbilled ? CHAT_LIMITS.reservationUsd : 0,
+      )
     let errorCode: Doc<'automationChatTurns'>['errorCode'] = error
     let assistantText =
       error === 'declined'
