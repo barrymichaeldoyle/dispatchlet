@@ -1,6 +1,6 @@
 import { PageSkeleton } from './page-skeleton'
 import { useAuthActions } from '@convex-dev/auth/react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -748,7 +748,8 @@ function EmptyHome({ firstName, viewer }: { firstName: string | undefined; viewe
   )
 }
 
-const SETTINGS_SECTIONS = [
+/** Settings in two parts: what everyone uses, and what only someone wiring Dispatchlet up does. */
+const GENERAL_SECTIONS = [
   ['account', 'Account'],
   ['buffer', 'Buffer'],
   ['usage', 'Usage'],
@@ -756,12 +757,15 @@ const SETTINGS_SECTIONS = [
   ['appearance', 'Appearance'],
   ['anthropic', 'Anthropic key'],
   ['timezone', 'Time zone'],
+  ['delete', 'Delete account'],
+] as const
+const DEVELOPER_SECTIONS = [
   ['api', 'API tokens'],
   ['assistant', 'AI assistants'],
   ['webhooks', 'Webhooks'],
   ['hooks', 'Inbound hooks'],
-  ['delete', 'Delete account'],
 ] as const
+const DEVELOPER_IDS = new Set<string>(DEVELOPER_SECTIONS.map(([id]) => id))
 
 /** Which settings section is at the top of the screen, for the index beside them. */
 function useCurrentSection(ids: readonly string[]): string {
@@ -824,14 +828,18 @@ function useScrollToHash() {
   }, [])
 }
 
-function SettingsIndex() {
+function SettingsIndex({
+  sections,
+}: {
+  sections: typeof GENERAL_SECTIONS | typeof DEVELOPER_SECTIONS
+}) {
   useScrollToHash()
-  const ids = useMemo(() => SETTINGS_SECTIONS.map(([id]) => id), [])
+  const ids = useMemo(() => sections.map(([id]) => id), [sections])
   const current = useCurrentSection(ids)
   return (
     <nav className="settings-index" aria-label="Settings sections">
       <ol>
-        {SETTINGS_SECTIONS.map(([id, label]) => (
+        {sections.map(([id, label]) => (
           <li key={id}>
             <a href={`#${id}`} aria-current={current === id ? 'true' : undefined}>
               {label}
@@ -854,6 +862,13 @@ function Anchor({ id, children }: { id: string; children: React.ReactNode }) {
 
 export function AppSettings() {
   const viewer = useQuery(api.users.viewer)
+  // ?tab=developers, or a link straight to one of its sections (/app/settings#api).
+  const tabParam = useSearch({ strict: false, select: (search) => search.tab })
+  const hash = useLocation({ select: (location) => location.hash })
+  const tab: 'general' | 'developers' =
+    tabParam === 'developers' || (!tabParam && DEVELOPER_IDS.has(hash.replace('#', '')))
+      ? 'developers'
+      : 'general'
   // Every section's data, asked for here too (Convex shares the subscriptions), so the page
   // appears once, whole, instead of sections popping in and pushing each other down.
   const sectionData = [
@@ -871,53 +886,85 @@ export function AppSettings() {
   return (
     <>
       <h1>Settings</h1>
+      <nav className="app-tabs app-settings-tabs" aria-label="Settings">
+        <Link
+          to="/app/settings"
+          search={{}}
+          aria-current={tab === 'general' ? 'page' : undefined}
+          activeProps={{}}
+        >
+          General
+        </Link>
+        <Link
+          to="/app/settings"
+          search={{ tab: 'developers' }}
+          aria-current={tab === 'developers' ? 'page' : undefined}
+          activeProps={{}}
+        >
+          Developers
+        </Link>
+      </nav>
       <div className="settings-layout">
-        <SettingsIndex />
+        <SettingsIndex sections={tab === 'developers' ? DEVELOPER_SECTIONS : GENERAL_SECTIONS} />
         <div className="settings-main">
-          <Anchor id="account">
-            <section className="app-section app-settings-account" aria-labelledby="account-title">
-              <h2 id="account-title">Account</h2>
-              <p>
-                {viewer.name ?? 'Your Buffer account'}
-                {viewer.email ? (
-                  <>
-                    <br />
-                    <span className="app-muted">{viewer.email}</span>
-                  </>
-                ) : null}
+          {tab === 'developers' ? (
+            <>
+              <p className="app-muted">
+                For connecting Dispatchlet to your own tools: API tokens, AI assistants over MCP,
+                webhooks out and hooks in. <a href="/docs/api">The API docs</a>.
               </p>
-              <p className="app-muted">Your name and email come from Buffer.</p>
-              <SignOut />
-            </section>
-          </Anchor>
-          <Anchor id="buffer">
-            <BufferConnection />
-          </Anchor>
-          <Anchor id="usage">
-            <Usage />
-            <OwnerTotals />
-          </Anchor>
-          <Anchor id="notifications">
-            <EmailPrefs />
-          </Anchor>
-          <Anchor id="appearance">
-            <Appearance />
-          </Anchor>
-          <Anchor id="anthropic">
-            <AnthropicKey
-              ownKey={viewer.ownKey}
-              invalid={viewer.keyInvalid}
-              runsLeft={viewer.runsLeft}
-              dryRunsLeft={viewer.dryRunsLeft}
-            />
-          </Anchor>
-          <Anchor id="timezone">
-            <TimezoneSetting value={viewer.timezone} />
-          </Anchor>
-          <Automate timezone={viewer.timezone ?? 'UTC'} />
-          <Anchor id="delete">
-            <DeleteAccount />
-          </Anchor>
+              <Automate timezone={viewer.timezone ?? 'UTC'} />
+            </>
+          ) : (
+            <>
+              <Anchor id="account">
+                <section
+                  className="app-section app-settings-account"
+                  aria-labelledby="account-title"
+                >
+                  <h2 id="account-title">Account</h2>
+                  <p>
+                    {viewer.name ?? 'Your Buffer account'}
+                    {viewer.email ? (
+                      <>
+                        <br />
+                        <span className="app-muted">{viewer.email}</span>
+                      </>
+                    ) : null}
+                  </p>
+                  <p className="app-muted">Your name and email come from Buffer.</p>
+                  <SignOut />
+                </section>
+              </Anchor>
+              <Anchor id="buffer">
+                <BufferConnection />
+              </Anchor>
+              <Anchor id="usage">
+                <Usage />
+                <OwnerTotals />
+              </Anchor>
+              <Anchor id="notifications">
+                <EmailPrefs />
+              </Anchor>
+              <Anchor id="appearance">
+                <Appearance />
+              </Anchor>
+              <Anchor id="anthropic">
+                <AnthropicKey
+                  ownKey={viewer.ownKey}
+                  invalid={viewer.keyInvalid}
+                  runsLeft={viewer.runsLeft}
+                  dryRunsLeft={viewer.dryRunsLeft}
+                />
+              </Anchor>
+              <Anchor id="timezone">
+                <TimezoneSetting value={viewer.timezone} />
+              </Anchor>
+              <Anchor id="delete">
+                <DeleteAccount />
+              </Anchor>
+            </>
+          )}
         </div>
       </div>
     </>

@@ -53,9 +53,11 @@ async function openSignedIn(page: Page, path = '/app') {
     [namespace, token, refreshToken],
   )
   await page.goto(path)
-  await expect(page.getByRole('heading', { level: 1, name: 'Welcome back, Test' })).toBeVisible({
-    timeout: 20_000,
-  })
+  const heading =
+    path === '/app'
+      ? page.getByRole('heading', { level: 1, name: 'Welcome back, Test' })
+      : page.locator('main#main-content h1')
+  await expect(heading).toBeVisible({ timeout: 20_000 })
 }
 
 // A test may resume the automation, which books a real run; signing in again cancels it.
@@ -236,4 +238,24 @@ test('on a phone the Menu opens the whole side bar and gives focus back', async 
   await side.getByRole('link', { name: /F1 On This Day/ }).click()
   await expect(page).toHaveTitle('F1 On This Day | Dispatchlet')
   await expect(side.getByRole('link', { name: 'New automation' })).toBeHidden()
+})
+
+test('settings splits everyday settings from developer tools, and old links still land', async ({
+  page,
+}) => {
+  await openSignedIn(page, '/app/settings')
+  const tabs = page.getByRole('navigation', { name: 'Settings', exact: true })
+  await expect(tabs.getByRole('link', { name: 'General' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'API tokens' })).toHaveCount(0)
+  await tabs.getByRole('link', { name: 'Developers' }).click()
+  await expect(page).toHaveURL(/\?tab=developers$/)
+  await expect(page.getByRole('heading', { name: 'API tokens' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Notifications' })).toHaveCount(0)
+  await page.goto(page.url().replace(/\?.*$/, '#webhooks'))
+  await expect(tabs.getByRole('link', { name: 'Developers' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await expect(page.getByRole('heading', { name: 'Webhooks' })).toBeInViewport()
 })
