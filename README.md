@@ -150,6 +150,14 @@ your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright tests.
 
+The signed-in tests (`e2e/signed-in.spec.ts`) use a test-only sign-in
+(`convex/e2e.ts`) on the dev deployment. To turn it on, put the same random value
+of 32 characters or more in `.env.local` as `E2E_AUTH_SECRET` and on dev with
+`npx convex env set E2E_AUTH_SECRET <value>`. Each sign-in resets one test user
+(`e2e@dispatchlet.test`) to a fixture. Without the secret, or against a deployed
+site, those tests are skipped. Production refuses this sign-in even if the
+variable is set there. Never set it on production.
+
 ### Pre-commit checks
 
 `pnpm install` installs the Husky Git hooks automatically. Every commit runs

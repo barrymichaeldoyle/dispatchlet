@@ -9,6 +9,7 @@ import { expiresAtFrom, fetchBufferAccount, type BufferAccount } from './lib/buf
 import { encryptSecret } from './lib/crypto'
 import { isValidEmail, normalizeEmail } from './lib/email'
 import { addSignInToWaitlist } from './waitlist'
+import { E2eSignIn } from './e2e'
 
 /**
  * Sign in with Buffer. Buffer's app clients cannot request the `openid` scope, so this is plain
@@ -76,7 +77,8 @@ const Buffer: OAuthConfig<BufferAccount> = {
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
-  providers: [Buffer],
+  // E2eSignIn refuses everyone unless the deployment has E2E_AUTH_SECRET and is not production.
+  providers: [Buffer, E2eSignIn],
   /** A sign-in lasts a year, used or not; a scheduled agent should not sign its owner out. */
   session: { totalDurationMs: YEAR_MS, inactiveDurationMs: YEAR_MS },
   callbacks: {

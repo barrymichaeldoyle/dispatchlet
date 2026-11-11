@@ -10,6 +10,7 @@ import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 import { httpsUrl } from './lib/buffer'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { allowanceFor, freeRunsPerUser } from './lib/limits'
+import { isE2eUser } from './e2e'
 
 /** Who is signed in, and whether they may use the app yet (see lib/allowlist). */
 export const viewer = query({
@@ -49,7 +50,7 @@ export const viewer = query({
       image: httpsUrl(user.image),
       bufferId,
       timezone: user.timezone ?? null,
-      allowed: isAllowlisted(bufferId, email),
+      allowed: isAllowlisted(bufferId, email) || isE2eUser(email),
       ...allowanceFor(user),
       runsAllowed: freeRunsPerUser(),
       keyInvalid: Boolean(user.anthropicKeyInvalidAt),

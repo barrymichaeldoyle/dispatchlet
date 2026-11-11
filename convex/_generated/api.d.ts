@@ -26,6 +26,7 @@ import type * as automations from "../automations.js";
 import type * as benchmark from "../benchmark.js";
 import type * as buffer from "../buffer.js";
 import type * as crons from "../crons.js";
+import type * as e2e from "../e2e.js";
 import type * as email from "../email.js";
 import type * as evals_setupAnswers from "../evals/setupAnswers.js";
 import type * as feedback from "../feedback.js";
@@ -90,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   benchmark: typeof benchmark;
   buffer: typeof buffer;
   crons: typeof crons;
+  e2e: typeof e2e;
   email: typeof email;
   "evals/setupAnswers": typeof evals_setupAnswers;
   feedback: typeof feedback;
