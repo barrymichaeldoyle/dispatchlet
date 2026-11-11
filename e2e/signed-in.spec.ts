@@ -137,3 +137,27 @@ for (const colorScheme of ['light', 'dark'] as const) {
     ).toEqual([])
   })
 }
+
+test('signing out says so, and never shows the signing-in screen on the way', async ({ page }) => {
+  await page.addInitScript(() => {
+    const seen: string[] = []
+    Object.assign(window, { __headings: seen })
+    new MutationObserver(() => {
+      const heading = document.querySelector('h1')?.textContent ?? ''
+      if (heading && seen.at(-1) !== heading) seen.push(heading)
+    }).observe(document, { subtree: true, childList: true, characterData: true })
+  })
+  await openSignedIn(page)
+  await page.evaluate(() => {
+    ;(window as unknown as { __headings: string[] }).__headings.length = 0
+  })
+  await page.locator('.app-side-account').getByRole('button', { name: 'Sign out' }).click()
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Sign in to Dispatchlet' }),
+  ).toBeVisible()
+  const headings = await page.evaluate(
+    () => (window as unknown as { __headings: string[] }).__headings,
+  )
+  expect(headings).not.toContain('Signing you in')
+  expect(headings.at(-1)).toBe('Sign in to Dispatchlet')
+})

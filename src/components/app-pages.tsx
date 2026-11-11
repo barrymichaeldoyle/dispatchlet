@@ -27,6 +27,7 @@ import {
   usd,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
+import { setLeaving } from '../lib/leaving'
 import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
 
 export function SignOut() {
@@ -39,7 +40,11 @@ export function SignOut() {
       disabled={pending}
       onClick={() => {
         setPending(true)
-        void signOut().catch(() => setPending(false))
+        setLeaving(true)
+        void signOut().catch(() => {
+          setLeaving(false)
+          setPending(false)
+        })
       }}
     >
       <BusyLabel busy={pending} idle="Sign out" working="Signing out" />

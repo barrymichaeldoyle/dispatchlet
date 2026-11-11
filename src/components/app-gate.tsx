@@ -10,6 +10,7 @@ import { Wordmark } from './wordmark'
 import { channelProblem, serviceName } from '../lib/format'
 import { registerServiceWorker } from '../lib/service-worker'
 import { BusyLabel } from './busy-label'
+import { setLeaving, useLeaving } from '../lib/leaving'
 import { FeedbackProvider, SendFeedbackButton } from './feedback'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
@@ -60,6 +61,12 @@ function Gate() {
   // "Signing you in" is only for a session that is on its way. A visitor with none goes straight
   // to the sign-in page instead of seeing it flash past first.
   const expected = arrival.returning || hasStoredSession()
+  const leaving = useLeaving()
+  const signedOut = !isAuthenticated && !isLoading
+  useEffect(() => {
+    if (signedOut) setLeaving(false)
+  }, [signedOut])
+  if (leaving && !signedOut) return <Screen title="Signing you out" />
   if (isAuthenticated ? viewer === undefined : isLoading && expected) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn asked={arrival.asked} />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
