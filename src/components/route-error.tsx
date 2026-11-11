@@ -1,11 +1,30 @@
-import { Link } from '@tanstack/react-router'
+import { Link, type ErrorComponentProps } from '@tanstack/react-router'
+import { isStaleBuildError } from '../lib/stale-build'
 
 /**
  * What a page shows when rendering it threw: a bad id in the address, a query that refused the
  * arguments. The router reports the error (router.tsx); these only have to read well. Both sit
  * inside the app shell, so the sidebar and header stay up.
  */
-export function RouteError() {
+export function RouteError({ error }: ErrorComponentProps) {
+  // A deploy removed a file this page needs, and the automatic reload did not get it.
+  if (isStaleBuildError(error)) {
+    return (
+      <div className="app-route-error">
+        <h1>This page did not load</h1>
+        <p>
+          Dispatchlet may have changed since you opened it. Reload the page to get the new version.
+        </p>
+        <button
+          type="button"
+          className="app-gate-secondary"
+          onClick={() => window.location.reload()}
+        >
+          Reload the page
+        </button>
+      </div>
+    )
+  }
   return (
     <div className="app-route-error">
       <h1>Something went wrong</h1>

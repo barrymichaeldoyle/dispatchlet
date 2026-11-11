@@ -1,4 +1,5 @@
 import type { PostHog } from 'posthog-js/dist/module.slim'
+import { isStaleBuildError, reloadForNewBuild } from '../../lib/stale-build'
 import { initializeErrorReporting, reportToSentry } from '../sentry/errors'
 
 type Event = { name: string; properties?: Record<string, unknown> }
@@ -39,9 +40,12 @@ export function initializeAnalytics(): Promise<void> {
 
 /**
  * Reports an error to Sentry (errors live there; PostHog is analytics only): the message, stack
- * and page, never form contents. Errors before the SDK has loaded are held.
+ * and page, never form contents. Errors before the SDK has loaded are held. A page file that a
+ * deploy removed is not a bug: the page reloads instead, and only a reload that did not fix it
+ * is reported.
  */
 export function reportError(error: unknown) {
+  if (isStaleBuildError(error) && reloadForNewBuild()) return
   reportToSentry(error)
 }
 
@@ -54,6 +58,8 @@ export function watchErrors() {
   void initializeErrorReporting()
   window.addEventListener('error', (event) => reportError(event.error ?? event.message))
   window.addEventListener('unhandledrejection', (event) => reportError(event.reason))
+  // Vite fires this before the failed import rejects, so the reload starts before anything renders.
+  window.addEventListener('vite:preloadError', () => reloadForNewBuild())
 }
 
 export function track(name: string, properties?: Record<string, unknown>) {
