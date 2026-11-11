@@ -192,7 +192,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         <dl className="app-stats">
           <div data-attention={a.status === 'active'}>
             <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
-            <dd data-text={!(a.status === 'active' && a.nextRunAt)}>
+            <dd className="is-when" data-text={!(a.status === 'active' && a.nextRunAt)}>
               {a.status === 'active' && a.nextRunAt
                 ? relativeWhen(a.nextRunAt, a.timezone)
                 : status}

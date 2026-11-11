@@ -4036,3 +4036,30 @@ a.app-week-count:hover {
   right: 16px;
   margin: 0;
 }
+
+/*
+ * Phones, second pass: a shorter connection banner, and the setup answers list only once there
+ * are answers to show (before then it was seven rows of dashes under the form).
+ */
+@media (max-width: 720px) {
+  .app-gate .app-banner {
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .app-gate .app-banner p {
+    font-size: 14px;
+  }
+  .app-gate .app-banner .app-gate-primary {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+}
+@media (max-width: 900px) {
+  .setup-answers > div:not([data-done='true']) {
+    display: none;
+  }
+  .setup-answers:not(:has(> div[data-done='true'])) {
+    display: none;
+  }
+}

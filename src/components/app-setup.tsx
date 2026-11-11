@@ -85,6 +85,7 @@ function GrowingText({
   value: string
   maxLength: number
   autoFocus?: boolean
+  placeholder?: string
   'aria-label': string
   onChange: (value: string) => void
 }) {
@@ -182,6 +183,7 @@ export function NewAutomation() {
           <GrowingText
             id={`${id}-research`}
             aria-label="What should it research?"
+            placeholder="e.g. electric bikes in Europe"
             value={a.research}
             maxLength={300}
             autoFocus
