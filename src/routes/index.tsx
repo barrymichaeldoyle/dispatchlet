@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useEffect, useRef, useSyncExternalStore, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
 import { BufferMark } from '../components/brand-icons'
@@ -8,7 +8,7 @@ import { PostPreview } from '../components/post-preview'
 import { RunSteps } from '../components/run-steps'
 import { ThemeToggle } from '../components/theme-toggle'
 import { Wordmark } from '../components/wordmark'
-import { STORIES } from '../lib/example-run'
+import { CANDIDATES, STORIES } from '../lib/example-run'
 import { track } from '../integrations/posthog/track'
 
 const SITE_URL = 'https://dispatchlet.com/'
@@ -128,8 +128,26 @@ function useNotice(): { notice: Notice; mounted: boolean } {
   return { notice, mounted }
 }
 
+/** True once the hero's start button has scrolled up out of view, so the header can offer it. */
+function usePastHeroStart(): boolean {
+  const [past, setPast] = useState(false)
+  useEffect(() => {
+    const start = document.getElementById('start')
+    if (!start) return
+    const observer = new IntersectionObserver(([entry]) => {
+      setPast(!entry.isIntersecting && entry.boundingClientRect.top < 0)
+    })
+    observer.observe(start)
+    return () => observer.disconnect()
+  }, [])
+  return past
+}
+
+const SKIPPED = CANDIDATES.length - STORIES.length
+
 function Home() {
   const { notice, mounted } = useNotice()
+  const pastStart = usePastHeroStart()
   const demo = useRef<ExampleRunHandle>(null)
   const playDemo = (event: MouseEvent<HTMLElement>) => {
     if (!demo.current) return
@@ -156,8 +174,22 @@ function Home() {
           <Wordmark size="md" />
           <div className="landing-header-actions">
             <ThemeToggle name="theme" />
-            <a href="/app?signin" className="landing-signin">
-              Sign in
+            {/* Sign in for returning users; once the hero's button is gone, the same link becomes it. */}
+            <a
+              href="/app?signin"
+              className="landing-signin"
+              data-start={pastStart ? 'true' : undefined}
+            >
+              {pastStart ? (
+                <>
+                  <BufferMark size={14} />
+                  <span>
+                    Continue<span className="landing-signin-long"> with Buffer</span>
+                  </span>
+                </>
+              ) : (
+                'Sign in'
+              )}
             </a>
           </div>
         </div>
@@ -217,8 +249,22 @@ function Home() {
             <PostPreview channel="X" length={HERO_POST.length}>
               {HERO_POST}
             </PostPreview>
+            <div className="landing-proof-day">
+              <p className="landing-proof-receipt">
+                Found {CANDIDATES.length} stories, skipped {SKIPPED}, wrote {STORIES.length * 2}{' '}
+                posts.
+              </p>
+              <ol>
+                {STORIES.map((story) => (
+                  <li key={story.title}>
+                    <time>{story.time}</time>
+                    <span>{story.title}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
             <figcaption>
-              <BrandText>{`An example post, written from a ${HERO_STORY.source} story and scheduled in Buffer for ${HERO_STORY.time}.`}</BrandText>
+              <BrandText>{`One morning’s run for an example account. Each story gets an X and a LinkedIn post in Buffer.`}</BrandText>
             </figcaption>
           </figure>
         </section>

@@ -2063,7 +2063,15 @@ header nav button {
 
 /* The landing page explains the product once, then lets the example do the work. */
 .landing-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   border-bottom: 1px solid var(--color-rule);
+  background: var(--color-paper);
+}
+/* Anchors and "Read instead" land below the sticky header, not under it. */
+html:has(.landing-header) {
+  scroll-padding-top: 72px;
 }
 .landing-header-inner {
   max-width: 1160px;
@@ -2090,6 +2098,58 @@ header nav button {
 }
 .landing-signin:hover {
   color: var(--color-pine);
+}
+.landing-signin[data-start='true'] {
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  background: var(--color-pine);
+  color: var(--color-on-pine);
+  text-decoration: none;
+}
+.landing-signin[data-start='true']:hover {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+/* On phones the theme switch gives way to the button while it shows; it's back at the top. */
+@media (max-width: 480px) {
+  .landing-signin-long {
+    display: none;
+  }
+  .landing-header-actions:has([data-start='true']) .theme-toggle {
+    display: none;
+  }
+}
+/* The rest of the run behind the hero's post: the schedule it filled. */
+.landing-proof-day {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+}
+.landing-proof-receipt {
+  margin: 0 0 10px;
+  color: var(--color-pine);
+  font-size: var(--type-small);
+  font-weight: 500;
+}
+.landing-proof-day ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.landing-proof-day li {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-rule);
+  font-size: var(--type-small);
+  line-height: 1.4;
+}
+.landing-proof-day time {
+  color: var(--color-muted);
+  font-variant-numeric: tabular-nums;
 }
 .landing-main {
   width: 100%;
@@ -2640,7 +2700,7 @@ header nav button {
 }
 .step-copy {
   position: sticky;
-  top: 32px;
+  top: 96px;
 }
 .step-art {
   display: block;

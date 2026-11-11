@@ -749,10 +749,16 @@ for (const viewport of [
     await expect(demo).not.toBeVisible()
     const reading = page.getByRole('heading', { name: 'One run, step by step.' })
     await expect(reading).toBeFocused()
-    await expect.poll(async () => (await reading.boundingBox())!.y).toBeLessThanOrEqual(32)
-    expect((await reading.boundingBox())!.y).toBeGreaterThanOrEqual(0)
+    // The heading lands just below the sticky header, not underneath it.
+    const header = (await page.locator('.landing-header').boundingBox())!
+    const headerBottom = header.y + header.height
+    await expect
+      .poll(async () => (await reading.boundingBox())!.y)
+      .toBeLessThanOrEqual(headerBottom + 40)
+    expect((await reading.boundingBox())!.y).toBeGreaterThanOrEqual(headerBottom)
+    // Scrolled past: the launcher is above the page or hidden behind the header.
     expect((await launcher.boundingBox())!.y + (await launcher.boundingBox())!.height).toBeLessThan(
-      0,
+      headerBottom,
     )
     await expect(
       page.getByRole('heading', { name: 'Answer a few quick questions.' }),

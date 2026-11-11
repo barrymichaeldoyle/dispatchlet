@@ -74,3 +74,29 @@ test('the nudge under the demo plays it and returns focus to the play button', a
   await expect(page.getByRole('button', { name: 'Seriously, watch the demo.' })).toHaveCount(0)
   await expect(page.locator('.flow-launch-action')).toBeFocused()
 })
+
+test('inline Buffer wordmarks draw inside their own box', async ({ page }) => {
+  await page.goto('/')
+  const offsets = await page.locator('.buffer-wordmark svg').evaluateAll((marks) =>
+    marks.map((svg) => {
+      const box = svg.getBoundingClientRect()
+      const drawn = svg.querySelector('use')!.getBoundingClientRect()
+      return Math.abs(drawn.left - box.left) + Math.abs(drawn.right - box.right)
+    }),
+  )
+  expect(offsets.length).toBeGreaterThan(10)
+  for (const offset of offsets) expect(offset).toBeLessThan(2)
+})
+
+test('the header offers the start button once the hero is scrolled past', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 })
+  await page.goto('/')
+  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
+  const header = page.locator('.landing-header')
+  await expect(header.getByRole('link', { name: 'Sign in' })).toBeVisible()
+  await page.locator('.steps').scrollIntoViewIfNeeded()
+  await expect(header.getByRole('link', { name: 'Continue' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  )
+})

@@ -31,8 +31,9 @@ function BufferWordmark() {
   return (
     <span className="buffer-wordmark">
       <span className="sr-only">Buffer</span>
-      <svg viewBox="38 5 94 27" aria-hidden="true" fill="currentColor">
-        <use href={`#${BUFFER_WORDMARK_ID}`} />
+      {/* The symbol's own viewBox does the offset; this box only needs its size. */}
+      <svg viewBox="0 0 94 27" aria-hidden="true" fill="currentColor">
+        <use href={`#${BUFFER_WORDMARK_ID}`} width="94" height="27" />
       </svg>
     </span>
   )
