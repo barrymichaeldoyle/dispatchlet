@@ -65,6 +65,7 @@ function Block({
   return (
     <label className={`setup-block setup-choice ${className}`} data-checked={checked}>
       <input type={type} name={name} checked={checked} onChange={onChange} className="sr-only" />
+      {type === 'checkbox' ? <span className="setup-check" aria-hidden="true" /> : null}
       <span className="setup-block-title">{children}</span>
       {detail ? <span className="setup-block-detail">{detail}</span> : null}
     </label>
@@ -376,7 +377,7 @@ export function NewAutomation() {
               ))}
             </select>
           ) : null}
-          <label className="setup-block setup-time tabular">
+          <label className="setup-block setup-time">
             <span className="setup-block-detail">At</span>
             <input
               type="time"

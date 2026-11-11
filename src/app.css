@@ -3743,3 +3743,22 @@ a.app-week-count:hover {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* A checkbox block shows its box, filled when on, like the channel cards. */
+.app-gate .setup-block:has(> .setup-check) {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+.setup-block[data-checked='true'] > .setup-check {
+  border-color: var(--color-pine);
+  background: var(--color-pine);
+}
+.setup-block[data-checked='true'] > .setup-check::after {
+  transform: rotate(-45deg) scale(1);
+  opacity: 1;
+}
+.app-gate .setup-select {
+  border-radius: var(--radius-card);
+}
