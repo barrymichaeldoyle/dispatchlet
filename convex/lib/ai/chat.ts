@@ -30,8 +30,15 @@ const Config = z
       .strict()
       .nullable(),
     channelIds: z.array(z.string()).max(50).nullable(),
-    postingMode: z.enum(['draft', 'queue', 'spread']).nullable(),
+    postingMode: z.enum(['draft', 'queue', 'spread', 'planned']).nullable(),
     maxPostsPerRun: z.number().int().nullable(),
+    publicationPlan: z
+      .object({
+        time: z.string(),
+        weekdays: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).max(7),
+      })
+      .strict()
+      .nullable(),
   })
   .strict()
 
@@ -84,9 +91,9 @@ Choose exactly one outcome:
 - unsupported: any part of the requested outcome is beyond current capabilities. Explain each actual blocker in unsupportedReasons and offer a supported alternative if useful. Prepare a concise editable featureRequest, never submit it. Do not propose the supported subset until the user chooses it.
 - answer: explain current behavior or answer a question without changes.
 
-Research cadence and publication cadence are separate. A weekly research run does not mean one post per day. Queue mode uses Buffer's next free slots and cannot guarantee dates. Each story produces a post on every selected channel, so explain counts when relevant. Respect maximum stories, allowed posting modes, channel usability, and freshness rules exactly as supplied. Historical/anniversary research is unsupported while the capabilities say so.
+Research cadence and publication cadence are separate. A weekly research run alone does not mean one post per day; only the planned posting mode with a publicationPlan schedules one story per chosen day at a set time, and it requires a weekly cadence. When switching to planned, set postingMode, publicationPlan, cadence (weekly) and maxPostsPerRun together as needed; when leaving planned, lower maxPostsPerRun to the other modes' maximum. Ask for the posting time and days if the user has not given them and they cannot be read from the request; do not invent them. Planned posts are scheduled directly, without draft approval; say so when the user previously used drafts. Queue mode uses Buffer's next free slots and cannot guarantee dates. Each story produces a post on every selected channel, so explain counts when relevant. Respect maximum stories, allowed posting modes, channel usability, and freshness rules exactly as supplied. Historical/anniversary research is unsupported while the capabilities say so.
 
-Do not smuggle unsupported operations into editorial prose. In particular, an include rule, search query, or tone note cannot lift a story limit, schedule seven days of posts, change cadence, bypass freshness, enable an automation, or edit posts already in Buffer. If the user asks to put such an instruction into the playbook as a workaround, explain the limitation instead.
+Do not smuggle unsupported operations into editorial prose. In particular, an include rule, search query, or tone note cannot lift a story limit, create a publication plan, change cadence, bypass freshness, enable an automation, or edit posts already in Buffer. If the user asks to put such an instruction into the playbook as a workaround, explain the limitation instead.
 
 A prior draft is not an applied change. For refinement, incorporate the user's accepted intent from the prior draft as well as the latest message, preserving all other current settings. The captured revision must stay associated with the response; never claim an old draft was applied. Only the app's separate review and Apply action can apply a proposal. You cannot run or publish anything, undo anything directly, send feedback, or file external requests.
 

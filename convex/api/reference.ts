@@ -44,6 +44,21 @@ export const Setup = {
   },
 }
 
+export const PublicationPlan = {
+  type: 'object',
+  description:
+    'For postingMode planned: one story per chosen local day at this local time, for the seven days from each run. Requires a weekly cadence.',
+  properties: {
+    time: { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d$' },
+    weekdays: {
+      type: 'array',
+      items: { type: 'string', enum: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] },
+      minItems: 1,
+    },
+  },
+  required: ['time', 'weekdays'],
+}
+
 export const Automation = {
   type: 'object',
   properties: {
@@ -52,8 +67,9 @@ export const Automation = {
     status: { type: 'string', enum: ['generating', 'ready', 'active', 'paused', 'failed'] },
     cadence: Cadence,
     timezone: { type: 'string' },
-    postingMode: { type: 'string', enum: ['draft', 'queue', 'spread'] },
+    postingMode: { type: 'string', enum: ['draft', 'queue', 'spread', 'planned'] },
     maxPostsPerRun: { type: 'integer' },
+    publicationPlan: nullable(PublicationPlan),
     channelIds: { type: 'array', items: { type: 'string' } },
     nextRunAt: nullable(ms),
     lastRunAt: nullable(ms),
@@ -398,8 +414,14 @@ export const ROUTES: RouteRef[] = [
       properties: {
         cadence: ref('Cadence'),
         channelIds: { type: 'array', items: { type: 'string' }, minItems: 1 },
-        postingMode: { type: 'string', enum: ['draft', 'queue', 'spread'] },
-        maxPostsPerRun: { type: 'integer', minimum: 1, maximum: 3 },
+        postingMode: { type: 'string', enum: ['draft', 'queue', 'spread', 'planned'] },
+        maxPostsPerRun: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 7,
+          description: 'Up to 3, or one per posting day (up to 7) with postingMode planned',
+        },
+        publicationPlan: ref('PublicationPlan'),
         status: {
           type: 'string',
           enum: ['active', 'paused'],
@@ -725,6 +747,7 @@ export const ROUTES: RouteRef[] = [
 
 export const SCHEMAS = {
   Cadence,
+  PublicationPlan,
   Setup,
   Automation,
   AutomationDetail,

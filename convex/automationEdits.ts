@@ -4,12 +4,14 @@ import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/s
 import {
   MAX_PLAYBOOK_CHARS,
   MAX_STORIES_PER_RUN,
+  POSTING_MODES,
   normalCadence,
   ownAutomation,
   savePlaybookFor,
   updateConfigFor,
   validateConfigChanges,
 } from './automations'
+import { describePlan, MAX_PLANNED_STORIES, normalPlan, PLAN_HORIZON_DAYS } from './lib/plan'
 import { describeCadence } from './lib/schedule'
 import { parsePlaybook, renderPlaybook } from './lib/playbook'
 import { automationConfigChangesValidator, automationEditSnapshotValidator } from './schema'
@@ -19,21 +21,42 @@ type Changes = Infer<typeof automationConfigChangesValidator>
 
 /** Server-owned contract. Extend it only when the corresponding execution path is implemented. */
 const capabilities = {
-  version: 1,
-  editable: ['playbookText', 'cadence', 'channelIds', 'postingMode', 'maxPostsPerRun'],
+  version: 2,
+  editable: [
+    'playbookText',
+    'cadence',
+    'channelIds',
+    'postingMode',
+    'maxPostsPerRun',
+    'publicationPlan',
+  ],
   cadence: ['daily', 'weekly'],
-  postingModes: ['draft', 'queue', 'spread'],
-  storiesPerRun: { min: 1, max: MAX_STORIES_PER_RUN, integer: true },
+  postingModes: POSTING_MODES,
+  storiesPerRun: {
+    min: 1,
+    max: MAX_STORIES_PER_RUN,
+    plannedMax: MAX_PLANNED_STORIES,
+    integer: true,
+    rule: `Draft, queue and spread take 1-${MAX_STORIES_PER_RUN} stories a run. Planned takes 1 story per posting day, at most ${MAX_PLANNED_STORIES}.`,
+  },
   maxPlaybookCharacters: MAX_PLAYBOOK_CHARS,
   freshnessHours: { min: 6, max: 336 },
-  spread: { startsAfterMinutes: 10, intervalMinutes: 120, supportsPublicationPlan: false },
+  spread: { startsAfterMinutes: 10, intervalMinutes: 120 },
   queue: 'Uses the next free Buffer slots; specific dates are not guaranteed.',
+  planned: {
+    description: `Research once, then schedule one story per chosen posting day at one local time, across the ${PLAN_HORIZON_DAYS} days from the start of the run. Each selected channel gets that story's post at the same time.`,
+    requires: 'A weekly cadence and a publicationPlan with time (HH:MM) and weekdays (mon-sun).',
+    horizon: `The ${PLAN_HORIZON_DAYS} days from when the run starts. A posting time that is less than 10 minutes away when posts are sent is skipped; days already holding a post from this automation are skipped.`,
+    approval: 'Planned posts are scheduled directly in Buffer; there is no draft approval step.',
+    shortBatches:
+      'When research finds fewer good stories than posting days, the remaining days stay empty and the run says which.',
+  },
   timezone: 'Read from account settings; not editable through proposals.',
   requiresReview: true,
   unsupported: [
-    'Seven-story weekly batches',
-    'An explicit daily publication plan across a week',
     'Archival or anniversary research outside the recent-news freshness rules',
+    'Different posting times on different days, or more than one story per day',
+    'Draft approval for planned batches',
     'Changing or deleting posts already in Buffer',
     'Enabling, pausing, deleting, or starting an automation through a change proposal',
   ],
@@ -44,13 +67,14 @@ async function snapshot(ctx: QueryCtx | MutationCtx, a: Doc<'automations'>): Pro
     throw new Error('Wait until the playbook is ready before proposing changes.')
   const version = await ctx.db.get(a.playbookVersionId)
   if (!version) throw new Error('The playbook is not ready yet')
-  if (!['draft', 'queue', 'spread'].includes(a.postingMode))
+  if (!(POSTING_MODES as readonly string[]).includes(a.postingMode))
     throw new Error('Unsupported posting mode')
   return {
     cadence: normalCadence(a.cadence),
     channelIds: a.channelIds,
     postingMode: a.postingMode as Snapshot['postingMode'],
     maxPostsPerRun: a.maxPostsPerRun,
+    ...(a.publicationPlan ? { publicationPlan: normalPlan(a.publicationPlan) } : {}),
     text: version.text,
     timezone: a.timezone,
   }
@@ -70,6 +94,13 @@ function sameCadence(before: Snapshot, after: Snapshot) {
   )
 }
 
+function samePlan(before: Snapshot, after: Snapshot) {
+  const a = before.publicationPlan
+  const b = after.publicationPlan
+  if (!a || !b) return !a && !b
+  return a.time === b.time && a.weekdays.join() === b.weekdays.join()
+}
+
 function summarize(before: Snapshot, after: Snapshot): string[] {
   const summary: string[] = []
   if (!sameCadence(before, after))
@@ -80,8 +111,24 @@ function summarize(before: Snapshot, after: Snapshot): string[] {
     summary.push(`Channels: ${before.channelIds.join(', ')} → ${after.channelIds.join(', ')}.`)
   if (before.postingMode !== after.postingMode)
     summary.push(`Posting mode: ${before.postingMode} → ${after.postingMode}.`)
+  if (!samePlan(before, after))
+    summary.push(
+      `Publication plan: ${before.publicationPlan ? describePlan(before.publicationPlan) : 'none'} → ${after.publicationPlan ? describePlan(after.publicationPlan) : 'none'} (${after.timezone}).`,
+    )
   if (before.maxPostsPerRun !== after.maxPostsPerRun)
     summary.push(`At most ${before.maxPostsPerRun} → ${after.maxPostsPerRun} stories per run.`)
+  if (
+    after.postingMode === 'planned' &&
+    (before.postingMode !== 'planned' ||
+      !samePlan(before, after) ||
+      before.maxPostsPerRun !== after.maxPostsPerRun ||
+      JSON.stringify(before.channelIds) !== JSON.stringify(after.channelIds))
+  ) {
+    const posts = after.maxPostsPerRun * after.channelIds.length
+    summary.push(
+      `Each weekly batch: up to ${after.maxPostsPerRun} ${after.maxPostsPerRun === 1 ? 'story' : 'stories'} × ${after.channelIds.length} ${after.channelIds.length === 1 ? 'channel' : 'channels'} = up to ${posts} Buffer ${posts === 1 ? 'post' : 'posts'}, scheduled directly without approval.`,
+    )
+  }
   if (before.text !== after.text)
     summary.push('Update editorial playbook; review the before/after text.')
   return summary
@@ -94,6 +141,8 @@ function changedConfig(before: Snapshot, after: Snapshot): Changes {
     changes.channelIds = after.channelIds
   if (before.postingMode !== after.postingMode) changes.postingMode = after.postingMode
   if (before.maxPostsPerRun !== after.maxPostsPerRun) changes.maxPostsPerRun = after.maxPostsPerRun
+  if (!samePlan(before, after) && after.publicationPlan)
+    changes.publicationPlan = after.publicationPlan
   return changes
 }
 
@@ -107,7 +156,7 @@ export async function prepareAutomationEdit(
 ) {
   checkRevision(a, baseRevision)
   const before = await snapshot(ctx, a)
-  await validateConfigChanges(ctx, a.userId, changes)
+  await validateConfigChanges(ctx, a.userId, changes, a)
   let text = before.text
   if (playbookText !== undefined) {
     if (playbookText.length > MAX_PLAYBOOK_CHARS) throw new Error('Playbook is too long.')
@@ -119,6 +168,7 @@ export async function prepareAutomationEdit(
     ...before,
     ...changes,
     cadence: changes.cadence ? normalCadence(changes.cadence) : before.cadence,
+    ...(changes.publicationPlan ? { publicationPlan: normalPlan(changes.publicationPlan) } : {}),
     text,
   }
   const summary = summarize(before, after)
@@ -231,7 +281,7 @@ export const apply = mutation({
     if (summarize(current, edit.before).length || current.timezone !== edit.before.timezone)
       throw new Error('This automation changed. Reload it and review a new proposal.')
     const changes = changedConfig(edit.before, edit.after)
-    await validateConfigChanges(ctx, a.userId, changes)
+    await validateConfigChanges(ctx, a.userId, changes, a)
     if (edit.before.text !== edit.after.text) {
       const saved = await savePlaybookFor(ctx, a.userId, a._id, edit.after.text)
       if (!saved.ok) throw new Error(`Line ${saved.line}: ${saved.message}`)

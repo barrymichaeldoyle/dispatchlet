@@ -18,7 +18,13 @@ import {
 } from '../automations'
 import { allowanceFor } from '../lib/limits'
 import { getRunFor, listRunsFor, shareFor, triggerFor } from '../runs'
-import { cadenceValidator, hintValidator, setupValidator } from '../schema'
+import {
+  cadenceValidator,
+  hintValidator,
+  postingModeValidator,
+  publicationPlanValidator,
+  setupValidator,
+} from '../schema'
 import { postView } from '../views'
 
 export const me = internalQuery({
@@ -92,8 +98,9 @@ export const updateAutomation = internalMutation({
     id: v.id('automations'),
     cadence: v.optional(cadenceValidator),
     channelIds: v.optional(v.array(v.string())),
-    postingMode: v.optional(v.union(v.literal('draft'), v.literal('queue'), v.literal('spread'))),
+    postingMode: v.optional(postingModeValidator),
     maxPostsPerRun: v.optional(v.number()),
+    publicationPlan: v.optional(publicationPlanValidator),
     status: v.optional(v.union(v.literal('active'), v.literal('paused'))),
   },
   returns: v.null(),

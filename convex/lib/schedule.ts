@@ -7,7 +7,7 @@ export type Cadence = {
 }
 
 /** The wall-clock parts of an instant in a zone. */
-function partsIn(zone: string, at: Date) {
+export function partsIn(zone: string, at: Date) {
   const f = new Intl.DateTimeFormat('en-GB', {
     timeZone: zone,
     year: 'numeric',
@@ -30,7 +30,14 @@ function partsIn(zone: string, at: Date) {
 }
 
 /** The instant of a local wall-clock time in a zone, found by correcting a UTC guess twice (DST). */
-function instantOf(zone: string, y: number, m: number, d: number, hh: number, mm: number): number {
+export function instantOf(
+  zone: string,
+  y: number,
+  m: number,
+  d: number,
+  hh: number,
+  mm: number,
+): number {
   let guess = Date.UTC(y, m - 1, d, hh, mm)
   for (let i = 0; i < 2; i++) {
     const p = partsIn(zone, new Date(guess))

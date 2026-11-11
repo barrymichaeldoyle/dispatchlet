@@ -20,8 +20,14 @@ import {
   scheduleSpreadMinutes,
 } from './lib/limits'
 import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
+import { MAX_PLANNED_STORIES, normalPlan, planProblem, type PublicationPlan } from './lib/plan'
 import { nextRunAt, type Cadence } from './lib/schedule'
-import { cadenceValidator, setupValidator } from './schema'
+import {
+  cadenceValidator,
+  postingModeValidator,
+  publicationPlanValidator,
+  setupValidator,
+} from './schema'
 import { draftName } from './lib/draftName'
 
 /**
@@ -215,6 +221,7 @@ const automationSummary = v.object({
   timezone: v.string(),
   postingMode: v.string(),
   maxPostsPerRun: v.number(),
+  publicationPlan: v.union(publicationPlanValidator, v.null()),
   channelIds: v.array(v.string()),
   nextRunAt: v.union(v.number(), v.null()),
   lastRunAt: v.union(v.number(), v.null()),
@@ -231,6 +238,7 @@ function summary(a: Doc<'automations'>, version: number) {
     timezone: a.timezone,
     postingMode: a.postingMode,
     maxPostsPerRun: a.maxPostsPerRun,
+    publicationPlan: a.publicationPlan ?? null,
     channelIds: a.channelIds,
     // The time the person set; a busy minute may start it a little later (spreadStart).
     nextRunAt: a.nextRunSetFor ?? a.nextRunAt ?? null,
@@ -412,8 +420,9 @@ export const updateConfig = mutation({
     id: v.id('automations'),
     cadence: v.optional(cadenceValidator),
     channelIds: v.optional(v.array(v.string())),
-    postingMode: v.optional(v.union(v.literal('draft'), v.literal('queue'), v.literal('spread'))),
+    postingMode: v.optional(postingModeValidator),
     maxPostsPerRun: v.optional(v.number()),
+    publicationPlan: v.optional(publicationPlanValidator),
   },
   returns: v.null(),
   handler: async (ctx, { id, ...changes }) =>
@@ -423,9 +432,13 @@ export const updateConfig = mutation({
 export type ConfigChanges = {
   cadence?: Cadence
   channelIds?: string[]
-  postingMode?: 'draft' | 'queue' | 'spread'
+  postingMode?: PostingMode
   maxPostsPerRun?: number
+  publicationPlan?: PublicationPlan
 }
+
+export type PostingMode = 'draft' | 'queue' | 'spread' | 'planned'
+export const POSTING_MODES: readonly PostingMode[] = ['draft', 'queue', 'spread', 'planned']
 
 export async function updateConfigFor(
   ctx: MutationCtx,
@@ -435,7 +448,7 @@ export async function updateConfigFor(
 ): Promise<null> {
   {
     const automation = await automationOf(ctx, userId, id)
-    await validateConfigChanges(ctx, userId, changes)
+    await validateConfigChanges(ctx, userId, changes, automation)
     const patch: Partial<Doc<'automations'>> = {
       updatedAt: Date.now(),
       configurationRevision: (automation.configurationRevision ?? 0) + 1,
@@ -444,6 +457,7 @@ export async function updateConfigFor(
     if (changes.channelIds) patch.channelIds = changes.channelIds
     if (changes.postingMode) patch.postingMode = changes.postingMode
     if (changes.maxPostsPerRun !== undefined) patch.maxPostsPerRun = changes.maxPostsPerRun
+    if (changes.publicationPlan) patch.publicationPlan = normalPlan(changes.publicationPlan)
     await ctx.db.patch(id, patch)
     if (changes.cadence) await scheduleNext(ctx, { ...automation, ...patch })
     return null
@@ -455,19 +469,40 @@ export async function validateConfigChanges(
   ctx: QueryCtx | MutationCtx,
   userId: Id<'users'>,
   changes: ConfigChanges,
+  current: Pick<
+    Doc<'automations'>,
+    'cadence' | 'postingMode' | 'maxPostsPerRun' | 'publicationPlan'
+  >,
 ): Promise<void> {
-  if (
-    changes.maxPostsPerRun !== undefined &&
-    (!Number.isInteger(changes.maxPostsPerRun) ||
-      changes.maxPostsPerRun < 1 ||
-      changes.maxPostsPerRun > MAX_STORIES_PER_RUN)
-  )
-    throw new Error('Between 1 and 3 stories a run')
-  if (
-    changes.postingMode !== undefined &&
-    !['draft', 'queue', 'spread'].includes(changes.postingMode)
-  )
-    throw new Error('Choose draft, queue or spread posting mode')
+  if (changes.postingMode !== undefined && !POSTING_MODES.includes(changes.postingMode))
+    throw new Error('Choose draft, queue, spread or planned posting mode')
+  if (changes.publicationPlan) {
+    const problem = planProblem(changes.publicationPlan)
+    if (problem) throw new Error(problem)
+  }
+  // The rules depend on the combination, so check the configuration as it would be saved.
+  const mode = changes.postingMode ?? current.postingMode
+  const stories = changes.maxPostsPerRun ?? current.maxPostsPerRun
+  const plan = changes.publicationPlan ?? current.publicationPlan
+  const cadence = changes.cadence ?? current.cadence
+  if (changes.maxPostsPerRun !== undefined && !Number.isInteger(changes.maxPostsPerRun))
+    throw new Error('Give the story count as a whole number')
+  if (mode === 'planned') {
+    if (!plan) throw new Error('A planned batch needs posting days and a posting time.')
+    if (cadence.preset !== 'weekly')
+      throw new Error(
+        'A planned batch covers seven days, so research must run weekly. Choose a weekly cadence too.',
+      )
+    const most = Math.min(MAX_PLANNED_STORIES, plan.weekdays.length)
+    if (stories < 1 || stories > most)
+      throw new Error(
+        `A planned batch takes 1 to ${most} ${most === 1 ? 'story' : 'stories'}: one for each posting day.`,
+      )
+  } else if (stories < 1 || stories > MAX_STORIES_PER_RUN) {
+    throw new Error(
+      `Between 1 and ${MAX_STORIES_PER_RUN} stories a run. Larger batches need the planned posting mode.`,
+    )
+  }
   if (changes.channelIds) {
     const channels = await ctx.db
       .query('bufferChannels')

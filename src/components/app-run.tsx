@@ -542,7 +542,11 @@ function RunView({
                     <strong>{p.channelName}</strong>
                     <span className="app-muted">
                       {POST_WORDS[p.status] ?? p.status}
-                      {p.dueAt ? ` for ${whenIn(p.dueAt, tz)}` : ''}
+                      {p.dueAt
+                        ? ` for ${whenIn(p.dueAt, tz)}`
+                        : p.plannedFor
+                          ? `, planned for ${whenIn(p.plannedFor, tz)}`
+                          : ''}
                       {p.sentAt ? ` at ${whenIn(p.sentAt, tz)}` : ''}
                     </span>
                   </p>

@@ -896,7 +896,7 @@ export type CreatePostInput = {
   text: string
   thread?: string[]
   linkAttachment?: { url: string; title: string; description: string }
-  mode: 'draft' | 'queue' | 'spread'
+  mode: 'draft' | 'queue' | 'spread' | 'planned'
   dueAt?: number
   tagId: string | null
 }

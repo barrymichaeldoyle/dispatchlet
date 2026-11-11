@@ -4,9 +4,17 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { parsePlaybook, renderPlaybook, type Playbook } from '../../convex/lib/playbook'
-import { describeCadence } from '../../convex/lib/schedule'
+import { describePlan, MAX_PLANNED_STORIES, WEEKDAYS } from '../../convex/lib/plan'
+import { describeCadence, nextRunAt } from '../../convex/lib/schedule'
 import { ChannelMark } from './brand-icons'
-import { channelProblem, errorText, metricLabel, serviceName, whenIn } from '../lib/format'
+import {
+  channelProblem,
+  errorText,
+  metricLabel,
+  serviceName,
+  whenIn,
+  zoneName,
+} from '../lib/format'
 import { AutomationAssistant } from './automation-chat'
 import { BusyLabel } from './busy-label'
 import {
@@ -75,6 +83,17 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
   }
   const allowance = a.allowance
   const status = STATUS_WORDS[a.status] ?? a.status
+  // The run going now, and the first dry run's result, drive the "what next" line under the title.
+  const live = runs?.find((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000)
+  const latest = runs?.[0]
+  const firstTry =
+    a.status === 'ready' && latest?.finishedAt && runs?.every((r) => r.kind === 'dry')
+      ? latest
+      : null
+  const firstRunAt = whenIn(nextRunAt(a.cadence, a.timezone), a.timezone)
+  const firstRun = firstRunAt.includes(' at ') ? firstRunAt : `today at ${firstRunAt}`
+  // A brand-new automation has nothing to count yet; the stats arrive with its first run.
+  const showStats = Boolean(runs?.length) || a.status === 'active' || a.status === 'paused'
   return (
     <>
       <p className="app-crumbs">
@@ -84,96 +103,149 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         <div>
           <h1>{a.name}</h1>
           <p className="app-muted app-subtitle">
-            {describeCadence(a.cadence)}, {a.timezone.replaceAll('_', ' ')}
+            {describeCadence(a.cadence)}, {zoneName(a.timezone)}
+            {a.postingMode === 'planned' && a.publicationPlan
+              ? `. Posts: ${describePlan(a.publicationPlan)}.`
+              : ''}
           </p>
         </div>
-        <div className="app-gate-actions">
-          <button
-            type="button"
-            className="app-gate-primary"
-            disabled={busy !== null || running || !a.playbook}
-            onClick={() => run(false)}
-          >
-            <BusyLabel busy={busy === 'now'} idle="Run now" working="Starting" />
-          </button>
-          <button
-            type="button"
-            className="app-gate-secondary"
-            disabled={busy !== null || running || !a.playbook}
-            onClick={() => run(true)}
-          >
-            <BusyLabel busy={busy === 'dry'} idle="Dry run" working="Starting" />
-          </button>
-          {a.status === 'active' ? (
+        {a.playbook ? (
+          <div className="app-gate-actions">
+            <button
+              type="button"
+              className="app-gate-primary"
+              disabled={busy !== null || running}
+              onClick={() => run(false)}
+            >
+              <BusyLabel busy={busy === 'now'} idle="Run now" working="Starting" />
+            </button>
             <button
               type="button"
               className="app-gate-secondary"
-              disabled={busy !== null}
-              onClick={() => act('pause', () => setStatus({ id, status: 'paused' }))}
+              disabled={busy !== null || running}
+              onClick={() => run(true)}
             >
-              Pause
+              <BusyLabel busy={busy === 'dry'} idle="Dry run" working="Starting" />
             </button>
-          ) : (
+            {a.status === 'active' ? (
+              <button
+                type="button"
+                className="app-gate-secondary"
+                disabled={busy !== null}
+                onClick={() => act('pause', () => setStatus({ id, status: 'paused' }))}
+              >
+                Pause
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="app-gate-secondary"
+                disabled={busy !== null}
+                onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
+              >
+                {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Enable'}
+              </button>
+            )}
             <button
               type="button"
               className="app-gate-secondary"
-              disabled={busy !== null || !a.playbook}
-              onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
+              aria-expanded={assistantOpen}
+              aria-controls={assistantOpen ? assistantId : undefined}
+              onClick={() => {
+                setAssistantOpen((shown) => !shown)
+                if (!assistantOpen)
+                  requestAnimationFrame(() =>
+                    document.getElementById(assistantId)?.querySelector('textarea')?.focus(),
+                  )
+              }}
             >
-              {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Enable'}
+              {assistantOpen ? 'Close assistant' : 'Ask for changes'}
             </button>
-          )}
-          <button
-            type="button"
-            className="app-gate-secondary"
-            aria-expanded={assistantOpen}
-            aria-controls={assistantOpen ? assistantId : undefined}
-            onClick={() => {
-              setAssistantOpen((shown) => !shown)
-              if (!assistantOpen)
-                requestAnimationFrame(() =>
-                  document.getElementById(assistantId)?.querySelector('textarea')?.focus(),
-                )
-            }}
-          >
-            {assistantOpen ? 'Close assistant' : 'Ask for changes'}
-          </button>
-          {running ? <span className="app-muted">A run is going.</span> : null}
-        </div>
+          </div>
+        ) : null}
       </div>
-      <dl className="app-stats">
-        <div data-attention={a.status === 'active'}>
-          <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
-          <dd className="tabular" data-text={!(a.status === 'active' && a.nextRunAt)}>
-            {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
-          </dd>
-        </div>
-        <div>
-          <dt>Posts, last 30 days</dt>
-          <dd className="tabular">{perf ? perf.posts : 0}</dd>
-        </div>
-        <div data-attention={Boolean(perf?.drafts)}>
-          <dt>Sent / drafts</dt>
-          <dd className="tabular">{perf ? `${perf.sent} / ${perf.drafts}` : '0 / 0'}</dd>
-        </div>
-        <div>
-          <dt>{allowance?.ownKey ? 'AI usage' : 'Free runs left'}</dt>
-          <dd className="tabular" data-text={Boolean(allowance?.ownKey)}>
-            {allowance?.ownKey ? 'On your key' : (allowance?.runsLeft ?? '—')}
-          </dd>
-        </div>
-      </dl>
-      {a.status === 'generating' ? (
-        <p className="app-working" role="status">
-          <span className="flow-spinner" aria-hidden="true" />
-          <span>
-            Reading your sources and writing the playbook. It takes about a minute, and a first dry
-            run starts here on its own when it is done.
-          </span>
-        </p>
-      ) : a.status === 'ready' ? (
-        <p className="app-muted">Try a dry run, then enable it.</p>
+      {showStats ? (
+        <dl className="app-stats">
+          <div data-attention={a.status === 'active'}>
+            <dt>{a.status === 'active' && a.nextRunAt ? 'Next run' : 'Status'}</dt>
+            <dd className="tabular" data-text={!(a.status === 'active' && a.nextRunAt)}>
+              {a.status === 'active' && a.nextRunAt ? whenIn(a.nextRunAt, a.timezone) : status}
+            </dd>
+          </div>
+          <div>
+            <dt>Posts, last 30 days</dt>
+            <dd className="tabular">{perf ? perf.posts : 0}</dd>
+          </div>
+          <div data-attention={Boolean(perf?.drafts)}>
+            <dt>Sent / drafts</dt>
+            <dd className="tabular">{perf ? `${perf.sent} / ${perf.drafts}` : '0 / 0'}</dd>
+          </div>
+          <div>
+            <dt>{allowance?.ownKey ? 'AI usage' : 'Free runs left'}</dt>
+            <dd className="tabular" data-text={Boolean(allowance?.ownKey)}>
+              {allowance?.ownKey ? 'On your key' : (allowance?.runsLeft ?? '—')}
+            </dd>
+          </div>
+        </dl>
       ) : null}
+      <div role="status">
+        {a.status === 'generating' ? (
+          <p className="app-working">
+            <span className="flow-spinner" aria-hidden="true" />
+            <span>
+              Reading your sources and writing the playbook. It takes about a minute, and a first
+              dry run starts here on its own when it is done.
+            </span>
+          </p>
+        ) : live ? (
+          <p className="app-working">
+            <span className="flow-spinner" aria-hidden="true" />
+            <span>
+              {live.kind === 'dry'
+                ? 'A dry run is finding stories now. Nothing goes to Buffer.'
+                : 'A run is finding stories now.'}{' '}
+              <Link to="/app/a/$id/runs/$runId" params={{ id, runId: live._id }}>
+                Watch it
+              </Link>
+            </span>
+          </p>
+        ) : firstTry ? (
+          <div className="app-next">
+            {firstTry.status === 'failed' ? (
+              <p>
+                <strong>The dry run stopped early.</strong>{' '}
+                <Link to="/app/a/$id/runs/$runId" params={{ id, runId: firstTry._id }}>
+                  See what happened
+                </Link>
+                , then try another, or turn it on and let the first real run try {firstRun}.
+              </p>
+            ) : (
+              <p>
+                <strong>The dry run is done.</strong>{' '}
+                {firstTry.kept
+                  ? `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'} and kept ${firstTry.kept}.`
+                  : `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'}, but none were worth posting today. Quiet days are normal.`}{' '}
+                <Link to="/app/a/$id/runs/$runId" params={{ id, runId: firstTry._id }}>
+                  {firstTry.kept ? 'See what it would post' : 'See why'}
+                </Link>
+                . Happy with it? Turn it on and the first real run is {firstRun}.
+              </p>
+            )}
+            <div className="app-gate-actions">
+              <button
+                type="button"
+                className="app-gate-primary"
+                disabled={busy !== null}
+                onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
+              >
+                <BusyLabel busy={busy === 'enable'} idle="Turn it on" working="Turning on" />
+              </button>
+            </div>
+          </div>
+        ) : a.status === 'ready' ? (
+          <p className="app-muted">Try a dry run, then enable it.</p>
+        ) : null}
+      </div>
       {a.generationError ? (
         <p className="app-connection-error" role="alert">
           The playbook could not be written. {a.generationError}
@@ -310,39 +382,39 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           )}
         </section>
       ) : null}
-      <section className="app-section">
-        <h2>Delete automation</h2>
-        <p>Stops the schedule and removes it from your list. Posts already in Buffer stay there.</p>
+      <div className="app-delete">
         {confirmDelete ? (
-          <div className="app-gate-actions">
-            <button
-              type="button"
-              className="app-gate-danger"
-              disabled={busy !== null}
-              onClick={() =>
-                act('delete', () => remove({ id }).then(() => navigate({ to: '/app' })))
-              }
-            >
-              Delete it
-            </button>
-            <button
-              type="button"
-              className="app-gate-secondary"
-              onClick={() => setConfirmDelete(false)}
-            >
-              Keep it
-            </button>
-          </div>
+          <>
+            <p>
+              Delete this automation? It stops the schedule and removes it from your list. Posts
+              already in Buffer stay there.
+            </p>
+            <div className="app-gate-actions">
+              <button
+                type="button"
+                className="app-gate-danger"
+                disabled={busy !== null}
+                onClick={() =>
+                  act('delete', () => remove({ id }).then(() => navigate({ to: '/app' })))
+                }
+              >
+                Delete it
+              </button>
+              <button
+                type="button"
+                className="app-gate-secondary"
+                onClick={() => setConfirmDelete(false)}
+              >
+                Keep it
+              </button>
+            </div>
+          </>
         ) : (
-          <button
-            type="button"
-            className="app-gate-secondary"
-            onClick={() => setConfirmDelete(true)}
-          >
+          <button type="button" className="app-link" onClick={() => setConfirmDelete(true)}>
             Delete automation
           </button>
         )}
-      </section>
+      </div>
     </>
   )
 }
@@ -364,6 +436,30 @@ function ScheduleEditor({ a }: { a: Loaded }) {
       })
   }
   const channels = connection?.channels ?? []
+  const planned = a.postingMode === 'planned'
+  const plan = a.publicationPlan ?? { time: '09:00', weekdays: [...WEEKDAYS] }
+  const storyChoices = planned
+    ? Array.from({ length: Math.min(MAX_PLANNED_STORIES, plan.weekdays.length) }, (_, i) => i + 1)
+    : [1, 2, 3]
+  const setPlanDays = (days: string[]) =>
+    save({
+      publicationPlan: { ...plan, weekdays: days },
+      // A planned batch has one story per posting day, so fewer days can mean fewer stories.
+      ...(a.maxPostsPerRun > days.length ? { maxPostsPerRun: days.length } : {}),
+    })
+  const chooseMode = (mode: 'draft' | 'queue' | 'spread' | 'planned') => {
+    if (mode === 'planned')
+      save({
+        postingMode: 'planned',
+        publicationPlan: plan,
+        maxPostsPerRun: Math.min(MAX_PLANNED_STORIES, plan.weekdays.length),
+        // Seven days of posts come from one research run a week.
+        ...(a.cadence.preset === 'weekly'
+          ? {}
+          : { cadence: { ...a.cadence, preset: 'weekly' as const, weekday: 'mon' } }),
+      })
+    else save({ postingMode: mode, maxPostsPerRun: Math.min(a.maxPostsPerRun, 3) })
+  }
   const weekdays = [
     ['mon', 'Mondays'],
     ['tue', 'Tuesdays'],
@@ -391,7 +487,9 @@ function ScheduleEditor({ a }: { a: Loaded }) {
             })
           }
         >
-          <option value="daily">Daily</option>
+          <option value="daily" disabled={planned}>
+            Daily
+          </option>
           <option value="weekly">Weekly</option>
         </select>
         {a.cadence.preset === 'weekly' ? (
@@ -419,9 +517,15 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           }
         />
         <span className="app-muted">
-          {a.timezone.replaceAll('_', ' ')}, set in <Link to="/app/settings">settings</Link>.
+          {zoneName(a.timezone)}, set in <Link to="/app/settings">settings</Link>.
         </span>
       </div>
+      {planned ? (
+        <p className="app-muted">
+          A planned week comes from one research run, so it runs weekly. Choose another way to reach
+          Buffer to run daily.
+        </p>
+      ) : null}
       <h2>Channels</h2>
       <ul className="app-choices">
         {channels.map((c) => (
@@ -450,7 +554,7 @@ function ScheduleEditor({ a }: { a: Loaded }) {
       </ul>
       <h2>Stories a run, at most</h2>
       <div className="app-field">
-        {[1, 2, 3].map((n) => (
+        {storyChoices.map((n) => (
           <label key={n} className="app-radio tabular">
             <input
               type="radio"
@@ -476,6 +580,11 @@ function ScheduleEditor({ a }: { a: Loaded }) {
             'Spread through the day',
             'Scheduled from ten minutes after the run, two hours apart.',
           ],
+          [
+            'planned',
+            'Plan the week, one story a day',
+            'Research runs weekly, then each story is scheduled for its own day at a set time, on every channel. Scheduled straight away, without approval.',
+          ],
         ].map(([mode, title, detail]) => (
           <li key={mode} data-checked={a.postingMode === mode}>
             <label>
@@ -483,7 +592,7 @@ function ScheduleEditor({ a }: { a: Loaded }) {
                 type="radio"
                 name="mode"
                 checked={a.postingMode === mode}
-                onChange={() => save({ postingMode: mode as 'draft' | 'queue' | 'spread' })}
+                onChange={() => chooseMode(mode as 'draft' | 'queue' | 'spread' | 'planned')}
               />
               <span>{title}</span>
               <span className="app-muted">{detail}</span>
@@ -491,6 +600,52 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           </li>
         ))}
       </ul>
+      {planned ? (
+        <fieldset className="app-plan">
+          <legend>Posting days and time</legend>
+          <div className="app-field">
+            {WEEKDAYS.map((day, i) => (
+              <label key={day} className="app-radio">
+                <input
+                  type="checkbox"
+                  checked={plan.weekdays.includes(day)}
+                  // At least one posting day stays chosen.
+                  disabled={plan.weekdays.length === 1 && plan.weekdays.includes(day)}
+                  onChange={(e) =>
+                    setPlanDays(
+                      e.target.checked
+                        ? [...plan.weekdays, day]
+                        : plan.weekdays.filter((d) => d !== day),
+                    )
+                  }
+                />{' '}
+                {weekdays[i]![1]!.slice(0, 3)}
+              </label>
+            ))}
+          </div>
+          <div className="app-field">
+            <input
+              type="time"
+              className="app-select tabular"
+              value={plan.time}
+              step={300}
+              aria-label="Posting time"
+              onChange={(e) =>
+                e.target.value && save({ publicationPlan: { ...plan, time: e.target.value } })
+              }
+            />
+            <span className="app-muted">{zoneName(a.timezone)}</span>
+          </div>
+          <p className="app-muted">
+            {describePlan(plan)}, for the seven days from each run. Up to {a.maxPostsPerRun}{' '}
+            {a.maxPostsPerRun === 1 ? 'story' : 'stories'} × {a.channelIds.length}{' '}
+            {a.channelIds.length === 1 ? 'channel' : 'channels'} = up to{' '}
+            {a.maxPostsPerRun * a.channelIds.length} posts a week. Days that already have a post
+            from this automation, or are under ten minutes away, are left out. If research finds
+            fewer good stories, some days stay empty and the run says which.
+          </p>
+        </fieldset>
+      ) : null}
       <p className="app-muted" role="status">
         {state === 'saving'
           ? 'Saving'

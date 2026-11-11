@@ -26,18 +26,33 @@ export const cadenceValidator = v.object({
   weekday: v.union(v.string(), v.null()),
 })
 
+/** One story per chosen local day at one local time (lib/plan). */
+export const publicationPlanValidator = v.object({
+  time: v.string(),
+  weekdays: v.array(v.string()),
+})
+
+export const postingModeValidator = v.union(
+  v.literal('draft'),
+  v.literal('queue'),
+  v.literal('spread'),
+  v.literal('planned'),
+)
+
 export const automationConfigChangesValidator = v.object({
   cadence: v.optional(cadenceValidator),
   channelIds: v.optional(v.array(v.string())),
-  postingMode: v.optional(v.union(v.literal('draft'), v.literal('queue'), v.literal('spread'))),
+  postingMode: v.optional(postingModeValidator),
   maxPostsPerRun: v.optional(v.number()),
+  publicationPlan: v.optional(publicationPlanValidator),
 })
 
 export const automationEditSnapshotValidator = v.object({
   cadence: cadenceValidator,
   channelIds: v.array(v.string()),
-  postingMode: v.union(v.literal('draft'), v.literal('queue'), v.literal('spread')),
+  postingMode: postingModeValidator,
   maxPostsPerRun: v.number(),
+  publicationPlan: v.optional(publicationPlanValidator),
   text: v.string(),
   timezone: v.string(),
 })
@@ -172,6 +187,8 @@ export default defineSchema({
     timezone: v.string(),
     postingMode: v.string(),
     maxPostsPerRun: v.number(),
+    /** Required when postingMode is 'planned'; kept when switching away so it can come back. */
+    publicationPlan: v.optional(publicationPlanValidator),
     playbookVersionId: v.optional(v.id('playbookVersions')),
     /** Optimistic concurrency for editorial/configuration edits; absent means revision zero. */
     configurationRevision: v.optional(v.number()),
@@ -390,6 +407,8 @@ export default defineSchema({
     bufferStatus: v.optional(v.string()),
     externalLink: v.optional(v.string()),
     dueAt: v.optional(v.number()),
+    /** A planned batch's publication slot for this post's story, kept while it waits or is held. */
+    plannedFor: v.optional(v.number()),
     sentAt: v.optional(v.number()),
     approveToken: v.optional(v.string()),
     /** Buffer's metrics for a sent post, fetched daily from a day after it went out. */
@@ -410,7 +429,8 @@ export default defineSchema({
     .index('by_createdAt', ['createdAt'])
     .index('by_approveToken', ['approveToken'])
     .index('by_bufferPostId', ['bufferPostId'])
-    .index('by_status_createdAt', ['status', 'createdAt']),
+    .index('by_status_createdAt', ['status', 'createdAt'])
+    .index('by_automation_plannedFor', ['automationId', 'plannedFor']),
   /** Every model call, with what it cost, so the cost per run is measured and not guessed. */
   /** AI spend by the hour it happened, so the daily cap reads 24 rows rather than every call. */
   aiSpend: defineTable({

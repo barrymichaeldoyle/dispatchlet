@@ -134,8 +134,18 @@ const PatchBody = z
   .object({
     cadence: Cadence.optional(),
     channelIds: z.array(z.string().min(1)).min(1).optional(),
-    postingMode: z.enum(['draft', 'queue', 'spread']).optional(),
-    maxPostsPerRun: z.number().int().min(1).max(3).optional(),
+    postingMode: z.enum(['draft', 'queue', 'spread', 'planned']).optional(),
+    maxPostsPerRun: z.number().int().min(1).max(7).optional(),
+    publicationPlan: z
+      .object({
+        time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        weekdays: z
+          .array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']))
+          .min(1)
+          .max(7),
+      })
+      .strict()
+      .optional(),
     status: z.enum(['active', 'paused']).optional(),
   })
   .strict()

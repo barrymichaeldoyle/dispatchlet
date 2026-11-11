@@ -144,6 +144,8 @@ export function writeUserMessage(
   stories: Candidate[],
   channels: TargetChannel[],
   proven: ProvenPost[] = [],
+  /** A planned batch: when each story's posts go out, by canonical URL. */
+  schedule?: { timezone: string; at: Map<string, number> },
 ): string {
   const lines = [
     `Playbook: ${playbook.name}`,
@@ -183,7 +185,17 @@ export function writeUserMessage(
       `   why it matters: ${s.whyItMatters}`,
       `   key facts: ${s.keyFacts.map((f) => `• ${f}`).join(' ')}`,
     )
+    const at = schedule?.at.get(s.canonicalUrl)
+    if (at)
+      lines.push(
+        `   posts on: ${new Date(at).toLocaleString('en-GB', { timeZone: schedule!.timezone, dateStyle: 'full', timeStyle: 'short' })}`,
+      )
   })
+  if (schedule)
+    lines.push(
+      '',
+      'These posts are scheduled ahead, each on its own day. Write each so it reads correctly when it goes out: no "today", "this morning", "just now" or "breaking", and give dates rather than relative days where timing matters.',
+    )
   if (proven.length) {
     lines.push(
       '',

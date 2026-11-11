@@ -81,9 +81,12 @@ describe('reviewed automation changes', () => {
     expect(result).toMatchObject({
       revision: 0,
       current: { text, cadence, timezone: 'Africa/Johannesburg' },
-      capabilities: { storiesPerRun: { max: 3 }, requiresReview: true },
+      capabilities: { storiesPerRun: { max: 3, plannedMax: 7 }, requiresReview: true },
     })
-    expect(result.capabilities.unsupported).toContain('Seven-story weekly batches')
+    expect(result.capabilities.postingModes).toContain('planned')
+    expect(result.capabilities.unsupported).toContain(
+      'Archival or anniversary research outside the recent-news freshness rules',
+    )
     expect((await t.run((ctx) => ctx.db.get(id)))?.configurationRevision).toBeUndefined()
   })
 
@@ -389,6 +392,82 @@ describe('reviewed automation changes', () => {
     await expect(user.mutation(api.automationEdits.apply, { id: editId })).rejects.toThrow(
       'Automation not found',
     )
+  })
+
+  it('proposes and applies a weekly planned batch as one reviewed change, and undoes it', async () => {
+    const t = convexTest(schema, modules)
+    const { id, user } = await fixture(t)
+    const plan = { time: '09:00', weekdays: ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] }
+    await expect(
+      user.mutation(api.automationEdits.propose, {
+        id,
+        baseRevision: 0,
+        changes: { postingMode: 'planned', publicationPlan: plan, maxPostsPerRun: 7 },
+      }),
+    ).rejects.toThrow(/weekly cadence/)
+    await expect(
+      user.mutation(api.automationEdits.propose, {
+        id,
+        baseRevision: 0,
+        changes: { maxPostsPerRun: 7 },
+      }),
+    ).rejects.toThrow(/planned posting mode/)
+    const editId = await user.mutation(api.automationEdits.propose, {
+      id,
+      baseRevision: 0,
+      changes: {
+        cadence: weekly,
+        postingMode: 'planned',
+        publicationPlan: plan,
+        maxPostsPerRun: 7,
+        channelIds: ['x1', 'x2'],
+      },
+    })
+    const edit = await user.query(api.automationEdits.get, { id: editId })
+    expect(edit.after.publicationPlan?.weekdays).toEqual([
+      'mon',
+      'tue',
+      'wed',
+      'thu',
+      'fri',
+      'sat',
+      'sun',
+    ])
+    expect(edit.summary).toEqual(
+      expect.arrayContaining([
+        'Publication plan: none → Every day at 09:00 (Africa/Johannesburg).',
+        expect.stringContaining('up to 7 stories × 2 channels = up to 14 Buffer posts'),
+      ]),
+    )
+    expect(await user.mutation(api.automationEdits.apply, { id: editId })).toBe(1)
+    const saved = await t.run((ctx) => ctx.db.get(id))
+    expect(saved).toMatchObject({ postingMode: 'planned', maxPostsPerRun: 7, cadence: weekly })
+    // Leaving planned mode needs a story count the other modes accept.
+    await expect(
+      user.mutation(api.automationEdits.propose, {
+        id,
+        baseRevision: 1,
+        changes: { postingMode: 'queue' },
+      }),
+    ).rejects.toThrow(/Between 1 and 3/)
+    // Fewer posting days than stories is refused.
+    await expect(
+      user.mutation(api.automationEdits.propose, {
+        id,
+        baseRevision: 1,
+        changes: { publicationPlan: { time: '09:00', weekdays: ['mon', 'fri'] } },
+      }),
+    ).rejects.toThrow(/1 to 2 stories/)
+    const undoId = await user.mutation(api.automationEdits.proposeUndo, {
+      id: editId,
+      baseRevision: 1,
+    })
+    await user.mutation(api.automationEdits.apply, { id: undoId })
+    expect(await t.run((ctx) => ctx.db.get(id))).toMatchObject({
+      postingMode: 'draft',
+      maxPostsPerRun: 1,
+      cadence,
+    })
   })
 
   it('deletes proposal snapshots with the account', async () => {

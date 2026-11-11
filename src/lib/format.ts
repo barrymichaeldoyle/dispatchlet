@@ -19,6 +19,12 @@ export function whenIn(at: number, timeZone: string, now = Date.now()): string {
   return sameDay ? timeIn(at, timeZone) : `${dateIn(at, timeZone)} at ${timeIn(at, timeZone)}`
 }
 
+/** A time zone as people say it: "Johannesburg time" for Africa/Johannesburg. */
+export function zoneName(timeZone: string): string {
+  if (!timeZone.includes('/')) return timeZone
+  return `${timeZone.split('/').at(-1)!.replaceAll('_', ' ')} time`
+}
+
 export function usd(amount: number): string {
   return amount < 0.01 && amount > 0 ? 'under $0.01' : `$${amount.toFixed(2)}`
 }

@@ -13,7 +13,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from './_generated/server'
-import { addExcludeRuleFor, ownAutomation, scheduleNext } from './automations'
+import { addExcludeRuleFor, ownAutomation, scheduleNext, type PostingMode } from './automations'
 import { isAllowlisted } from './lib/allowlist'
 import {
   BufferBudgetError,
@@ -59,6 +59,13 @@ import {
 } from './lib/ai/write'
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
+import {
+  freeSlots,
+  PLAN_HORIZON_DAYS,
+  PLAN_LEAD_MS,
+  PLAN_SELECTION_LEAD_MS,
+  type PublicationPlan,
+} from './lib/plan'
 import type { Playbook } from './lib/playbook'
 import { keyFor } from './users'
 import { postView } from './views'
@@ -74,6 +81,19 @@ const MIN_REQUESTED_CONFIDENCE = 0.25
 /** Spread mode: posts in one run go out at least this far apart, starting soon. */
 const SPREAD_GAP_MS = 2 * 60 * 60_000
 const SPREAD_FIRST_MS = 10 * 60_000
+/** Post states that hold a planned slot. Failed, rejected, skipped and dry posts free it. */
+const SLOT_HOLDING = new Set(['publishing', 'held', 'scheduled', 'queued', 'draft', 'sent'])
+
+const slotLabel = (at: number, zone: string) =>
+  new Date(at).toLocaleString('en-GB', {
+    timeZone: zone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
 
 type Kind = 'scheduled' | 'now' | 'dry'
 
@@ -432,6 +452,7 @@ export const savePost = internalMutation({
     bufferStatus: v.optional(v.string()),
     externalLink: v.optional(v.string()),
     dueAt: v.optional(v.number()),
+    plannedFor: v.optional(v.number()),
   },
   returns: v.id('posts'),
   handler: async (ctx, args) => {
@@ -446,6 +467,21 @@ export const savePost = internalMutation({
       await ctx.scheduler.runAfter(0, internal.buffer.addPostNote, { postId: id })
     }
     return id
+  },
+})
+
+/** Planned slots this automation's posts already hold from `from` on (other or earlier batches). */
+export const occupiedSlots = internalQuery({
+  args: { automationId: v.id('automations'), from: v.number() },
+  returns: v.array(v.number()),
+  handler: async (ctx, { automationId, from }) => {
+    const posts = await ctx.db
+      .query('posts')
+      .withIndex('by_automation_plannedFor', (q) =>
+        q.eq('automationId', automationId).gte('plannedFor', from),
+      )
+      .take(500)
+    return [...new Set(posts.filter((p) => SLOT_HOLDING.has(p.status)).map((p) => p.plannedFor!))]
   },
 })
 
@@ -559,6 +595,37 @@ export const finish = internalMutation({
   },
 })
 
+/** Stories written per call in a large batch; small runs stay one call, as before. */
+const WRITE_BATCH_STORIES = 3
+
+const storyCount = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`
+
+/** The closing line of a planned batch: what is scheduled when, and any days left empty. */
+export function planNote(o: {
+  dry: boolean
+  published: number
+  placed: number[]
+  kept: number
+  storyLimit: number
+  openDays: number
+  timezone: string
+}): string {
+  // oxlint-disable-next-line unicorn/no-array-sort -- a fresh copy
+  const days = [...o.placed].sort((a, b) => a - b).map((at) => slotLabel(at, o.timezone))
+  const head = o.dry
+    ? `Dry run finished. It would schedule ${storyCount(days.length)}: ${days.join('; ')}. Nothing went to Buffer.`
+    : `Done. ${o.published} ${o.published === 1 ? 'post' : 'posts'} in Buffer, for ${days.join('; ')}.`
+  const short =
+    o.kept < o.storyLimit
+      ? ` Research found ${storyCount(o.kept)} good enough for ${o.storyLimit} planned, so ${o.storyLimit - o.kept} ${o.storyLimit - o.kept === 1 ? 'day has' : 'days have'} no post.`
+      : ''
+  const unplaced =
+    o.placed.length < o.kept
+      ? ` ${storyCount(o.kept - o.placed.length)} had no posting day left by the time ${o.kept - o.placed.length === 1 ? 'it was' : 'they were'} written.`
+      : ''
+  return `${head}${short}${unplaced}`
+}
+
 async function record(ctx: ActionCtx, runId: Id<'runs'>, purpose: string, r: CallRecord) {
   await ctx.runMutation(internal.ai.recordCall, { runId, purpose, ...r })
 }
@@ -610,10 +677,50 @@ export const execute = internalAction({
       for (const c of channels)
         if (!c.usable) await say('channels', `${c.name} skipped: ${channelIssue(c)}.`)
 
+      // A planned batch keeps at most one story per open posting day in the week from this run.
+      const planned = automation.postingMode === 'planned'
+      const plan: PublicationPlan | null = planned ? (automation.publicationPlan ?? null) : null
+      if (planned && !plan) {
+        await fail('This automation has no publication plan. Choose posting days and a time.')
+        return null
+      }
+      const horizonStart = run.startedAt
+      const openSlots = plan
+        ? freeSlots(
+            plan,
+            automation.timezone,
+            horizonStart,
+            Date.now(),
+            await ctx.runQuery(internal.runs.occupiedSlots, {
+              automationId: automation._id,
+              from: horizonStart,
+            }),
+            PLAN_SELECTION_LEAD_MS,
+          )
+        : []
+      const storyLimit = plan
+        ? Math.min(automation.maxPostsPerRun, openSlots.length)
+        : automation.maxPostsPerRun
+      if (plan) {
+        if (!storyLimit) {
+          if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
+          await ctx.runMutation(internal.runs.finish, {
+            runId,
+            status: 'skipped',
+            note: `Every posting day in the next ${PLAN_HORIZON_DAYS} days already has a post from this automation or is too soon, so nothing was researched.${run.freeRun ? ' This run did not use one of your free runs.' : ''}`,
+          })
+          return null
+        }
+        await say(
+          'plan',
+          `Planning up to ${storyLimit} ${storyLimit === 1 ? 'story' : 'stories'} for ${openSlots.length} open posting ${openSlots.length === 1 ? 'day' : 'days'}: ${openSlots.map((at) => slotLabel(at, automation.timezone)).join(', ')}.`,
+        )
+      }
+
       const client = anthropicClient(await keyFor(user))
       const brief = briefFromPlaybook(playbook, {
         onlyTheseSources: automation.setup.onlyTheseSources,
-        maxPostsPerRun: automation.maxPostsPerRun,
+        maxPostsPerRun: storyLimit,
       })
       const domains = allowedDomains(brief)
       const research = await callStructured(client, {
@@ -626,9 +733,10 @@ export const execute = internalAction({
           timezone: automation.timezone,
           covered: covered.map((c) => ({ title: c.title, url: c.canonicalUrl })),
           requested: run.hint ?? null,
+          batch: plan ? { days: PLAN_HORIZON_DAYS, stories: storyLimit } : null,
         }),
         schema: ResearchResult,
-        tools: researchTools(domains),
+        tools: researchTools(domains, undefined, brief.maxCandidates),
       })
       await record(ctx, runId, 'research', research.record)
       // Searches and page opens that failed, by the tool's own error code, so the log says why.
@@ -705,12 +813,15 @@ export const execute = internalAction({
           continue
         }
         const kept = decided.filter((d) => d.decision === 'kept' || d.decision === 'dry').length
-        if (kept >= automation.maxPostsPerRun) {
+        if (kept >= storyLimit) {
           decided.push({
             ...c,
             canonicalUrl: url,
             decision: 'skipped_limit',
-            reason: `Over the ${automation.maxPostsPerRun} a run you asked for.`,
+            reason:
+              plan && storyLimit < automation.maxPostsPerRun
+                ? `Over the ${storyLimit} open posting ${storyLimit === 1 ? 'day' : 'days'} in this week's plan.`
+                : `Over the ${storyLimit} a run you asked for.`,
           })
           continue
         }
@@ -762,21 +873,43 @@ export const execute = internalAction({
         name: c.name,
         maxLength: c.maxLength ?? null,
       }))
-      const written = await callStructured(client, {
-        model: modelFor('write'),
-        effort: 'medium',
-        maxTokens: STRUCTURED_MAX_TOKENS,
-        system: WRITE_SYSTEM,
-        user: writeUserMessage(playbook, keep, targets, proven),
-        schema: WriteResult,
-      })
-      await record(ctx, runId, 'write', written.record)
-      if (!written.output) {
-        await fail(
-          written.record.refusal
-            ? `Writing was declined: ${written.record.refusal}`
-            : 'Writing returned nothing usable.',
-        )
+      // Planned dates the writer can see, so a post meant for Friday does not say "today".
+      const tentative = new Map<string, number>()
+      if (plan) keep.forEach((k, i) => openSlots[i] && tentative.set(k.canonicalUrl, openSlots[i]))
+      // A large batch is written a few stories at a time, so one reply never has to carry them all.
+      const writtenPosts: PostDraft[] = []
+      for (let from = 0; from < keep.length; from += WRITE_BATCH_STORIES) {
+        const chunk = keep.slice(from, from + WRITE_BATCH_STORIES)
+        const written = await callStructured(client, {
+          model: modelFor('write'),
+          effort: 'medium',
+          maxTokens: STRUCTURED_MAX_TOKENS,
+          system: WRITE_SYSTEM,
+          user: writeUserMessage(
+            playbook,
+            chunk,
+            targets,
+            proven,
+            plan ? { timezone: automation.timezone, at: tentative } : undefined,
+          ),
+          schema: WriteResult,
+        })
+        await record(ctx, runId, 'write', written.record)
+        if (written.output) {
+          writtenPosts.push(...written.output.posts)
+          continue
+        }
+        const why = written.record.refusal
+          ? `Writing was declined: ${written.record.refusal}`
+          : 'Writing returned nothing usable.'
+        if (keep.length <= WRITE_BATCH_STORIES) {
+          await fail(why)
+          return null
+        }
+        await say('write', `${why} ${chunk.length} of the stories are left out.`)
+      }
+      if (!writtenPosts.length) {
+        await fail('Writing returned nothing usable.')
         return null
       }
       const storyUrls = new Set(keep.map((k) => k.canonicalUrl))
@@ -784,7 +917,7 @@ export const execute = internalAction({
 
       // The system adds the link on channels without a card, then posts that miss their limit get
       // up to two narrower asks that say how much to cut.
-      let drafts: PostDraft[] = written.output.posts.map((d) => {
+      let drafts: PostDraft[] = writtenPosts.map((d) => {
         const channel = targets.find((t) => t.channelId === d.channelId)
         return channel ? withLink(d, channel) : d
       })
@@ -862,6 +995,23 @@ export const execute = internalAction({
             user._id,
             targets.map((t) => t.channelId),
           )
+      // Slots are assigned now, against what Buffer already holds from this automation, best story
+      // first. A story with no slot left (time passed while writing, or taken) is not posted.
+      const slotFor = new Map<Id<'stories'>, number>()
+      if (plan) {
+        const fresh = freeSlots(
+          plan,
+          automation.timezone,
+          horizonStart,
+          Date.now(),
+          await ctx.runQuery(internal.runs.occupiedSlots, {
+            automationId: automation._id,
+            from: horizonStart,
+          }),
+          PLAN_LEAD_MS,
+        )
+        keep.forEach((k, i) => fresh[i] !== undefined && slotFor.set(k._id, fresh[i]))
+      }
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let published = 0
@@ -888,6 +1038,7 @@ export const execute = internalAction({
           text: checked.post.text,
           thread: checked.post.thread ?? undefined,
           linkAttachment: checked.post.linkAttachment ?? undefined,
+          plannedFor: plan ? slotFor.get(story._id) : undefined,
         }
         if (!checked.ok) {
           await ctx.runMutation(internal.runs.savePost, {
@@ -899,6 +1050,14 @@ export const execute = internalAction({
             'write',
             `${channel.name}: a post for "${story.title}" was not used. ${checked.reason}`,
           )
+          continue
+        }
+        if (plan && !slotFor.has(story._id)) {
+          await ctx.runMutation(internal.runs.savePost, {
+            ...base,
+            status: 'skipped',
+            reason: 'No posting day was left for it in this week’s plan.',
+          })
           continue
         }
         if (dry) {
@@ -917,7 +1076,7 @@ export const execute = internalAction({
         if (published === 0) await say('publish', 'Sending to Buffer.', 'publishing')
         if (!tagByOrg.has(row.organizationId))
           tagByOrg.set(row.organizationId, await ensureTag(ctx, user._id, row.organizationId))
-        const mode = automation.postingMode as 'draft' | 'queue' | 'spread'
+        const mode = automation.postingMode as PostingMode
         // The row goes in before the call, so a run that dies mid-way leaves a trace of a post that
         // may be in Buffer (the sweeper fails it) instead of a post Buffer has and Dispatchlet forgot.
         const postId = await ctx.runMutation(internal.runs.savePost, {
@@ -933,7 +1092,7 @@ export const execute = internalAction({
             thread: checked.post.thread ?? undefined,
             linkAttachment: checked.post.linkAttachment ?? undefined,
             mode,
-            dueAt: mode === 'spread' ? dueAt : undefined,
+            dueAt: mode === 'spread' ? dueAt : mode === 'planned' ? base.plannedFor : undefined,
             tagId: tagByOrg.get(row.organizationId) ?? null,
           })
           if (mode === 'spread') dueAt += SPREAD_GAP_MS
@@ -999,6 +1158,7 @@ export const execute = internalAction({
             text: draft.text,
             thread: draft.thread ?? undefined,
             linkAttachment: draft.linkAttachment ?? undefined,
+            plannedFor: plan ? slotFor.get(story._id) : undefined,
             status: 'held',
             reason: 'Waiting for Buffer to accept more posts.',
           })
@@ -1014,9 +1174,19 @@ export const execute = internalAction({
       await ctx.runMutation(internal.runs.finish, {
         runId,
         status: 'done',
-        note: dry
-          ? `Dry run finished. ${keep.length} ${keep.length === 1 ? 'story' : 'stories'} and the posts it would send are below. Nothing went to Buffer.`
-          : `Done. ${published} ${published === 1 ? 'post' : 'posts'} in Buffer.`,
+        note: plan
+          ? planNote({
+              dry,
+              published,
+              placed: [...slotFor.values()],
+              kept: keep.length,
+              storyLimit,
+              openDays: openSlots.length,
+              timezone: automation.timezone,
+            })
+          : dry
+            ? `Dry run finished. ${keep.length} ${keep.length === 1 ? 'story' : 'stories'} and the posts it would send are below. Nothing went to Buffer.`
+            : `Done. ${published} ${published === 1 ? 'post' : 'posts'} in Buffer.`,
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -1131,7 +1301,7 @@ export const sendHeld = internalAction({
         })
       return null
     }
-    const mode = automation.postingMode as 'draft' | 'queue' | 'spread'
+    const mode = automation.postingMode as PostingMode
     const tagByOrg = new Map<string, string | null>()
     const atLimit = await channelsAtLimit(ctx, automation.userId, [
       ...new Set(held.map((p) => p.channelId)),
@@ -1145,6 +1315,18 @@ export const sendHeld = internalAction({
           postId: post._id,
           status: 'skipped',
           reason: `${row.displayName ?? row.name} is at its daily posting limit in Buffer.`,
+        })
+        continue
+      }
+      // A planned post keeps its day. If that time has passed while Buffer was busy, it is not
+      // posted late or moved onto another story's day.
+      if (mode === 'planned' && (!post.plannedFor || post.plannedFor < Date.now() + PLAN_LEAD_MS)) {
+        await ctx.runMutation(internal.runs.markSent, {
+          postId: post._id,
+          status: 'skipped',
+          reason: post.plannedFor
+            ? `Its planned time, ${slotLabel(post.plannedFor, automation.timezone)}, passed while Buffer was busy, so it was not posted late.`
+            : 'It had no planned posting time.',
         })
         continue
       }
@@ -1168,7 +1350,7 @@ export const sendHeld = internalAction({
           thread: post.thread,
           linkAttachment: post.linkAttachment,
           mode,
-          dueAt: mode === 'spread' ? dueAt : undefined,
+          dueAt: mode === 'spread' ? dueAt : mode === 'planned' ? post.plannedFor : undefined,
           tagId: tagByOrg.get(row.organizationId) ?? null,
         })
         if (mode === 'spread') dueAt += SPREAD_GAP_MS
@@ -1425,6 +1607,7 @@ export async function runView(
         bufferStatus: p.bufferStatus ?? null,
         externalLink: p.externalLink ?? null,
         dueAt: p.dueAt ?? null,
+        plannedFor: p.plannedFor ?? null,
         sentAt: p.sentAt ?? null,
         metrics: p.metrics ?? null,
       })),

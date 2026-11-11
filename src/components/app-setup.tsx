@@ -114,8 +114,12 @@ export function NewAutomation() {
   const others = [
     ...new Set(blocked.filter((c) => c.problem === 'unsupported').map((c) => c.service)),
   ]
-  const set = <K extends keyof Answers>(key: K, value: Answers[K]) =>
+  // Answers the person has given themselves. An example fills in the rest, never these.
+  const [touched, setTouched] = useState<ReadonlySet<keyof Answers>>(new Set())
+  const set = <K extends keyof Answers>(key: K, value: Answers[K]) => {
     setA((prev) => ({ ...prev, [key]: value }))
+    if (key !== 'research') setTouched((prev) => new Set(prev).add(key))
+  }
 
   const questions: {
     label: string
@@ -147,8 +151,7 @@ export function NewAutomation() {
                 className="setup-template"
                 onClick={() => {
                   const w = t.answers
-                  setA((prev) => ({
-                    ...prev,
+                  const example: Omit<Answers, 'channelIds'> = {
                     research: w.research,
                     avoid: w.avoid,
                     sources: w.sources.join(', '),
@@ -158,7 +161,13 @@ export function NewAutomation() {
                     weekday: (w.cadence.weekday ?? 'mon') as Answers['weekday'],
                     maxStories: w.maxStories,
                     postingMode: w.postingMode,
-                  }))
+                  }
+                  setA((prev) => {
+                    const next = { ...prev }
+                    for (const key of Object.keys(example) as (keyof typeof example)[])
+                      if (!touched.has(key)) Object.assign(next, { [key]: example[key] })
+                    return next
+                  })
                   setIndex(1)
                 }}
               >

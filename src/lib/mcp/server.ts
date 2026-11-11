@@ -148,19 +148,45 @@ export function createDispatchletServer(
         automation_id: z.string(),
         cadence: Cadence.optional(),
         channel_ids: z.array(z.string()).min(1).optional(),
-        posting_mode: z.enum(['draft', 'queue', 'spread']).optional(),
-        max_posts_per_run: z.number().int().min(1).max(3).optional(),
+        posting_mode: z
+          .enum(['draft', 'queue', 'spread', 'planned'])
+          .optional()
+          .describe(
+            'planned schedules one story per chosen day at a set time for the seven days from each run; it needs a weekly cadence and publication_plan',
+          ),
+        max_posts_per_run: z
+          .number()
+          .int()
+          .min(1)
+          .max(7)
+          .optional()
+          .describe('Up to 3, or one per posting day (up to 7) when posting_mode is planned'),
+        publication_plan: z
+          .object({
+            time: z.string().describe('Local posting time, HH:MM'),
+            weekdays: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).min(1),
+          })
+          .optional(),
         status: z.enum(['active', 'paused']).optional(),
       },
       annotations: { destructiveHint: true },
     },
-    ({ automation_id, cadence, channel_ids, posting_mode, max_posts_per_run, status }) =>
+    ({
+      automation_id,
+      cadence,
+      channel_ids,
+      posting_mode,
+      max_posts_per_run,
+      publication_plan,
+      status,
+    }) =>
       guarded(() =>
         api.send('PATCH', `/automations/${e(automation_id)}`, {
           ...(cadence ? { cadence } : {}),
           ...(channel_ids ? { channelIds: channel_ids } : {}),
           ...(posting_mode ? { postingMode: posting_mode } : {}),
           ...(max_posts_per_run !== undefined ? { maxPostsPerRun: max_posts_per_run } : {}),
+          ...(publication_plan ? { publicationPlan: publication_plan } : {}),
           ...(status ? { status } : {}),
         }),
       ),

@@ -5114,11 +5114,38 @@ header nav button {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0;
+  margin: 16px 0;
   color: var(--color-ink);
 }
 .app-working .flow-spinner {
   flex: none;
+}
+/* The step after the first dry run: what it found, and the button that turns it on. */
+.app-next {
+  display: grid;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 20px 24px;
+  border: 1px solid var(--color-pine);
+  background: var(--color-tint);
+}
+.app-next p {
+  margin: 0;
+  max-width: 64ch;
+}
+/* Deleting is rare: a quiet link at the foot of the page, with the warning only once asked. */
+.app-delete {
+  display: grid;
+  gap: 12px;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-rule);
+}
+.app-delete p {
+  margin: 0;
+}
+.app-delete > .app-link {
+  color: var(--color-muted);
 }
 @media (prefers-reduced-motion: reduce) {
   .app-working .flow-spinner {
@@ -6689,4 +6716,24 @@ header nav button {
   .app-proposal .app-gate-actions > button:not(.app-link) {
     flex: 1 1 auto;
   }
+}
+
+/* A planned week: posting days and time, under the posting modes. */
+.app-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+.app-plan legend {
+  padding: 0 0 8px;
+  font-size: 15px;
+  font-weight: 500;
+}
+.app-gate .app-plan p {
+  margin: 0;
+  font-size: 14px;
 }

@@ -85,8 +85,13 @@ export function briefFromPlaybook(
     ],
     onlyTheseSources: settings.onlyTheseSources,
     freshnessHours: playbook.freshnessHours,
-    maxCandidates: Math.min(settings.maxPostsPerRun + 2, 5),
+    maxCandidates: candidatesFor(settings.maxPostsPerRun),
   }
+}
+
+/** A few spare candidates beyond the stories wanted, so duplicates and weak ones can be dropped. */
+export function candidatesFor(stories: number): number {
+  return stories > 3 ? Math.min(stories + 3, 10) : Math.min(stories + 2, 5)
 }
 
 /** Per-run ceilings on the tool loop. Together with caching they bound what a run can cost. */
@@ -98,6 +103,28 @@ export const RESEARCH_LIMITS = {
   maxFetchTokens: 6_000,
   coveredShown: 100,
 } as const
+
+/**
+ * A weekly batch of more than three stories needs more looking: these replace the per-run
+ * ceilings above. About twice the tool use, for up to seven stories instead of three.
+ */
+export const RESEARCH_BATCH_LIMITS = {
+  maxSearches: 10,
+  maxBasicSearches: 7,
+  maxFetches: 14,
+} as const
+
+/** The tool ceilings for a run that may return this many candidates. */
+export function researchLimitsFor(maxCandidates: number) {
+  const batch = maxCandidates > 5
+  return {
+    maxSearches: batch ? RESEARCH_BATCH_LIMITS.maxSearches : RESEARCH_LIMITS.maxSearches,
+    maxBasicSearches: batch
+      ? RESEARCH_BATCH_LIMITS.maxBasicSearches
+      : RESEARCH_LIMITS.maxBasicSearches,
+    maxFetches: batch ? RESEARCH_BATCH_LIMITS.maxFetches : RESEARCH_LIMITS.maxFetches,
+  }
+}
 
 export const RESEARCH_SYSTEM = `You are the research step of Dispatchlet, a scheduled agent that finds genuinely new stories in one niche and hands them to a writer who turns them into social posts. You run unattended; nobody reads your notes but the log.
 
@@ -121,6 +148,8 @@ export type ResearchContext = {
   covered: { title: string; url: string }[]
   /** A story the caller asked this run to cover (API, inbound hook, MCP). */
   requested?: { title: string; url?: string; notes?: string } | null
+  /** A planned batch: its stories are posted one a day over this many days. */
+  batch?: { days: number; stories: number } | null
 }
 
 /** The first run of an automation has nothing covered yet, so it looks back twice as far. */
@@ -152,6 +181,10 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
       `Asked for: the person wants this story covered in this run: "${r.title}"${r.url ? ` (${r.url})` : ''}.${r.notes ? ` Their notes: ${r.notes}` : ''} ${r.url ? 'Open that URL and' : 'Search for it and'} return it as a candidate with full confidence, in the person's own framing; the freshness window does not apply to it. Still skip it if it is in the covered list.`,
     )
   }
+  if (context.batch)
+    lines.push(
+      `Batch: these stories are posted one a day over the next ${context.batch.days} days, so look for up to ${context.batch.stories} distinct stories and prefer ones that will still be worth reading later in the week. Do not return several angles on the same story to fill the batch; fewer is fine.`,
+    )
   if (brief.include.length) lines.push(`Worth posting: ${brief.include.join('; ')}.`)
   if (brief.exclude.length) lines.push(`Skip: ${brief.exclude.join('; ')}.`)
   if (brief.sources.length) {
@@ -167,8 +200,9 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
       ? `Already covered, do not return these or near-duplicates:\n${covered.map((c) => `- ${c.title} (${c.url})`).join('\n')}`
       : 'Nothing has been covered yet.',
   )
+  const limits = researchLimitsFor(brief.maxCandidates)
   lines.push(
-    `Budget: ${process.env.RESEARCH_TOOLS === 'filtered' ? RESEARCH_LIMITS.maxSearches : RESEARCH_LIMITS.maxBasicSearches} searches and ${RESEARCH_LIMITS.maxFetches} page opens.`,
+    `Budget: ${process.env.RESEARCH_TOOLS === 'filtered' ? limits.maxSearches : limits.maxBasicSearches} searches and ${limits.maxFetches} page opens.`,
     `Return at most ${brief.maxCandidates} candidates.`,
   )
   return lines.join('\n')
@@ -190,21 +224,22 @@ export function allowedDomains(brief: ResearchBrief): string[] | undefined {
 export function researchTools(
   domains: string[] | undefined,
   variant: 'filtered' | 'basic' = process.env.RESEARCH_TOOLS === 'filtered' ? 'filtered' : 'basic',
+  maxCandidates = 5,
 ) {
   const scope = domains ? { allowed_domains: domains } : {}
+  const limits = researchLimitsFor(maxCandidates)
   return [
     {
       type:
         variant === 'basic' ? ('web_search_20250305' as const) : ('web_search_20260209' as const),
       name: 'web_search' as const,
-      max_uses:
-        variant === 'basic' ? RESEARCH_LIMITS.maxBasicSearches : RESEARCH_LIMITS.maxSearches,
+      max_uses: variant === 'basic' ? limits.maxBasicSearches : limits.maxSearches,
       ...scope,
     },
     {
       type: variant === 'basic' ? ('web_fetch_20250910' as const) : ('web_fetch_20260209' as const),
       name: 'web_fetch' as const,
-      max_uses: RESEARCH_LIMITS.maxFetches,
+      max_uses: limits.maxFetches,
       max_content_tokens: RESEARCH_LIMITS.maxFetchTokens,
       ...scope,
     },

@@ -6,6 +6,7 @@ import {
   ideaLinkState,
   metricLabel,
   serviceList,
+  zoneName,
 } from './format'
 
 const none = { usable: 0, blocked: 0, others: [] as string[], syncing: false, syncError: null }
@@ -89,5 +90,17 @@ describe('links into Buffer', () => {
     expect(bufferChannelUrl('c1', 'draft')).toBe('https://publish.buffer.com/schedule?tab=drafts')
     expect(bufferChannelUrl('c1', 'queued')).toBe('https://publish.buffer.com/channel/c1/tab/queue')
     expect(bufferChannelUrl('c1', 'sent')).toBe('https://publish.buffer.com/channel/c1/tab/sent')
+  })
+})
+
+describe('a time zone in words', () => {
+  it('names the city, not the region', () => {
+    expect(zoneName('Africa/Johannesburg')).toBe('Johannesburg time')
+    expect(zoneName('America/New_York')).toBe('New York time')
+    expect(zoneName('America/Argentina/Buenos_Aires')).toBe('Buenos Aires time')
+  })
+
+  it('leaves UTC as it is', () => {
+    expect(zoneName('UTC')).toBe('UTC')
   })
 })
