@@ -6,21 +6,19 @@ export const Route = createFileRoute('/terms')({
   head: () =>
     legalHead(
       'Terms of use',
-      'The terms for using dispatchlet.com, the Dispatchlet waiting list and the Dispatchlet app.',
+      'The terms for using dispatchlet.com and the Dispatchlet app.',
       '/terms',
     ),
 })
 
 function Terms() {
   return (
-    <LegalPage title="Terms of use" updated="10 Nov 2026">
+    <LegalPage title="Terms of use" updated="11 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. These terms
-        apply when you use dispatchlet.com, join the waiting list or use the Dispatchlet app. If you
-        do not agree with them, do not use the site or the app.
+        apply when you use dispatchlet.com or the Dispatchlet app. If you do not agree with them, do
+        not use the site or the app.
       </p>
-      <p>Sign-up for the app opened on 10 November 2026. The waiting list closed then.</p>
-
       <h2>Your account</h2>
       <p>
         You sign in with a Buffer account, and Buffer’s own terms still apply to everything in it.

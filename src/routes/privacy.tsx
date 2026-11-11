@@ -6,39 +6,28 @@ export const Route = createFileRoute('/privacy')({
   head: () =>
     legalHead(
       'Privacy policy',
-      'What Dispatchlet collects from the website, the waiting list and the app, why, who handles it and how long it is kept.',
+      'What Dispatchlet collects from the website and the app, why, who handles it and how long it is kept.',
       '/privacy',
     ),
 })
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="10 Nov 2026">
+    <LegalPage title="Privacy policy" updated="11 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
-        covers dispatchlet.com, the waiting list and the Dispatchlet app. Sign-up for the app opened
-        on 10 November 2026, and the waiting list closed then.
+        covers dispatchlet.com and the Dispatchlet app. Sign-up for the app opened on 10 November
+        2026. The waiting list closed then, and it was deleted on 11 November 2026.
       </p>
 
-      <h2>The website and waiting list</h2>
+      <h2>The website</h2>
       <ul>
         <li>
-          Your email address, when you join the waiting list, and the dates you joined, confirmed or
-          unsubscribed.
-        </li>
-        <li>
-          How you found the site: the campaign tags in the link you followed, or the name of the
-          site that linked to you. This shows which posts bring people to the list.
-        </li>
-        <li>
-          A one-way hash of your IP address, used only to stop the form being flooded. Your actual
-          IP address is never stored, and the hash is deleted after 7 days.
-        </li>
-        <li>
-          A small number of analytics events, such as a page being viewed or the form being
-          submitted. These carry how you found the site, but never your email address. Analytics
-          sets no cookies and stores nothing on your device, so each visit is counted separately. If
-          your browser sends Do Not Track, no events are recorded. There is no session recording.
+          A small number of analytics events, such as a page being viewed. These carry how you found
+          the site, such as the campaign tags in the link you followed or the site that linked to
+          you, but never your email address. Analytics sets no cookies and stores nothing on your
+          device, so each visit is counted separately. If your browser sends Do Not Track, no events
+          are recorded. There is no session recording.
         </li>
         <li>
           Error reports, if something on the site or in the app breaks: the error message, where in
@@ -117,7 +106,7 @@ function Privacy() {
       <h2>How it is used</h2>
       <p>
         The waiting list got 2 emails: one to confirm your place, and one when Dispatchlet opened.
-        It gets no more.
+        The list has since been deleted, so it gets no more.
       </p>
       <p>
         The app uses your data only to run your playbooks and show you the results. Its emails are
@@ -133,9 +122,8 @@ function Privacy() {
       </p>
       <p>Your data is never sold, never used for advertising, and never used to train AI models.</p>
       <p>
-        The legal basis for the waiting list is your consent, which you can take back at any time
-        with the unsubscribe link in either email. The legal basis for the app is that it is needed
-        to provide the service you signed up for.
+        The legal basis for the waiting list was your consent. The legal basis for the app is that
+        it is needed to provide the service you signed up for.
       </p>
 
       <h2>Who handles it</h2>
@@ -144,10 +132,7 @@ function Privacy() {
         terms:
       </p>
       <ul>
-        <li>
-          Convex stores the waiting list, accounts, playbooks and runs. Its servers are in the
-          United States.
-        </li>
+        <li>Convex stores accounts, playbooks and runs. Its servers are in the United States.</li>
         <li>Buffer handles sign-in, and receives the posts the app creates for you.</li>
         <li>
           Anthropic runs the AI models that research and write, in the United States. Its commercial
@@ -168,9 +153,8 @@ function Privacy() {
 
       <h2>How long it is kept</h2>
       <p>
-        The IP hash is deleted after 7 days. Waiting list email addresses are deleted within 30 days
-        of the list closing. If you unsubscribe, a record that you unsubscribed is kept so you are
-        not emailed again. Ask and that is deleted too.
+        The waiting list, including its email addresses, IP hashes and unsubscribe records, was
+        deleted on 11 November 2026. Nothing from it is kept.
       </p>
       <p>
         App data is kept while you have an account. Disconnecting Buffer deletes the tokens and
