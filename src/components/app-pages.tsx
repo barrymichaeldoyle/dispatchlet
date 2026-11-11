@@ -8,6 +8,7 @@ import type { Id } from '../../convex/_generated/dataModel'
 import { describeCadence } from '../../convex/lib/schedule'
 import { BufferMark, ChannelMark } from './brand-icons'
 import { Avatar } from './nav-icons'
+import { useNow } from '../lib/use-now'
 import { PostText } from './post-text'
 import {
   currentSubscription,
@@ -105,15 +106,22 @@ type Dashboard = NonNullable<
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
   const data = useQuery(api.automations.dashboard)
+  const now = useNow()
   if (!viewer || data === undefined) return <PageSkeleton />
   const firstName = viewer.name?.trim().split(/\s+/)[0]
   // `?preview-empty` shows the first-visit screen on an account that has automations, for design work.
   const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
   if (!data || !data.automations.length || previewEmpty)
     return <EmptyHome firstName={firstName} viewer={viewer} />
-  const { automations, drafts, recent, upcoming, timezone } = data
+  const { drafts, recent, timezone } = data
+  // The query read "now" when its data last changed; these follow the clock instead.
+  const upcoming = data.upcoming && (data.upcoming.at ?? 0) > now ? data.upcoming : null
+  const automations = data.automations.map((a) => ({
+    ...a,
+    running: a.running && Boolean(a.lastRun) && now - a.lastRun!.startedAt < 15 * 60_000,
+  }))
   const runsLow = !viewer.ownKey && viewer.runsLeft !== null && viewer.runsLeft <= 3
-  const status = homeStatus({ data, viewer })
+  const status = homeStatus({ data: { ...data, automations }, viewer, upcoming })
   return (
     <>
       <div className="app-home-head">
@@ -232,7 +240,15 @@ export function AppHome() {
  * One line under the greeting: the most pressing thing first, or that all is well and when the
  * next post goes out.
  */
-function homeStatus({ data, viewer }: { data: Dashboard; viewer: Viewer }): {
+function homeStatus({
+  data,
+  viewer,
+  upcoming,
+}: {
+  data: Dashboard
+  viewer: Viewer
+  upcoming: Dashboard['upcoming'] | null
+}): {
   tone: 'ok' | 'warn' | 'idle'
   text: string
 } {
@@ -253,7 +269,7 @@ function homeStatus({ data, viewer }: { data: Dashboard; viewer: Viewer }): {
       tone: 'warn',
       text: `${data.drafts.length} ${data.drafts.length === 1 ? 'post is' : 'posts are'} waiting for your approval.`,
     }
-  const upcomingAt = data.upcoming?.at
+  const upcomingAt = upcoming?.at
   if (upcomingAt)
     return {
       tone: 'ok',
@@ -503,7 +519,7 @@ function WeekStrip({
   weekRuns: Dashboard['automations'][number]['weekRuns']
   timezone: string
 }) {
-  const [now] = useState(() => Date.now())
+  const now = useNow()
   const dayKey = (at: number) =>
     new Date(at).toLocaleDateString('en-GB', { timeZone: timezone, day: 'numeric', month: 'short' })
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -838,7 +854,20 @@ function Anchor({ id, children }: { id: string; children: React.ReactNode }) {
 
 export function AppSettings() {
   const viewer = useQuery(api.users.viewer)
-  if (!viewer) return <PageSkeleton figures={false} />
+  // Every section's data, asked for here too (Convex shares the subscriptions), so the page
+  // appears once, whole, instead of sections popping in and pushing each other down.
+  const sectionData = [
+    useQuery(api.buffer.myConnection),
+    useQuery(api.users.usage),
+    useQuery(api.users.ownerTotals),
+    useQuery(api.push.config),
+    useQuery(api.tokens.list),
+    useQuery(api.webhooks.list),
+    useQuery(api.hooks.list),
+    useQuery(api.automations.list),
+  ]
+  if (!viewer || sectionData.some((value) => value === undefined))
+    return <PageSkeleton figures={false} />
   return (
     <>
       <h1>Settings</h1>

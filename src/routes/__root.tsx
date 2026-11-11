@@ -52,7 +52,8 @@ export const Route = createRootRoute({
 
 /** Pages that render only in the browser, and what the server shows until their script runs. */
 const CLIENT_ONLY: [RegExp, string][] = [
-  [/^\/app(\/|$)/, 'Signing you in'],
+  // The server can't tell a signed-in visitor from a signed-out one, so it claims neither.
+  [/^\/app(\/|$)/, 'Opening Dispatchlet'],
   [/^\/oauth\/consent/, 'One moment'],
   [/^\/r\//, 'Opening the run'],
 ]

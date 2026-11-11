@@ -370,7 +370,16 @@ describe('an automation row', () => {
   })
 
   it('holds Run now while a run is going, and hides the actions without a playbook', () => {
-    const { unmount } = show({ data: dashboard({ automations: [automation({ running: true })] }) })
+    const { unmount } = show({
+      data: dashboard({
+        automations: [
+          automation({
+            running: true,
+            lastRun: { ...automation().lastRun, startedAt: NOW - 5 * 60_000, finished: false },
+          }),
+        ],
+      }),
+    })
     expect(screen.getByRole('button', { name: 'Running F1 On This Day' })).toHaveProperty(
       'disabled',
       true,

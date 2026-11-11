@@ -66,6 +66,12 @@ function Gate() {
   useEffect(() => {
     if (signedOut) setLeaving(false)
   }, [signedOut])
+  // The shell and Home need these next; asking now, alongside the viewer, saves round trips
+  // one after another. Convex shares each subscription with the components that use it.
+  const onHome = typeof window !== 'undefined' && /^\/app\/?$/.test(window.location.pathname)
+  useQuery(api.automations.list, isAuthenticated ? {} : 'skip')
+  useQuery(api.buffer.myConnection, isAuthenticated ? {} : 'skip')
+  useQuery(api.automations.dashboard, isAuthenticated && onHome ? {} : 'skip')
   if (leaving && !signedOut) return <Screen title="Signing you out" />
   if (isAuthenticated ? viewer === undefined : isLoading && expected) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn asked={arrival.asked} />

@@ -719,7 +719,7 @@ export const dashboard = query({
     )
     const now = Date.now()
     /** The next post Buffer will publish, when its time is known, for the "Up next" card. */
-    const upcoming =
+    const upcoming: ReturnType<typeof toCard> | null =
       inBuffer
         .filter(
           (p) =>
