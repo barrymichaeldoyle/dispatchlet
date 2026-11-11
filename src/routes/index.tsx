@@ -15,6 +15,8 @@ const SITE_URL = 'https://dispatchlet.com/'
 const TITLE = 'Dispatchlet | An agent that writes your Buffer posts'
 const DESCRIPTION =
   'Dispatchlet finds new stories on your topic, skips what you’ve already posted, and writes your Buffer posts. Daily or weekly. First 10 runs free.'
+/** The share image, versioned so X and LinkedIn fetch it again when it is redrawn. */
+const OG_IMAGE = `${SITE_URL}og.png?v=2`
 const SOURCE_URL = 'https://github.com/barrymichaeldoyle/dispatchlet'
 
 export const Route = createFileRoute('/')({
@@ -29,7 +31,7 @@ export const Route = createFileRoute('/')({
       { property: 'og:title', content: TITLE },
       { property: 'og:description', content: DESCRIPTION },
       { property: 'og:url', content: SITE_URL },
-      { property: 'og:image', content: `${SITE_URL}og.png` },
+      { property: 'og:image', content: OG_IMAGE },
       { property: 'og:image:width', content: '1200' },
       { property: 'og:image:height', content: '630' },
       {
@@ -42,7 +44,7 @@ export const Route = createFileRoute('/')({
       { name: 'twitter:creator', content: '@barrymdoyle' },
       { name: 'twitter:title', content: TITLE },
       { name: 'twitter:description', content: DESCRIPTION },
-      { name: 'twitter:image', content: `${SITE_URL}og.png` },
+      { name: 'twitter:image', content: OG_IMAGE },
       {
         name: 'twitter:image:alt',
         content:
@@ -70,7 +72,7 @@ export const Route = createFileRoute('/')({
               description: DESCRIPTION,
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
-              image: `${SITE_URL}og.png`,
+              image: OG_IMAGE,
               offers: {
                 '@type': 'Offer',
                 price: '0',

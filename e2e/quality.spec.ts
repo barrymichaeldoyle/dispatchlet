@@ -106,7 +106,7 @@ test('search and social metadata are rendered on the server', async ({
   )
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
     'content',
-    'https://dispatchlet.com/og.png',
+    'https://dispatchlet.com/og.png?v=2',
   )
   await expect(page.locator('meta[name="twitter:image:alt"]')).toHaveAttribute(
     'content',
