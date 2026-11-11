@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { expiresAtFrom, rateLimitFrom } from './buffer'
+import { expiresAtFrom, httpsUrl, rateLimitFrom } from './buffer'
 
 describe('Buffer helpers', () => {
+  it('keeps only https profile pictures', () => {
+    expect(httpsUrl('https://cdn.buffer.com/a.png')).toBe('https://cdn.buffer.com/a.png')
+    expect(httpsUrl('http://cdn.buffer.com/a.png')).toBeNull()
+    expect(httpsUrl('javascript:alert(1)')).toBeNull()
+    expect(httpsUrl('not a url')).toBeNull()
+    expect(httpsUrl('')).toBeNull()
+    expect(httpsUrl(null)).toBeNull()
+  })
+
   it('reads every rate-limit header into one line', () => {
     const headers = new Headers({
       'RateLimit-Policy': '250;w=86400',

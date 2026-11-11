@@ -6737,3 +6737,87 @@ header nav button {
   margin: 0;
   font-size: 14px;
 }
+
+/* Side navigation icons and Buffer profile pictures. */
+.app-side-nav a,
+.app-side-nav .app-nav-button {
+  justify-content: flex-start;
+  gap: 10px;
+}
+.app-nav-icon {
+  flex: none;
+  color: var(--color-muted);
+}
+.app-side-nav a:hover .app-nav-icon,
+.app-side-nav .app-nav-button:hover .app-nav-icon,
+.app-side-nav a[aria-current='page'] .app-nav-icon {
+  color: inherit;
+}
+.app-avatar {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+}
+.app-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-card);
+}
+.app-avatar-fallback {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.app-side-account .app-avatar-fallback {
+  background: var(--color-tint);
+  color: var(--color-pine);
+  font-size: 15px;
+  font-weight: 600;
+}
+.app-avatar-badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  box-shadow: 0 0 0 2px var(--color-paper);
+}
+.app-side-group li[data-usable='false'] .app-avatar img {
+  filter: grayscale(1);
+  opacity: 0.6;
+}
+.app-side-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.app-side-who-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.app-side-who-text .app-side-name,
+.app-side-who-text .app-side-small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-side-account .app-side-who-text .app-side-small {
+  margin: 0;
+}
+.app-side-account .app-side-who {
+  margin-bottom: 8px;
+}

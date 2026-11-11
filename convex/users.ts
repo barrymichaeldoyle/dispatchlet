@@ -7,6 +7,7 @@ import { scheduleNext } from './automations'
 import { deleteAutomationConversation } from './automationChat'
 import { deleteFeedbackFor } from './feedback'
 import { isAllowlisted, isSignupOpen } from './lib/allowlist'
+import { httpsUrl } from './lib/buffer'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { allowanceFor } from './lib/limits'
 
@@ -18,6 +19,8 @@ export const viewer = query({
     v.object({
       email: v.union(v.string(), v.null()),
       name: v.union(v.string(), v.null()),
+      /** The Buffer profile picture, https only. */
+      image: v.union(v.string(), v.null()),
       bufferId: v.union(v.string(), v.null()),
       timezone: v.union(v.string(), v.null()),
       allowed: v.boolean(),
@@ -41,6 +44,7 @@ export const viewer = query({
     return {
       email,
       name: user.name ?? null,
+      image: httpsUrl(user.image),
       bufferId,
       timezone: user.timezone ?? null,
       allowed: isAllowlisted(bufferId, email),

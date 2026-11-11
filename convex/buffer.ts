@@ -13,7 +13,13 @@ import {
 } from './_generated/server'
 import { isAllowlisted } from './lib/allowlist'
 import type { QueueSchedule } from './lib/plan'
-import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
+import {
+  BufferApiError,
+  bufferRequest,
+  httpsUrl,
+  refreshBufferTokens,
+  revokeBufferToken,
+} from './lib/buffer'
 import { operationName, serverEvent } from './lib/serverEvents'
 import { take } from './api/rate'
 import { mergeReported, parseRateLimit, reserve, type Priority } from './lib/budget'
@@ -481,9 +487,15 @@ export const saveChannels = internalMutation({
       }),
     ),
     otherServices: v.optional(v.array(v.string())),
+    /** The account's profile picture, kept fresh on every sync. */
+    avatar: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, channels, otherServices }) => {
+  handler: async (ctx, { userId, channels, otherServices, avatar }) => {
     const now = Date.now()
+    if (avatar) {
+      const user = await ctx.db.get(userId)
+      if (user && user.image !== avatar) await ctx.db.patch(userId, { image: avatar })
+    }
     const connection = await ctx.db
       .query('bufferConnections')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -541,11 +553,13 @@ export async function syncChannelsFor(
 ): Promise<{ channels: number }> {
   {
     const { token } = await accessTokenFor(ctx, userId)
-    const { account } = await callBuffer<{ account: { organizations: { id: string }[] } }>(
+    const { account } = await callBuffer<{
+      account: { avatar?: string | null; organizations: { id: string }[] }
+    }>(
       ctx,
       userId,
       token,
-      'query DispatchletOrganizations { account { organizations { id } } }',
+      'query DispatchletOrganizations { account { avatar organizations { id } } }',
     )
     const channels: ChannelRow[] = []
     const otherServices = new Set<string>()
@@ -603,6 +617,7 @@ export async function syncChannelsFor(
       userId,
       channels,
       otherServices: [...otherServices].sort(),
+      avatar: httpsUrl(account.avatar) ?? undefined,
     })
     return { channels: channels.length }
   }
@@ -690,6 +705,7 @@ export const myConnection = query({
         channelId: channel.channelId,
         service: channel.service,
         name: channel.displayName ?? channel.name,
+        avatar: httpsUrl(channel.avatar),
         usable: channel.usable,
         problem: channel.problem ?? null,
         syncedAt: channel.syncedAt,

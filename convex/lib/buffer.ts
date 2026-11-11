@@ -6,7 +6,12 @@ const API_TIMEOUT_MS = 60_000
 export const REFRESH_TIMEOUT_MS = 30_000
 const BUFFER_REVOCATION_URL = 'https://auth.buffer.com/token/revocation'
 
-export type BufferAccount = { id: string; email: string | null; name: string | null }
+export type BufferAccount = {
+  id: string
+  email: string | null
+  name: string | null
+  avatar: string | null
+}
 
 export type TokenSet = {
   accessToken: string
@@ -82,11 +87,26 @@ export class BufferApiError extends Error {
 export async function fetchBufferAccount(accessToken: string): Promise<BufferAccount | null> {
   try {
     const data = await bufferGraphql<{
-      account?: { id: string; email?: string | null; name?: string | null }
-    }>(accessToken, 'query DispatchletSignIn { account { id email name } }')
+      account?: { id: string; email?: string | null; name?: string | null; avatar?: string | null }
+    }>(accessToken, 'query DispatchletSignIn { account { id email name avatar } }')
     const account = data.account
     if (!account) return null
-    return { id: account.id, email: account.email ?? null, name: account.name ?? null }
+    return {
+      id: account.id,
+      email: account.email ?? null,
+      name: account.name ?? null,
+      avatar: httpsUrl(account.avatar),
+    }
+  } catch {
+    return null
+  }
+}
+
+/** A profile picture URL worth showing: https only, so a stored value can't be a script or data URL. */
+export function httpsUrl(value: string | null | undefined): string | null {
+  if (!value) return null
+  try {
+    return new URL(value).protocol === 'https:' ? value : null
   } catch {
     return null
   }

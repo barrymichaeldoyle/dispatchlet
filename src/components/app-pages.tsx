@@ -16,7 +16,14 @@ import {
 } from '../lib/push'
 import { Automate } from './app-api'
 import { StepArt } from './step-art'
-import { bufferChannelUrl, channelProblem, errorText as message, usd, whenIn } from '../lib/format'
+import {
+  bufferChannelUrl,
+  channelProblem,
+  errorText as message,
+  serviceName,
+  usd,
+  whenIn,
+} from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
 
@@ -244,7 +251,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
       <li className="app-draft">
         <p className="app-draft-head">
           <span className="app-draft-avatar" aria-hidden="true">
-            <ChannelMark channel={SERVICE_NAMES[draft.service] ?? draft.service} size={14} />
+            <ChannelMark channel={serviceName(draft.service)} size={14} />
           </span>
           <strong>{draft.channelName}</strong>
           <span className="app-muted">editing the draft</span>
@@ -262,7 +269,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
     <li className="app-draft">
       <p className="app-draft-head">
         <span className="app-draft-avatar" aria-hidden="true">
-          <ChannelMark channel={SERVICE_NAMES[draft.service] ?? draft.service} size={14} />
+          <ChannelMark channel={serviceName(draft.service)} size={14} />
         </span>
         <strong>{draft.channelName}</strong>
         <span className="app-muted">draft</span>
@@ -606,14 +613,6 @@ export function AppSettings() {
   )
 }
 
-const SERVICE_NAMES: Record<string, string> = {
-  twitter: 'X',
-  linkedin: 'LinkedIn',
-  threads: 'Threads',
-  bluesky: 'Bluesky',
-  mastodon: 'Mastodon',
-}
-
 const WINDOW_NAMES: Record<string, string> = {
   '15min': '15 minutes',
   '1day': 'day',
@@ -647,7 +646,7 @@ function BufferConnection() {
         <ul>
           {connection.channels.map((channel) => (
             <li key={channel.channelId} data-usable={channel.usable}>
-              <ChannelMark channel={SERVICE_NAMES[channel.service] ?? channel.service} size={14} />
+              <ChannelMark channel={serviceName(channel.service)} size={14} />
               <span>{channel.name}</span>
               {channel.usable ? null : (
                 <span className="app-connection-note">

@@ -67,6 +67,7 @@ const Buffer: OAuthConfig<BufferAccount> = {
       id: account.id,
       email: email && isValidEmail(email) ? email : undefined,
       name: account.name ?? undefined,
+      image: account.avatar ?? undefined,
       bufferGrant: grant,
     }
   },
@@ -89,7 +90,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       const ctx = rawCtx as unknown as GenericMutationCtx<DataModel>
       const email = typeof profile.email === 'string' ? profile.email : undefined
       const name = typeof profile.name === 'string' ? profile.name : undefined
-      const fields = { email, name, emailVerificationTime: email ? Date.now() : undefined }
+      const image = typeof profile.image === 'string' ? profile.image : undefined
+      const fields = { email, name, image, emailVerificationTime: email ? Date.now() : undefined }
       let userId = existingUserId as Id<'users'> | null
       if (userId) await ctx.db.patch(userId, fields)
       else userId = await ctx.db.insert('users', fields)

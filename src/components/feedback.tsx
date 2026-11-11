@@ -58,10 +58,18 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function SendFeedbackButton({ className }: { className?: string }) {
+export function SendFeedbackButton({
+  className,
+  children,
+}: {
+  className?: string
+  /** Shown before the label, such as an icon. */
+  children?: ReactNode
+}) {
   const open = useFeedback()
   return (
     <button type="button" className={className ?? 'app-link'} onClick={() => open()}>
+      {children}
       Send feedback
     </button>
   )

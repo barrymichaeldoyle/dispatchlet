@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ConnectionBanner, SignOut } from './app-pages'
 import { BufferMark, ChannelMark } from './brand-icons'
+import { Avatar, NavIcon } from './nav-icons'
 import { Wordmark } from './wordmark'
-import { channelProblem } from '../lib/format'
+import { channelProblem, serviceName } from '../lib/format'
 import { registerServiceWorker } from '../lib/service-worker'
 import { BusyLabel } from './busy-label'
 import { FeedbackProvider, SendFeedbackButton } from './feedback'
@@ -62,7 +63,14 @@ function Gate() {
   if (isAuthenticated ? viewer === undefined : isLoading && expected) return <SigningIn />
   if (!isAuthenticated || !viewer) return <SignIn asked={arrival.asked} />
   if (!viewer.allowed) return <Waitlisted email={viewer.email} />
-  return <AppShell timezone={viewer.timezone} name={viewer.name} email={viewer.email} />
+  return (
+    <AppShell
+      timezone={viewer.timezone}
+      name={viewer.name}
+      email={viewer.email}
+      image={viewer.image}
+    />
+  )
 }
 
 function Screen({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -255,10 +263,12 @@ function AppShell({
   timezone,
   name,
   email,
+  image,
 }: {
   timezone: string | null
   name: string | null
   email: string | null
+  image: string | null
 }) {
   const setTimezone = useMutation(api.users.setTimezone)
   const automations = useQuery(api.automations.list)
@@ -278,11 +288,20 @@ function AppShell({
           </Link>
           <nav aria-label="App" className="app-side-nav">
             <Link to="/app" activeOptions={{ exact: true }}>
+              <NavIcon kind="home" />
               Home
             </Link>
-            <Link to="/app/new">New automation</Link>
-            <Link to="/app/settings">Settings</Link>
-            <SendFeedbackButton className="app-nav-button" />
+            <Link to="/app/new">
+              <NavIcon kind="new" />
+              New automation
+            </Link>
+            <Link to="/app/settings">
+              <NavIcon kind="settings" />
+              Settings
+            </Link>
+            <SendFeedbackButton className="app-nav-button">
+              <NavIcon kind="feedback" />
+            </SendFeedbackButton>
           </nav>
           {automations && automations.length ? (
             <div className="app-side-group">
@@ -310,7 +329,9 @@ function AppShell({
                     title={c.usable ? undefined : channelProblem(c.problem, c.service)}
                   >
                     <span className="app-side-channel">
-                      <ChannelMark channel={SERVICE_NAMES[c.service] ?? c.service} size={14} />
+                      <Avatar src={c.avatar} size={24} badge>
+                        <ChannelMark channel={serviceName(c.service)} size={c.avatar ? 9 : 14} />
+                      </Avatar>
                       <span className="app-side-name">{c.name}</span>
                       {c.usable ? null : (
                         <span className="visually-hidden">
@@ -327,8 +348,17 @@ function AppShell({
             </div>
           ) : null}
           <div className="app-side-account">
-            <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
-            {name && email ? <span className="app-side-small">{email}</span> : null}
+            <div className="app-side-who">
+              <Avatar src={image} size={36}>
+                <span className="app-avatar-initial" aria-hidden="true">
+                  {(name ?? email ?? '?').trim().charAt(0).toUpperCase()}
+                </span>
+              </Avatar>
+              <div className="app-side-who-text">
+                <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
+                {name && email ? <span className="app-side-small">{email}</span> : null}
+              </div>
+            </div>
             <SignOut />
           </div>
         </aside>
@@ -361,12 +391,4 @@ const SIDE_STATES: Record<string, string> = {
   active: 'on',
   paused: 'paused',
   failed: 'paused',
-}
-
-const SERVICE_NAMES: Record<string, string> = {
-  twitter: 'X',
-  linkedin: 'LinkedIn',
-  threads: 'Threads',
-  bluesky: 'Bluesky',
-  mastodon: 'Mastodon',
 }
