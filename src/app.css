@@ -3453,3 +3453,11 @@ a.app-week-count:hover {
     font-size: 26px;
   }
 }
+
+/* A step's hint reads as the question's subtitle, before the answer rather than after it. */
+.app-gate .setup-question:has(> .setup-lede) > .setup-title {
+  margin-bottom: 8px;
+}
+.app-gate .setup-hint.setup-lede {
+  margin: 0 0 24px;
+}

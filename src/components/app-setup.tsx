@@ -3,6 +3,7 @@ import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../convex/_generated/api'
 import { ChannelMark } from './brand-icons'
+import { Avatar } from './nav-icons'
 import { TEMPLATES } from '../../convex/lib/templates'
 import { channelHint, channelProblem, errorText, serviceName } from '../lib/format'
 import { BusyLabel } from './busy-label'
@@ -70,6 +71,49 @@ function Block({
   )
 }
 
+/**
+ * A one-answer text box that grows with what's typed, so a long topic wraps instead of scrolling
+ * out of sight. Enter still moves on, as it does in a single-line field; line breaks never go in.
+ */
+function GrowingText({
+  value,
+  onChange,
+  ...rest
+}: {
+  id: string
+  value: string
+  maxLength: number
+  autoFocus?: boolean
+  'aria-label': string
+  onChange: (value: string) => void
+}) {
+  return (
+    <textarea
+      {...rest}
+      ref={fit}
+      rows={1}
+      className="setup-input setup-field setup-grow"
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value.replace(/\s*\n\s*/g, ' '))
+        fit(e.target)
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+        e.preventDefault()
+        e.currentTarget.form?.requestSubmit()
+      }}
+    />
+  )
+}
+
+/** Browsers without field-sizing: content take the box's height from its text. */
+function fit(el: HTMLTextAreaElement | null) {
+  if (!el || CSS.supports('field-sizing', 'content')) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`
+}
+
 function parseSources(text: string): string[] {
   return text
     .split(/[,\n]/)
@@ -134,13 +178,13 @@ export function NewAutomation() {
       valid: a.research.trim().length > 0,
       body: (
         <>
-          <input
+          <GrowingText
             id={`${id}-research`}
-            className="setup-input setup-field"
+            aria-label="What should it research?"
             value={a.research}
             maxLength={300}
             autoFocus
-            onChange={(e) => set('research', e.target.value)}
+            onChange={(value) => set('research', value)}
           />
           <p className="setup-hint">Or start from an example and change what you like.</p>
           <div className="setup-templates">
@@ -181,10 +225,12 @@ export function NewAutomation() {
     },
     {
       label: 'Where should it post?',
+      // With channels to pick, the ones it can't use are listed by name below, so the hint
+      // doesn't repeat them.
       hint: channelHint({
         usable: channels.length,
         blocked: needsAttention.length,
-        others,
+        others: channels.length ? [] : others,
         syncing,
         syncError,
       }),
@@ -201,36 +247,57 @@ export function NewAutomation() {
               <BusyLabel busy={syncing} idle="Sync channels" working="Syncing channels" />
             </button>
           )}
-          {channels.map((c) => (
-            <Block
-              key={c.channelId}
-              type="checkbox"
-              name="channels"
-              className="is-channel"
-              checked={a.channelIds.includes(c.channelId)}
-              onChange={() =>
-                set(
-                  'channelIds',
-                  a.channelIds.includes(c.channelId)
-                    ? a.channelIds.filter((x) => x !== c.channelId)
-                    : [...a.channelIds, c.channelId],
+          {channels.length ? (
+            <div className="setup-channels">
+              {channels.map((c) => {
+                const checked = a.channelIds.includes(c.channelId)
+                return (
+                  <label
+                    key={c.channelId}
+                    className="setup-block setup-choice setup-channel"
+                    data-checked={checked}
+                  >
+                    <input
+                      type="checkbox"
+                      name="channels"
+                      checked={checked}
+                      onChange={() =>
+                        set(
+                          'channelIds',
+                          checked
+                            ? a.channelIds.filter((x) => x !== c.channelId)
+                            : [...a.channelIds, c.channelId],
+                        )
+                      }
+                      className="sr-only"
+                    />
+                    <Avatar src={c.avatar} size={36} badge>
+                      <ChannelMark channel={serviceName(c.service)} size={c.avatar ? 9 : 16} />
+                    </Avatar>
+                    <span className="setup-channel-text">
+                      <span className="setup-channel-name">{c.name}</span>
+                      <span className="setup-block-detail">{serviceName(c.service)}</span>
+                    </span>
+                    <span className="setup-check" aria-hidden="true" />
+                  </label>
                 )
-              }
-              detail={serviceName(c.service)}
-            >
-              <ChannelMark channel={serviceName(c.service)} size={20} />
-              {c.name}
-            </Block>
-          ))}
-          {blocked.map((c) => (
-            <div key={c.channelId} className="setup-block is-channel" aria-disabled="true">
-              <span className="setup-block-title">
-                <ChannelMark channel={serviceName(c.service)} size={20} />
-                {c.name}
-              </span>
-              <span className="setup-block-detail">{channelProblem(c.problem, c.service)}</span>
+              })}
             </div>
-          ))}
+          ) : null}
+          {blocked.length ? (
+            <div className="setup-unavailable">
+              <p>{channels.length ? 'Can’t use' : 'In your Buffer account'}</p>
+              <ul>
+                {blocked.map((c) => (
+                  <li key={c.channelId}>
+                    <ChannelMark channel={serviceName(c.service)} size={14} />
+                    <span className="setup-unavailable-name">{c.name}</span>
+                    <span>{channelProblem(c.problem, c.service)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ),
     },
@@ -435,7 +502,6 @@ export function NewAutomation() {
       <p className="app-crumbs">
         <Link to="/app">Home</Link>
       </p>
-      <h1>New automation</h1>
       <form
         className="setup-form"
         onSubmit={(e) => {
@@ -445,20 +511,19 @@ export function NewAutomation() {
         }}
       >
         <div className="setup-stage">
-          <div className="setup-progress" aria-hidden="true">
-            {questions.map((_, i) => (
-              <span key={i} data-done={i < index} />
-            ))}
+          <div className="setup-count">
+            <h1>New automation</h1>
+            <span aria-hidden="true">·</span>
+            <span className="tabular">
+              {done ? 'Review' : `Step ${index + 1} of ${questions.length}`}
+            </span>
+            {q?.blank === undefined ? null : <span className="setup-optional">Optional</span>}
           </div>
           {q ? (
             <div className="setup-question" key={index}>
-              <p className="setup-count">
-                Question {index + 1} of {questions.length}
-                {q.blank === undefined ? null : <span className="setup-optional">Optional</span>}
-              </p>
               <h2 className="setup-title">{q.label}</h2>
+              {q.hint ? <p className="setup-hint setup-lede">{q.hint}</p> : null}
               <div className="setup-answer">{q.body}</div>
-              {q.hint ? <p className="setup-hint">{q.hint}</p> : null}
               <div className="app-gate-actions setup-nav">
                 {index > 0 ? (
                   <button
