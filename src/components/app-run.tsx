@@ -1,3 +1,4 @@
+import { PageSkeleton } from './page-skeleton'
 import { MissingItem } from './route-error'
 import { Link } from '@tanstack/react-router'
 import { ConvexProvider, ConvexReactClient, useAction, useMutation, useQuery } from 'convex/react'
@@ -153,7 +154,7 @@ function copyLink(token: string): Promise<string> {
 /** One run as a log: a timestamp spine on the left, what happened on the right (SPEC §23.4). */
 export function RunPage({ id, runId }: { id: Id<'automations'>; runId: Id<'runs'> }) {
   const run = useQuery(api.runs.get, { runId })
-  if (run === undefined) return <p className="app-muted">Loading.</p>
+  if (run === undefined) return <PageSkeleton figures={false} />
   if (run === null) return <MissingItem what="run" />
   return <RunView run={run} id={id} />
 }

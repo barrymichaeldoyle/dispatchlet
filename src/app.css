@@ -3690,3 +3690,56 @@ a.app-week-count:hover {
 .app-gate .app-section .app-table tr:last-child > th {
   border-bottom: 0;
 }
+
+/* Loading: the outline of a page in soft blocks that pulse gently (held still for reduced motion). */
+.app-skeleton {
+  display: grid;
+  gap: 14px;
+  padding-top: 4px;
+}
+.app-skeleton > span,
+.app-skeleton-figures > span {
+  display: block;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+  animation: app-skeleton-pulse 1.6s ease-in-out infinite;
+}
+.app-skeleton-title {
+  width: min(320px, 70%);
+  height: 36px;
+}
+.app-skeleton-line {
+  width: min(220px, 50%);
+  height: 16px;
+}
+.app-skeleton-figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+.app-skeleton-figures > span {
+  height: 88px;
+  border-radius: var(--radius-card);
+}
+.app-skeleton > .app-skeleton-card {
+  height: 240px;
+  margin-top: 10px;
+  border-radius: var(--radius-card);
+}
+@keyframes app-skeleton-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-skeleton > span,
+  .app-skeleton-figures > span {
+    animation: none;
+  }
+}
+@media (max-width: 720px) {
+  .app-skeleton-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

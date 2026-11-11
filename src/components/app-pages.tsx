@@ -1,3 +1,4 @@
+import { PageSkeleton } from './page-skeleton'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
@@ -98,7 +99,7 @@ type Dashboard = NonNullable<
 export function AppHome() {
   const viewer = useQuery(api.users.viewer)
   const data = useQuery(api.automations.dashboard)
-  if (!viewer || data === undefined) return null
+  if (!viewer || data === undefined) return <PageSkeleton />
   const firstName = viewer.name?.trim().split(/\s+/)[0]
   // `?preview-empty` shows the first-visit screen on an account that has automations, for design work.
   const previewEmpty = new URLSearchParams(window.location.search).has('preview-empty')
@@ -828,7 +829,7 @@ function Anchor({ id, children }: { id: string; children: React.ReactNode }) {
 
 export function AppSettings() {
   const viewer = useQuery(api.users.viewer)
-  if (!viewer) return null
+  if (!viewer) return <PageSkeleton figures={false} />
   return (
     <>
       <h1>Settings</h1>
