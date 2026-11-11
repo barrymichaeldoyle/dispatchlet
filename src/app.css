@@ -3937,3 +3937,27 @@ a.app-week-count:hover {
 .app-runs li[data-status='failed'] .app-runs-outcome {
   color: var(--color-ink);
 }
+
+/* Schedule option groups sit in a labelled wrapper; keep the space between groups. */
+.app-gate .app-section > div[role]:not(:last-child) > .app-choices {
+  margin-bottom: 16px;
+}
+
+/* Section tabs are links now (?tab=runs), and view toggles are pressed buttons. */
+.app-tabs a {
+  padding: 8px 0 10px;
+  color: var(--color-muted);
+  font-size: 15px;
+  text-decoration: none;
+}
+.app-tabs a:hover {
+  color: var(--color-ink);
+}
+.app-tabs a[aria-current='page'],
+.app-tabs button[aria-pressed='true'] {
+  color: var(--color-ink);
+  box-shadow: inset 0 -2px 0 var(--color-pine);
+}
+.app-tabs.is-small {
+  flex-wrap: wrap;
+}

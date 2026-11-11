@@ -323,7 +323,7 @@ function AssistantConnect({ token }: { token: string | null }) {
         <a href="/docs/mcp">What each tool does.</a>
         {token ? '' : ' For the others, create a token above and the snippets fill in.'}
       </p>
-      <nav className="app-tabs is-small" aria-label="Host">
+      <div className="app-tabs is-small" role="group" aria-label="Host">
         {(
           [
             ['claude-ai', 'claude.ai'],
@@ -333,16 +333,11 @@ function AssistantConnect({ token }: { token: string | null }) {
             ['stdio', 'Other'],
           ] as const
         ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            aria-current={host === key ? 'page' : undefined}
-            onClick={() => setHost(key)}
-          >
+          <button key={key} type="button" aria-pressed={host === key} onClick={() => setHost(key)}>
             {label}
           </button>
         ))}
-      </nav>
+      </div>
       <pre className="app-snippet" tabIndex={0}>
         {snippets[host]}
       </pre>

@@ -1,7 +1,7 @@
 import { PageSkeleton } from './page-skeleton'
 import { usePageTitle } from '../lib/use-page-title'
 import { MissingItem } from './route-error'
-import { Link, useBlocker, useNavigate } from '@tanstack/react-router'
+import { Link, useBlocker, useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery } from 'convex/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -29,6 +29,9 @@ import {
 } from '../lib/playbook-validation'
 
 type LeaveGuard = (proceed: () => void) => void
+
+const TABS = ['playbook', 'schedule', 'runs'] as const
+type Tab = (typeof TABS)[number]
 
 const STATUS_WORDS: Record<string, string> = {
   generating: 'writing the playbook',
@@ -60,7 +63,14 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
   const registerLeaveGuard = useCallback((guard: LeaveGuard | null) => {
     leaveGuard.current = guard
   }, [])
-  const [tab, setTab] = useState<'playbook' | 'schedule' | 'runs'>('playbook')
+  // The tab lives in the address (?tab=runs), so Back, reload and shared links keep it.
+  const tab = useSearch({ strict: false, select: (search) => search.tab }) ?? 'playbook'
+  const openTab = (t: Tab) =>
+    navigate({
+      to: '/app/a/$id',
+      params: { id },
+      search: t === 'playbook' ? {} : { tab: t },
+    })
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -315,15 +325,20 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         />
       ) : null}
       <nav className="app-tabs" aria-label="Sections">
-        {(['playbook', 'schedule', 'runs'] as const).map((t) => (
-          <button
+        {TABS.map((t) => (
+          <Link
             key={t}
-            type="button"
+            to="/app/a/$id"
+            params={{ id }}
+            search={t === 'playbook' ? {} : { tab: t }}
             aria-current={tab === t ? 'page' : undefined}
-            onClick={() => {
+            activeProps={{}}
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+              event.preventDefault()
               if (t === tab) return
-              if (leaveGuard.current) leaveGuard.current(() => setTab(t))
-              else setTab(t)
+              if (leaveGuard.current) leaveGuard.current(() => void openTab(t))
+              else void openTab(t)
             }}
           >
             {t === 'playbook'
@@ -331,7 +346,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
               : t === 'schedule'
                 ? 'Schedule'
                 : `Runs${runs?.length ? ` (${runs.length})` : ''}`}
-          </button>
+          </Link>
         ))}
       </nav>
       {tab === 'playbook' ? (
@@ -554,35 +569,37 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           Buffer to run daily.
         </p>
       ) : null}
-      <h2>Channels</h2>
+      <h2 id="schedule-channels">Channels</h2>
       {channels.length ? null : (
         <p className="app-muted">Connect Buffer to choose where this automation posts.</p>
       )}
-      <ul className="app-choices">
-        {channels.map((c) => (
-          <li key={c.channelId} data-checked={a.channelIds.includes(c.channelId)}>
-            <label>
-              <input
-                type="checkbox"
-                checked={a.channelIds.includes(c.channelId)}
-                disabled={!c.usable}
-                onChange={(e) =>
-                  save({
-                    channelIds: e.target.checked
-                      ? [...a.channelIds, c.channelId]
-                      : a.channelIds.filter((x) => x !== c.channelId),
-                  })
-                }
-              />
-              <ChannelMark channel={serviceName(c.service)} size={14} />
-              <span>{c.name}</span>
-              {c.usable ? null : (
-                <span className="app-muted">{channelProblem(c.problem, c.service)}</span>
-              )}
-            </label>
-          </li>
-        ))}
-      </ul>
+      <div role="group" aria-labelledby="schedule-channels">
+        <ul className="app-choices">
+          {channels.map((c) => (
+            <li key={c.channelId} data-checked={a.channelIds.includes(c.channelId)}>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={a.channelIds.includes(c.channelId)}
+                  disabled={!c.usable}
+                  onChange={(e) =>
+                    save({
+                      channelIds: e.target.checked
+                        ? [...a.channelIds, c.channelId]
+                        : a.channelIds.filter((x) => x !== c.channelId),
+                    })
+                  }
+                />
+                <ChannelMark channel={serviceName(c.service)} size={14} />
+                <span>{c.name}</span>
+                {c.usable ? null : (
+                  <span className="app-muted">{channelProblem(c.problem, c.service)}</span>
+                )}
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
       <h2>Stories a run, at most</h2>
       <div className="app-field app-segments" role="radiogroup" aria-label="Stories a run, at most">
         {storyChoices.map((n) => (
@@ -597,77 +614,85 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           </label>
         ))}
       </div>
-      <h2>What it looks for</h2>
-      <ul className="app-choices">
-        {(
-          [
-            ['recent', 'Recent news', 'Stories published inside the playbook’s freshness window.'],
+      <h2 id="schedule-looks-for">What it looks for</h2>
+      <div role="radiogroup" aria-labelledby="schedule-looks-for">
+        <ul className="app-choices">
+          {(
             [
-              'archive',
-              'History',
-              'Documented past events, however old the sources. Each needs a verified date, or it is left out.',
+              [
+                'recent',
+                'Recent news',
+                'Stories published inside the playbook’s freshness window.',
+              ],
+              [
+                'archive',
+                'History',
+                'Documented past events, however old the sources. Each needs a verified date, or it is left out.',
+              ],
+              [
+                'anniversary',
+                'On this day',
+                a.postingMode === 'planned'
+                  ? 'An event from an earlier year on the same date as each posting day. Days without a well-documented event stay empty.'
+                  : a.postingMode === 'draft'
+                    ? 'Events from earlier years on the dates your Buffer queue posts next. Each draft keeps its date, and approving it schedules it for then.'
+                    : 'Events from earlier years on the dates your Buffer queue posts next. Each post is scheduled for its own date, at that day’s queue time.',
+              ],
+            ] as const
+          ).map(([mode, title, detail]) => (
+            <li key={mode} data-checked={a.researchMode === mode}>
+              <label>
+                <input
+                  type="radio"
+                  name="research"
+                  checked={a.researchMode === mode}
+                  onChange={() => save({ researchMode: mode })}
+                />
+                <span>{title}</span>
+                <span className="app-muted">{detail}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <h2 id="schedule-posting">How posts reach Buffer</h2>
+      <div role="radiogroup" aria-labelledby="schedule-posting">
+        <ul className="app-choices">
+          {[
+            [
+              'draft',
+              'Save as drafts',
+              `They wait in Buffer for your approval. ${
+                usage ? draftEmailNote(usage.emailPrefs, usage.emailEnabled) : ''
+              }`.trim(),
+            ],
+            ['queue', 'Add to the queue', 'Into the next free slots on each channel.'],
+            [
+              'spread',
+              'Spread through the day',
+              'Scheduled from ten minutes after the run, two hours apart.',
             ],
             [
-              'anniversary',
-              'On this day',
-              a.postingMode === 'planned'
-                ? 'An event from an earlier year on the same date as each posting day. Days without a well-documented event stay empty.'
-                : a.postingMode === 'draft'
-                  ? 'Events from earlier years on the dates your Buffer queue posts next. Each draft keeps its date, and approving it schedules it for then.'
-                  : 'Events from earlier years on the dates your Buffer queue posts next. Each post is scheduled for its own date, at that day’s queue time.',
+              'planned',
+              'Plan the week, one story a day',
+              'Research runs weekly, then each story is scheduled for its own day at a set time, on every channel. Scheduled straight away, without approval.',
             ],
-          ] as const
-        ).map(([mode, title, detail]) => (
-          <li key={mode} data-checked={a.researchMode === mode}>
-            <label>
-              <input
-                type="radio"
-                name="research"
-                checked={a.researchMode === mode}
-                onChange={() => save({ researchMode: mode })}
-              />
-              <span>{title}</span>
-              <span className="app-muted">{detail}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <h2>How posts reach Buffer</h2>
-      <ul className="app-choices">
-        {[
-          [
-            'draft',
-            'Save as drafts',
-            `They wait in Buffer for your approval. ${
-              usage ? draftEmailNote(usage.emailPrefs, usage.emailEnabled) : ''
-            }`.trim(),
-          ],
-          ['queue', 'Add to the queue', 'Into the next free slots on each channel.'],
-          [
-            'spread',
-            'Spread through the day',
-            'Scheduled from ten minutes after the run, two hours apart.',
-          ],
-          [
-            'planned',
-            'Plan the week, one story a day',
-            'Research runs weekly, then each story is scheduled for its own day at a set time, on every channel. Scheduled straight away, without approval.',
-          ],
-        ].map(([mode, title, detail]) => (
-          <li key={mode} data-checked={a.postingMode === mode}>
-            <label>
-              <input
-                type="radio"
-                name="mode"
-                checked={a.postingMode === mode}
-                onChange={() => chooseMode(mode as 'draft' | 'queue' | 'spread' | 'planned')}
-              />
-              <span>{title}</span>
-              <span className="app-muted">{detail}</span>
-            </label>
-          </li>
-        ))}
-      </ul>
+          ].map(([mode, title, detail]) => (
+            <li key={mode} data-checked={a.postingMode === mode}>
+              <label>
+                <input
+                  type="radio"
+                  name="mode"
+                  checked={a.postingMode === mode}
+                  onChange={() => chooseMode(mode as 'draft' | 'queue' | 'spread' | 'planned')}
+                />
+                <span>{title}</span>
+                <span className="app-muted">{detail}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
       {planned ? (
         <fieldset className="app-plan">
           <legend>Posting days and time</legend>
@@ -1038,22 +1063,14 @@ function PlaybookEditor({
           Version {version}, {createdBy === 'ai' ? 'written by Dispatchlet' : 'edited by you'}. The
           instructions it follows on every run.
         </p>
-        <nav className="app-tabs is-small" aria-label="View">
-          <button
-            type="button"
-            aria-current={view === 'form' ? 'page' : undefined}
-            onClick={showForm}
-          >
+        <div className="app-tabs is-small" role="group" aria-label="View">
+          <button type="button" aria-pressed={view === 'form'} onClick={showForm}>
             Form
           </button>
-          <button
-            type="button"
-            aria-current={view === 'text' ? 'page' : undefined}
-            onClick={() => setView('text')}
-          >
+          <button type="button" aria-pressed={view === 'text'} onClick={() => setView('text')}>
             Text
           </button>
-        </nav>
+        </div>
       </div>
       {view === 'text' ? (
         <div className="app-editor">

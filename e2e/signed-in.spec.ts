@@ -169,11 +169,53 @@ test('each page names the tab and takes focus to its heading', async ({ page }) 
   await page.locator('.app-row-title').first().click()
   await expect(page).toHaveTitle('F1 On This Day | Dispatchlet')
   await expect(page.getByRole('heading', { level: 1, name: 'F1 On This Day' })).toBeFocused()
-  await page.locator('.app-tabs').first().getByRole('button', { name: /^Runs/ }).click()
+  await page.locator('.app-tabs').first().getByRole('link', { name: /^Runs/ }).click()
   await page.locator('.app-runs a').first().click()
   await expect(page).toHaveTitle(/^Scheduled run, .+ · F1 On This Day \| Dispatchlet$/)
   await expect(
     page.locator('.app-crumbs').getByRole('link', { name: 'F1 On This Day' }),
   ).toBeVisible()
   await expect(page.getByRole('heading', { level: 1 })).toBeFocused()
+})
+
+test('automation tabs live in the address, so Back and shared links keep them', async ({
+  page,
+}) => {
+  await openSignedIn(page)
+  await page.locator('.app-row-title').first().click()
+  const tabs = page.getByRole('navigation', { name: 'Sections' })
+  await expect(tabs.getByRole('link', { name: 'Playbook' })).toHaveAttribute('aria-current', 'page')
+  await tabs.getByRole('link', { name: /^Runs/ }).click()
+  await expect(page).toHaveURL(/\?tab=runs$/)
+  await expect(page.locator('.app-runs')).toBeVisible()
+  await page.goBack()
+  await expect(tabs.getByRole('link', { name: 'Playbook' })).toHaveAttribute('aria-current', 'page')
+  await page.goto(page.url().replace(/(\?.*)?$/, '?tab=schedule'))
+  await expect(tabs.getByRole('link', { name: 'Schedule' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('radiogroup', { name: 'How posts reach Buffer' })).toBeVisible()
+})
+
+test('the automation tabs and the run page pass accessibility checks', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await openSignedIn(page)
+  await page.locator('.app-row-title').first().click()
+  const base = page.url().split('?')[0]!
+  const failures: string[] = []
+  for (const [path, ready] of [
+    [base, '.app-playbook'],
+    [`${base}?tab=schedule`, '[role="radiogroup"]'],
+    [`${base}?tab=runs`, '.app-runs'],
+  ] as const) {
+    await page.goto(path)
+    await page.locator(ready).first().waitFor()
+    const { violations } = await new AxeBuilder({ page }).analyze()
+    failures.push(
+      ...violations.map((v) => `${path}: ${v.id} ${v.nodes.map((n) => n.target).join(', ')}`),
+    )
+  }
+  await page.locator('.app-runs a').first().click()
+  await page.getByRole('heading', { level: 1 }).waitFor()
+  const { violations } = await new AxeBuilder({ page }).analyze()
+  failures.push(...violations.map((v) => `run: ${v.id} ${v.nodes.map((n) => n.target).join(', ')}`))
+  expect(failures).toEqual([])
 })
