@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
 import { BrandText } from '../components/brand-text'
+import { BufferMark } from '../components/brand-icons'
 import { SiteFooter } from '../components/site-footer'
 import { PostPreview } from '../components/post-preview'
 import { RunSteps } from '../components/run-steps'
@@ -11,9 +12,10 @@ import { STORIES } from '../lib/example-run'
 import { track } from '../integrations/posthog/track'
 
 const SITE_URL = 'https://dispatchlet.com/'
-const TITLE = 'Dispatchlet | An agent that researches and writes your Buffer posts'
+const TITLE = 'Dispatchlet | An agent that writes your Buffer posts'
 const DESCRIPTION =
-  'Keep your account posting about your topic and save hours of research every week. Daily or weekly, Dispatchlet finds new stories, skips what you’ve already posted, and writes the posts for Buffer. Your first 10 runs are free.'
+  'Dispatchlet finds new stories on your topic, skips what you’ve already posted, and writes your Buffer posts. Daily or weekly. First 10 runs free.'
+const SOURCE_URL = 'https://github.com/barrymichaeldoyle/dispatchlet'
 
 export const Route = createFileRoute('/')({
   component: Home,
@@ -36,6 +38,8 @@ export const Route = createFileRoute('/')({
           'Dispatchlet: an agent that researches and writes your Buffer posts. Built for Buffer Commit.',
       },
       { name: 'twitter:card', content: 'summary_large_image' },
+      { name: 'twitter:site', content: '@barrymdoyle' },
+      { name: 'twitter:creator', content: '@barrymdoyle' },
       { name: 'twitter:title', content: TITLE },
       { name: 'twitter:description', content: DESCRIPTION },
       { name: 'twitter:image', content: `${SITE_URL}og.png` },
@@ -51,11 +55,36 @@ export const Route = createFileRoute('/')({
         type: 'application/ld+json',
         children: JSON.stringify({
           '@context': 'https://schema.org',
-          '@type': 'WebSite',
-          name: 'Dispatchlet',
-          url: SITE_URL,
-          description: DESCRIPTION,
-          inLanguage: 'en',
+          '@graph': [
+            {
+              '@type': 'WebSite',
+              name: 'Dispatchlet',
+              url: SITE_URL,
+              description: DESCRIPTION,
+              inLanguage: 'en',
+            },
+            {
+              '@type': 'SoftwareApplication',
+              name: 'Dispatchlet',
+              url: SITE_URL,
+              description: DESCRIPTION,
+              applicationCategory: 'BusinessApplication',
+              operatingSystem: 'Web',
+              image: `${SITE_URL}og.png`,
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'USD',
+                description: 'First 10 runs free, no card needed.',
+              },
+              author: {
+                '@type': 'Person',
+                name: 'Barry Michael Doyle',
+                url: BUILD_LOG_URL,
+                sameAs: [BUILD_LOG_URL, 'https://github.com/barrymichaeldoyle'],
+              },
+            },
+          ],
         }),
       },
     ],
@@ -125,65 +154,187 @@ function Home() {
       <header className="landing-header">
         <div className="landing-header-inner">
           <Wordmark size="md" />
-          <ThemeToggle name="theme" />
+          <div className="landing-header-actions">
+            <ThemeToggle name="theme" />
+            <a href="/app?signin" className="landing-signin">
+              Sign in
+            </a>
+          </div>
         </div>
       </header>
 
       <main id="main-content" tabIndex={-1} className="landing-main">
         <section className="landing-hero" aria-labelledby="product-title">
           <div className="landing-message">
-            <h1 id="product-title">An agent that researches and writes your Buffer posts.</h1>
+            <h1 id="product-title">Fresh posts on your topic, researched and written for you.</h1>
             <p className="landing-description">
               <BrandText>
-                Keep your account posting about your topic and save hours of research every week.
-                Daily or weekly, Dispatchlet finds new stories, skips anything you’ve already
-                posted, and writes the posts for Buffer.
+                Dispatchlet finds new stories, skips anything you’ve already posted, and writes a
+                post for each channel. They land in Buffer as drafts for you to approve, or it
+                schedules them once you trust it.
               </BrandText>
             </p>
             <p className="landing-control">
-              Set it up once with a few quick questions, then review posts as drafts in Buffer or
-              let it schedule them. Made for accounts that share news about a topic, like a local
-              food page, an F1 fan account or a software company.
+              Made for accounts that share news about a topic, like a local food page, an F1 fan
+              account or a software changelog.
             </p>
-            <a href="#run" className="landing-demo-link" onClick={playDemo}>
-              <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="m6 3 15 9-15 9Z" fill="currentColor" />
-              </svg>
-              Watch the demo
-            </a>
-            <p className="landing-commit-line">
-              Built in public for Buffer Commit, Buffer’s API hackathon.{' '}
-              <a href={BUILD_LOG_URL}>Follow the build</a>
-            </p>
-          </div>
-          <div className="landing-signup">
-            <figure className="landing-proof flow-writing">
-              <PostPreview channel="X" length={HERO_POST.length}>
-                {HERO_POST}
-              </PostPreview>
-              <figcaption>
-                <BrandText>{`An example post, written from a ${HERO_STORY.source} story and scheduled in Buffer for ${HERO_STORY.time}.`}</BrandText>
-              </figcaption>
-            </figure>
-            <h2>Try it on your own topic.</h2>
-            <a
-              href="/app?signin"
-              id="start"
-              className="landing-start"
-              data-enhanced={mounted ? 'true' : undefined}
-            >
-              Start with Buffer
-            </a>
+            <div className="landing-actions">
+              <a
+                href="/app?signin"
+                id="start"
+                className="landing-start"
+                data-enhanced={mounted ? 'true' : undefined}
+              >
+                <BufferMark size={16} />
+                Continue with Buffer
+              </a>
+              <a
+                href="#run"
+                className="landing-demo-link"
+                onClick={playDemo}
+                aria-haspopup={mounted ? 'dialog' : undefined}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="m6 3 15 9-15 9Z" fill="currentColor" />
+                </svg>
+                Watch the demo
+              </a>
+            </div>
             <p className="landing-notice" aria-live="polite">
               {notice === 'unsubscribed'
                 ? 'You are off the list and will not get any more emails from it.'
-                : 'Your first 10 runs are free, and no card is needed.'}
+                : 'Your first 10 runs are free, and no card is needed. After that, use your own Anthropic key, about $0.07 a run.'}
+            </p>
+            <p className="landing-commit-line">
+              <BrandText>
+                Starts with a dry run, so nothing reaches Buffer until you’ve seen it. Built on
+                Buffer’s public API.
+              </BrandText>{' '}
+              <a href={SOURCE_URL}>Read the source</a>
             </p>
           </div>
+          <figure className="landing-proof flow-writing">
+            <PostPreview channel="X" length={HERO_POST.length}>
+              {HERO_POST}
+            </PostPreview>
+            <figcaption>
+              <BrandText>{`An example post, written from a ${HERO_STORY.source} story and scheduled in Buffer for ${HERO_STORY.time}.`}</BrandText>
+            </figcaption>
+          </figure>
         </section>
 
         <ExampleRun ref={demo} />
         <RunSteps />
+
+        <section className="landing-origin" aria-labelledby="compare-title">
+          <h2 id="compare-title">Why not a feed tool or a chatbot?</h2>
+          <ul className="landing-compare">
+            <li>
+              <strong>Feed-to-Buffer tools</strong> post every item in a feed, repeats and weak
+              stories included.
+            </li>
+            <li>
+              <strong>AI writing tools</strong> can write the post, but you still have to find the
+              story and check you haven’t shared it already.
+            </li>
+            <li>
+              <strong>
+                <BrandText>Dispatchlet</BrandText>
+              </strong>{' '}
+              does the research, checks what you’ve already posted, writes only what’s new, and
+              posts less on a slow day.
+            </li>
+          </ul>
+        </section>
+
+        <section className="landing-questions" aria-labelledby="questions-title">
+          <h2 id="questions-title">Questions before you start</h2>
+          <div>
+            <details>
+              <summary>Can I review posts before they go out?</summary>
+              <p>
+                <BrandText>
+                  Yes. By default every post is saved as a draft in Buffer for you to approve, and
+                  your first run is a dry run that shows what it would post without sending
+                  anything. Switch to automatic scheduling when you trust it. You set the sources,
+                  voice and rules, and can see what the agent researched and why it kept or skipped
+                  a story.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>What does it cost?</summary>
+              <p>
+                Your first 10 runs are free, with no card. After that, you add your own Anthropic
+                API key. Anthropic makes Claude, the AI that does the research and writing, so you
+                pay Anthropic directly for what your runs use. That’s about $0.07 a run, or roughly
+                $2 a month if it runs daily.{' '}
+                <a href="/blog/cost-per-run">See what a run’s cost is made of.</a>
+              </p>
+              <p>
+                If you’d rather not manage a key, a paid plan that covers the AI for you is coming.
+                If anything changes for accounts using their own key, you’ll hear about it first.
+              </p>
+            </details>
+            <details>
+              <summary>Will the posts sound like AI wrote them?</summary>
+              <p>
+                Each post follows the voice in your playbook, such as “warm and factual, no hype”,
+                and links the story it came from. Change the voice whenever you like, and keep posts
+                as drafts until you’re happy with them.
+              </p>
+            </details>
+            <details>
+              <summary>What if there isn’t enough news?</summary>
+              <p>
+                It posts less. If only one story is new and worth sharing, you get one. It never
+                pads a quiet day with repeats or weak stories.
+              </p>
+            </details>
+            <details>
+              <summary>Do I need a Buffer account?</summary>
+              <p>
+                <BrandText>
+                  Yes. You sign in with Buffer, so there is no separate account to create, and posts
+                  go straight to the channels you already have connected there.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>Does it get better over time?</summary>
+              <p>
+                <BrandText>
+                  Yes. Once a few posts have gone out, it reads how each did in Buffer and writes
+                  more like the ones your audience liked. Good stories it didn’t post can go to your
+                  Buffer Ideas board, so you can use them later.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>Which channels does it support?</summary>
+              <p>
+                <BrandText>
+                  X, LinkedIn, Threads, Bluesky and Mastodon, through your Buffer account. Channels
+                  that need an image with every post, like Instagram, are not supported yet.
+                </BrandText>
+              </p>
+            </details>
+            <details>
+              <summary>How is my data handled?</summary>
+              <p>
+                <BrandText>
+                  Posts are labelled AI-assisted in Buffer. Your Buffer tokens are encrypted and
+                  deleted when you disconnect.
+                </BrandText>
+              </p>
+              <p>
+                The app emails you about your runs, and you can turn off the approval emails in
+                settings. The <a href="/privacy">privacy policy</a> lists everything that is
+                collected and who handles it.
+              </p>
+            </details>
+          </div>
+        </section>
 
         <section className="landing-origin" aria-labelledby="origin-title">
           <h2 id="origin-title">Why I built it</h2>
@@ -251,14 +402,13 @@ function Home() {
           <h2 id="commit-title">Built for Buffer Commit</h2>
           <div>
             <p>
-              Buffer Commit is Buffer’s API hackathon, and Dispatchlet is my entry. It only uses
-              Buffer’s public API: you sign in with Buffer, and your posts go to your own queue or
-              drafts.
+              Dispatchlet is my entry to Buffer Commit, Buffer’s API hackathon, which runs from 28
+              October to 13 November 2026. It only uses Buffer’s public API: you sign in with
+              Buffer, and your posts go to your own queue or drafts.
             </p>
             <p>
-              I’m building it between 28 October and 13 November and posting progress on X as I go.
-              This page and the project setup came first, and the repository is tagged where the
-              hackathon starts, so you can see exactly what was built during it.
+              The repository is tagged where the hackathon started, so you can see exactly what was
+              built during it.
             </p>
             <p className="landing-commit-links">
               <a href={COMMITS_URL}>See every commit</a>
@@ -267,110 +417,21 @@ function Home() {
           </div>
         </section>
 
-        <section className="landing-questions" aria-labelledby="questions-title">
-          <h2 id="questions-title">Before you join</h2>
-          <div>
-            <details>
-              <summary>Can I review posts before they go out?</summary>
-              <p>
-                <BrandText>
-                  Yes. By default every post is saved as a draft in Buffer for you to approve.
-                  Switch to automatic scheduling when you trust it. You set the sources, voice and
-                  rules, and can see what the agent researched and why it kept or skipped a story.
-                </BrandText>
-              </p>
-            </details>
-            <details>
-              <summary>Will the posts sound like AI wrote them?</summary>
-              <p>
-                Each post follows the voice in your playbook, such as “warm and factual, no hype”,
-                and links the story it came from. Change the voice whenever you like, and keep posts
-                as drafts until you’re happy with them.
-              </p>
-            </details>
-            <details>
-              <summary>What if there isn’t enough news?</summary>
-              <p>
-                It posts less. If only one story is new and worth sharing, you get one. It never
-                pads a quiet day with repeats or weak stories.
-              </p>
-            </details>
-            <details>
-              <summary>Do I need a Buffer account?</summary>
-              <p>
-                <BrandText>
-                  Yes. You sign in with Buffer, so there is no separate account to create, and posts
-                  go straight to the channels you already have connected there.
-                </BrandText>
-              </p>
-            </details>
-            <details>
-              <summary>Does it get better over time?</summary>
-              <p>
-                <BrandText>
-                  Yes. Once a few posts have gone out, it reads how each did in Buffer and writes
-                  more like the ones your audience liked. Good stories it didn’t post can go to your
-                  Buffer Ideas board, so you can use them later.
-                </BrandText>
-              </p>
-            </details>
-            <details>
-              <summary>Which channels does it support?</summary>
-              <p>
-                <BrandText>
-                  X, LinkedIn, Threads, Bluesky and Mastodon, through your Buffer account. Channels
-                  that need an image with every post, like Instagram, are not supported yet.
-                </BrandText>
-              </p>
-            </details>
-            <details>
-              <summary>What does it cost?</summary>
-              <p>
-                Your first 10 runs are free. After that, you can add your own Anthropic API key.
-                Anthropic makes Claude, the AI that does the research and writing, so you pay
-                Anthropic directly for what your runs use. That’s about $0.07 a run.{' '}
-                <a href="/blog/cost-per-run">See what a run’s cost is made of.</a>
-              </p>
-              <p>
-                If you’d rather not manage a key, a paid plan that covers the AI for you is coming
-                later. Pricing may change after launch, including for accounts that use their own
-                key.
-              </p>
-            </details>
-            <details>
-              <summary>How is my data handled?</summary>
-              <p>
-                <BrandText>
-                  Posts are labelled AI-assisted in Buffer. Your Buffer tokens are encrypted and
-                  deleted when you disconnect.
-                </BrandText>
-              </p>
-              <p>
-                The app emails you about your runs, and you can turn off the approval emails in
-                settings. The <a href="/privacy">privacy policy</a> lists everything that is
-                collected and who handles it.
-              </p>
-            </details>
-          </div>
-        </section>
-
         <section className="landing-closing" aria-labelledby="closing-title">
-          <h2 id="closing-title">OK, seriously. Watch the demo.</h2>
+          <h2 id="closing-title">Try it on your own topic.</h2>
           <p>
-            <BrandText>
-              {'From a few answers to posts in Buffer, today and every day after. We’ll\u00a0wait.'}
-            </BrandText>
+            Answer a few questions, check the dry run, then decide. Your first 10 runs are free.
           </p>
           <div className="landing-closing-actions">
-            <button type="button" className="landing-closing-play" onClick={playDemo}>
+            <a href="/app?signin" className="landing-closing-start">
               <span aria-hidden="true" className="landing-closing-icon">
-                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m9 5 11 7-11 7Z" fill="currentColor" />
-                </svg>
+                <BufferMark size={18} />
               </span>
-              Watch the full run
+              Continue with Buffer
+            </a>
+            <button type="button" className="landing-closing-demo" onClick={playDemo}>
+              Watch the demo first
             </button>
-            <a href="/app?signin">Start with Buffer</a>
           </div>
         </section>
       </main>

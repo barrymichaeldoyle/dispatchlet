@@ -185,9 +185,7 @@ test('focus stays inside the player and Read instead moves to the step-by-step r
   expect(await page.evaluate(() => window.scrollY)).toBe(backgroundScroll)
   await demo.getByRole('button', { name: 'Read instead' }).click()
   await expect(demo).not.toBeVisible()
-  await expect(
-    page.getByRole('heading', { name: 'Fine, you’d rather read about it.' }),
-  ).toBeFocused()
+  await expect(page.getByRole('heading', { name: 'One run, step by step.' })).toBeFocused()
   await expect(
     page.getByRole('heading', { name: 'It writes a playbook you can edit.' }),
   ).toBeVisible()
@@ -749,7 +747,7 @@ for (const viewport of [
     const demo = page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })
     await demo.getByRole('button', { name: 'Read instead' }).click()
     await expect(demo).not.toBeVisible()
-    const reading = page.getByRole('heading', { name: 'Fine, you’d rather read about it.' })
+    const reading = page.getByRole('heading', { name: 'One run, step by step.' })
     await expect(reading).toBeFocused()
     await expect.poll(async () => (await reading.boundingBox())!.y).toBeLessThanOrEqual(32)
     expect((await reading.boundingBox())!.y).toBeGreaterThanOrEqual(0)

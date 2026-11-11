@@ -227,8 +227,8 @@ const STEPS: {
   },
   {
     art: 'schedule',
-    title: 'It schedules them in Buffer.',
-    text: 'Spread through the day, or saved as drafts for you to approve.',
+    title: 'It puts them in Buffer.',
+    text: 'As drafts for you to approve, which is the default, or scheduled through the day once you trust it. This example schedules them.',
     figure: <ScheduleFragment />,
   },
   {
@@ -244,41 +244,57 @@ export function RunSteps() {
     <section className="steps" aria-labelledby="run-steps-title">
       <div className="steps-heading">
         <h2 id="run-steps-title" tabIndex={-1}>
-          Fine, you’d rather read about it.
+          One run, step by step.
         </h2>
-        <p>Here’s the same run, one step at a time.</p>
+        <p>The same run as the demo, if you’d rather read.</p>
       </div>
-      <ol className="steps-list">
+      <ol className="steps-summary">
         {STEPS.map((step) => (
-          <li key={step.title} className={`step ${step.wide ? 'is-wide' : ''}`}>
-            <div className="step-copy">
-              <StepArt kind={step.art} />
-              <h3>
-                <BrandText>{step.title}</BrandText>
-              </h3>
-              <p>
-                <BrandText>{step.text}</BrandText>
-              </p>
-              {step.more ? (
-                <details className="flow-written-posts">
-                  <summary>Read all six example posts</summary>
-                  {STORIES.map((story) => (
-                    <div key={story.title}>
-                      <h4>{story.title}</h4>
-                      {story.posts.map(([channel, text]) => (
-                        <p key={channel}>
-                          <strong>{channel}:</strong> {text}
-                        </p>
-                      ))}
-                    </div>
-                  ))}
-                </details>
-              ) : null}
-            </div>
-            <StepFigure wide={step.wide}>{step.figure}</StepFigure>
+          <li key={step.title}>
+            <StepArt kind={step.art} />
+            <h3>
+              <BrandText>{step.title}</BrandText>
+            </h3>
+            <span>
+              <BrandText>{step.text}</BrandText>
+            </span>
           </li>
         ))}
       </ol>
+      <details id="run-steps-full" className="steps-more">
+        <summary>See each step with the demo’s screens</summary>
+        <ol className="steps-list">
+          {STEPS.map((step) => (
+            <li key={step.title} className={`step ${step.wide ? 'is-wide' : ''}`}>
+              <div className="step-copy">
+                <StepArt kind={step.art} />
+                <h3>
+                  <BrandText>{step.title}</BrandText>
+                </h3>
+                <p>
+                  <BrandText>{step.text}</BrandText>
+                </p>
+                {step.more ? (
+                  <details className="flow-written-posts">
+                    <summary>Read all six example posts</summary>
+                    {STORIES.map((story) => (
+                      <div key={story.title}>
+                        <p className="flow-written-title">{story.title}</p>
+                        {story.posts.map(([channel, text]) => (
+                          <p key={channel}>
+                            <strong>{channel}:</strong> {text}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </details>
+                ) : null}
+              </div>
+              <StepFigure wide={step.wide}>{step.figure}</StepFigure>
+            </li>
+          ))}
+        </ol>
+      </details>
     </section>
   )
 }

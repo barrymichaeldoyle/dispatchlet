@@ -93,9 +93,7 @@ test('search and social metadata are rendered on the server', async ({
   const page = await context.newPage()
   const response = await page.goto(baseURL ?? 'http://localhost:3131')
   expect(response?.status()).toBe(200)
-  await expect(page).toHaveTitle(
-    'Dispatchlet | An agent that researches and writes your Buffer posts',
-  )
+  await expect(page).toHaveTitle('Dispatchlet | An agent that writes your Buffer posts')
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(1)
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     'href',
@@ -117,11 +115,19 @@ test('search and social metadata are rendered on the server', async ({
   const structuredData = JSON.parse(
     (await page.locator('script[type="application/ld+json"]').textContent()) ?? '{}',
   )
-  expect(structuredData).toMatchObject({
-    '@type': 'WebSite',
-    name: 'Dispatchlet',
-    url: 'https://dispatchlet.com/',
-  })
+  expect(structuredData['@graph']).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        '@type': 'WebSite',
+        name: 'Dispatchlet',
+        url: 'https://dispatchlet.com/',
+      }),
+      expect.objectContaining({
+        '@type': 'SoftwareApplication',
+        offers: expect.objectContaining({ price: '0' }),
+      }),
+    ]),
+  )
   await expect(page.getByRole('button', { name: 'Play the demo', exact: true })).toBeDisabled()
   await expect(
     page.getByRole('heading', { name: 'It writes a playbook you can edit.' }),
@@ -142,7 +148,7 @@ test('missing pages return a real 404 and are not indexed', async ({ page }) => 
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
   await expect(page.locator('link[rel="canonical"]')).toHaveCount(0)
   await page.getByRole('link', { name: 'Back to Dispatchlet' }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('An agent that researches')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Fresh posts on your topic')
 })
 
 test('layout reflows with enlarged text on a narrow viewport', async ({ page }) => {
@@ -168,7 +174,7 @@ test('optional analytics downloads cannot block the main experience', async ({ p
   await page.route(/module\.slim|posthog-js_dist_module/, (route) => route.abort('failed'))
   await page.goto('/')
   await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('An agent that researches')
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Fresh posts on your topic')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Your posts', exact: true }).click()
   await expect(page.locator('.flow-post[data-selected="true"]')).toHaveCount(1)

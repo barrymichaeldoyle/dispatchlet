@@ -3,9 +3,11 @@ import { describe, expect, it } from 'vitest'
 import { SECURITY_HEADERS } from './security-headers'
 
 function staticHeaders(): Record<string, string> {
-  const lines = readFileSync('public/_headers', 'utf8').split('\n')
+  // Only the block for every path; other blocks, such as caching for /assets/*, are separate.
+  const [, block = ''] =
+    /^\/\*\n((?:\s+.+\n?)+)/m.exec(readFileSync('public/_headers', 'utf8')) ?? []
   const headers: Record<string, string> = {}
-  for (const line of lines) {
+  for (const line of block.split('\n')) {
     const match = /^\s+([A-Za-z-]+):\s(.+)$/.exec(line)
     if (match) headers[match[1]] = match[2]
   }

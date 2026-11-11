@@ -147,10 +147,6 @@ html {
 }
 .flow-heading h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
 }
 .flow-heading p {
   margin: 8px 0 0;
@@ -775,9 +771,6 @@ html {
     flex-direction: column;
     gap: 16px;
   }
-  .flow-heading h2 {
-    font-size: 21px;
-  }
 
   .flow-stages button {
     flex-direction: column;
@@ -952,7 +945,7 @@ header nav button {
   gap: 28px;
   min-width: 0;
 }
-.flow-focus-brand h2 {
+.flow-focus-brand .flow-focus-account {
   margin: 0;
   font-size: 15px;
   font-weight: 500;
@@ -1111,7 +1104,7 @@ header nav button {
     align-items: flex-start;
     gap: 5px;
   }
-  .flow-focus-brand h2 {
+  .flow-focus-brand .flow-focus-account {
     font-size: 12px;
   }
   .flow-dialog .flow-stages button {
@@ -2135,6 +2128,22 @@ header nav button {
   justify-content: space-between;
   gap: 16px;
 }
+.landing-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.landing-signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--color-ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+.landing-signin:hover {
+  color: var(--color-pine);
+}
 .landing-main {
   width: 100%;
   max-width: 1160px;
@@ -2144,9 +2153,9 @@ header nav button {
 }
 .landing-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 360px;
   gap: 72px;
-  align-items: center;
+  align-items: start;
   padding: 64px 0 48px;
   border-bottom: 1px solid var(--color-rule);
 }
@@ -2174,7 +2183,7 @@ header nav button {
 }
 /* One post it wrote, so the outcome shows before anyone scrolls. */
 .landing-proof {
-  margin: 0 0 40px;
+  margin: 8px 0 0;
 }
 .landing-proof .flow-post-preview {
   padding: 12px 14px 13px;
@@ -2190,19 +2199,24 @@ header nav button {
   font-size: 13px;
   line-height: 1.5;
 }
-.landing-signup h2 {
-  margin: 0 0 20px;
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+/* Start first, the demo beside it: one row of actions under the copy. */
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+}
+.landing-actions .landing-demo-link {
+  margin-top: 0;
 }
 
 .landing-start {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
   min-height: 44px;
-  margin-bottom: 12px;
   padding: 10px 20px;
   background: var(--color-pine);
   color: var(--color-on-pine);
@@ -2219,8 +2233,9 @@ header nav button {
   text-decoration: none;
 }
 .landing-notice {
-  margin: 0;
-  font-size: 12px;
+  max-width: 52ch;
+  margin: 14px 0 0;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--color-muted);
 }
@@ -2304,9 +2319,18 @@ header nav button {
   padding: 40px 0;
 }
 .landing-questions h2 {
-  margin: 12px 0 0;
-  font-size: 19px;
+  margin: 8px 0 0;
+}
+/* Every landing section heading shares one size, larger than the step titles beneath it. */
+.landing-questions h2,
+.landing-origin h2,
+.steps-heading h2,
+.flow-heading h2 {
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
   font-weight: 500;
+  text-wrap: balance;
 }
 .landing-questions details {
   border-bottom: 1px solid var(--color-rule);
@@ -2366,6 +2390,8 @@ header nav button {
   line-height: 1.6;
 }
 .landing-footer a {
+  display: inline-block;
+  padding-block: 6px;
   color: inherit;
 }
 
@@ -2429,7 +2455,7 @@ header nav button {
 @media (max-width: 900px) {
   .landing-hero {
     gap: 40px;
-    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-columns: minmax(0, 1fr) 300px;
   }
   .landing-message h1 {
     font-size: 42px;
@@ -2471,9 +2497,15 @@ header nav button {
     margin-top: 12px;
     font-size: 14px;
   }
-  .landing-signup h2 {
-    font-size: 18px;
-    margin-bottom: 16px;
+  .landing-header-actions {
+    gap: 12px;
+  }
+  .landing-start {
+    flex: 1 1 100%;
+  }
+  .landing-actions .landing-demo-link {
+    flex: 1 1 100%;
+    justify-content: center;
   }
   .flow-section {
     padding-top: 32px;
@@ -2567,14 +2599,11 @@ header nav button {
 /* The demo's own pieces, frozen at the moment each step of a run happens. "done" is the default,
    so the page reads correctly without JavaScript; "waiting" shows until a piece scrolls into view. */
 .steps {
-  padding: 96px 0 24px;
+  padding: 96px 0 72px;
   scroll-margin-top: 24px;
 }
 .steps-heading h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
 }
 .steps-heading h2 {
   scroll-margin-top: 24px;
@@ -2587,10 +2616,72 @@ header nav button {
   color: var(--color-muted);
   font-size: 15px;
 }
+/* A short version of the run; the screens for each step fold out underneath. */
+.steps-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 40px 48px;
+  list-style: none;
+  margin: 40px 0 0;
+  padding: 0;
+}
+.steps-summary li {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.steps-summary .step-art {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 6px;
+}
+.steps-summary .step-art svg {
+  width: 40px;
+  height: 40px;
+}
+.steps-summary h3 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.steps-summary span:not(.step-art) {
+  color: var(--color-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.steps:has(.steps-more[open]) .steps-summary {
+  display: none;
+}
+.steps-more > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 32px;
+  color: var(--color-pine);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.steps-more > summary::marker {
+  color: var(--color-pine);
+}
 .steps-list {
   list-style: none;
   margin: 32px 0 0;
   padding: 0;
+}
+@media (max-width: 900px) {
+  .steps-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .steps-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
 }
 .step {
   display: grid;
@@ -2642,7 +2733,7 @@ header nav button {
 .step-copy h3 {
   max-width: 16ch;
   margin: 0;
-  font-size: clamp(24px, 2.4vw, 31px);
+  font-size: clamp(20px, 2vw, 24px);
   line-height: 1.15;
   letter-spacing: -0.025em;
   font-weight: 500;
@@ -2665,7 +2756,7 @@ header nav button {
   cursor: pointer;
   color: var(--color-pine);
 }
-.step-copy .flow-written-posts h4 {
+.step-copy .flow-written-posts .flow-written-title {
   margin: 16px 0 6px;
   font-size: 14px;
   font-weight: 500;
@@ -2894,6 +2985,32 @@ header nav button {
   }
 }
 
+/* How it differs from the obvious alternatives. */
+.landing-compare {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.landing-compare li {
+  max-width: 60ch;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--color-rule);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+.landing-compare li:first-child {
+  padding-top: 0;
+}
+.landing-compare li:last-child {
+  border-bottom: 0;
+  color: var(--color-ink);
+}
+.landing-compare strong {
+  color: var(--color-ink);
+  font-weight: 500;
+}
+
 /* Why it exists, in the builder's words. */
 .landing-origin {
   display: grid;
@@ -2903,9 +3020,8 @@ header nav button {
   border-top: 1px solid var(--color-rule);
 }
 .landing-origin h2 {
-  margin: 4px 0 0;
-  font-size: 19px;
-  font-weight: 500;
+  margin: 0;
+  max-width: 14ch;
 }
 .landing-origin p {
   max-width: 60ch;
@@ -2953,8 +3069,9 @@ header nav button {
   align-items: flex-start;
   gap: 8px;
 }
-.landing-closing-play {
+.landing-closing-start {
   display: inline-flex;
+  text-decoration: none;
   align-items: center;
   gap: 14px;
   min-height: 56px;
@@ -2967,7 +3084,8 @@ header nav button {
     background 150ms,
     color 150ms;
 }
-.landing-closing-play:hover {
+.landing-closing-start:hover {
+  text-decoration: none;
   background: var(--color-ink);
   color: var(--color-paper);
 }
@@ -2981,15 +3099,19 @@ header nav button {
   background: var(--color-on-pine);
   color: var(--color-pine);
 }
-.landing-closing-play:hover .landing-closing-icon {
+.landing-closing-start:hover .landing-closing-icon {
   background: var(--color-paper);
   color: var(--color-ink);
 }
-.landing-closing-actions a {
+.landing-closing-demo {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
+  color: var(--color-pine);
   font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
 }
 
 @media (max-width: 900px) {
@@ -3075,9 +3197,13 @@ header nav button {
 }
 
 /* Buffer Commit context: a quiet line in the hero, links in the section further down. */
+.landing-commit-line a {
+  display: inline-block;
+  padding-block: 6px;
+}
 .landing-commit-line {
-  max-width: 48ch;
-  margin: 20px 0 0;
+  max-width: 52ch;
+  margin: 8px 0 0;
   color: var(--color-muted);
   font-size: 14px;
   line-height: 1.6;
@@ -7211,5 +7337,15 @@ a.app-week-count:hover {
   .app-stats dd[data-text='true'],
   .app-stats > div:nth-child(3) dd {
     font-size: 20px;
+  }
+}
+
+/* The smallest phones: the header's theme switch and sign-in link still fit on one line. */
+@media (max-width: 380px) {
+  .landing-header-inner {
+    padding-inline: 16px;
+  }
+  .landing-header-actions {
+    gap: 8px;
   }
 }

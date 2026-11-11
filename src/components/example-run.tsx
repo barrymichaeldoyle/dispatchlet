@@ -283,6 +283,9 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
     readAfterClose.current = false
     const steps = document.getElementById('run-steps-title')
     if (!steps) return
+    // The full walkthrough is folded away on the page, so reading instead opens it.
+    const full = document.getElementById('run-steps-full')
+    if (full instanceof HTMLDetailsElement) full.open = true
     steps.focus({ preventScroll: true })
     steps.scrollIntoView({ block: 'start', behavior: reduced ? 'instant' : 'smooth' })
   }, [focused, reduced])
@@ -504,7 +507,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         <header className="flow-focus-header">
           <div className="flow-focus-brand">
             <Wordmark />
-            <h2>Good News Today</h2>
+            <p className="flow-focus-account">Good News Today</p>
           </div>
           <div className="flow-focus-tools">
             <ThemeToggle name="demo-theme" ref={themeGroup} />
