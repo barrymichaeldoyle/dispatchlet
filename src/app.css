@@ -1483,7 +1483,8 @@
 /* The app frame on desktop: a sidebar like Buffer's channel list, the work in a wide column. */
 .app-frame {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  /* Wide enough for an everyday email under the account's name. */
+  grid-template-columns: 256px minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -1565,11 +1566,13 @@
   color: var(--color-pine);
 }
 
+/* Each channel is its own row: room for a second line, and air between neighbours. */
 .app-side-channel {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 32px;
+  gap: 10px;
+  min-height: 36px;
+  padding-block: 5px;
   font-size: 14px;
 }
 
@@ -2954,13 +2957,18 @@
 .app-side-channel-text {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
-  line-height: 1.25;
+  line-height: 1.3;
 }
 
 .app-side-problem {
   font-size: 12px;
   color: var(--color-muted);
+}
+
+.app-side-group ul + .app-side-small {
+  margin-top: 10px;
 }
 
 /* Signing out is rare: a quiet text button under the name, not a second big control. */
@@ -3100,5 +3108,348 @@ a.app-week-count:hover {
   .app-stats dd[data-text='true'],
   .app-stats > div:nth-child(3) dd {
     font-size: 20px;
+  }
+}
+
+/*
+ * Polish, 11 Nov: one way to show "you are here" in the side bar (a fill, no bar), single 1px
+ * borders instead of offset double rings, and a setup wizard with one heading, one progress
+ * marker and the primary action that still looks primary while it waits for an answer.
+ */
+
+/* Side bar: the current page is a soft fill with pine text. No bar on top of the fill. */
+.app-side-nav a[aria-current='page']::before,
+.app-side-group li a[aria-current='page']::before {
+  content: none;
+}
+.app-side-nav a,
+.app-side-nav .app-nav-button,
+.app-side-group li a {
+  border-radius: 6px;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+.app-side-nav a:hover,
+.app-side-nav .app-nav-button:hover,
+.app-side-group li a:hover {
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+}
+.app-side-nav a[aria-current='page'],
+.app-side-group li a[aria-current='page'] {
+  background: var(--color-tint);
+  color: var(--color-pine);
+}
+.app-side-group h2 {
+  margin-bottom: 4px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.app-side-group ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.app-side-channel {
+  gap: 10px;
+  min-height: 36px;
+}
+.app-side-channel .app-avatar {
+  margin-right: 2px;
+}
+
+/* Quiet links in the side bar: muted text that brightens, never a browser-default underline. */
+.app-side-small,
+.app-side-account .app-gate-secondary {
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color 120ms ease-out;
+}
+.app-side-small:hover,
+.app-side-account .app-gate-secondary:hover {
+  color: var(--color-ink);
+}
+/* Sign out lines up with the avatar above it; the busy label's wider twin no longer centres it. */
+.app-side-account .app-gate-secondary {
+  justify-content: flex-start;
+  min-height: 24px;
+}
+.app-side-account .app-gate-secondary .busy-label {
+  justify-items: start;
+}
+
+/* Setup: one small line names the page and the step; the question is the only big heading. */
+.app-gate .setup-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+.app-gate .setup-count h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--color-ink);
+}
+.app-gate .setup-optional {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--color-muted);
+}
+.app-gate .setup-title {
+  margin-bottom: 24px;
+  font-size: 32px;
+}
+.app-gate .setup-hint {
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+/* One ring at a time: a 1px border, pine and a soft halo only when focused or chosen. */
+.app-gate .setup-input {
+  border-color: var(--color-rule);
+  border-radius: var(--radius-control);
+  outline: none;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.app-gate .setup-input:focus {
+  border-color: var(--color-pine);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-pine) 22%, transparent);
+}
+.app-gate .setup-block {
+  outline: none;
+  border-radius: var(--radius-card);
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
+}
+.app-gate .setup-choice:hover {
+  border-color: color-mix(in srgb, var(--color-ink) 30%, var(--color-rule));
+}
+.app-gate .setup-choice[data-checked='true'] {
+  border-color: var(--color-pine);
+  background: var(--color-tint);
+}
+.app-gate .setup-choice:has(input:focus-visible) {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-pine) 30%, transparent);
+}
+
+/* The research topic: a text box that grows a line at a time instead of scrolling sideways. */
+.app-gate .setup-grow {
+  field-sizing: content;
+  min-height: 60px;
+  max-height: 40vh;
+  resize: none;
+  overflow-y: auto;
+}
+
+/* Example topics: the same corners and hover as the other choices. */
+.app-gate .setup-template {
+  border-radius: var(--radius-control);
+  transition: border-color 150ms ease-out;
+}
+.app-gate .setup-template:hover {
+  border-color: color-mix(in srgb, var(--color-ink) 30%, var(--color-rule));
+}
+
+/* Channels: same-size cards with the profile picture and a check that fills when chosen. */
+.setup-channels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+.app-gate .setup-channel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  min-height: 68px;
+  padding: 14px 16px;
+}
+.setup-channel-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.setup-channel-name {
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.setup-channel .setup-block-detail {
+  font-size: 13px;
+}
+.setup-channel .app-avatar-fallback {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+.setup-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid color-mix(in srgb, var(--color-ink) 30%, var(--color-rule));
+  border-radius: 6px;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out;
+}
+.setup-check::after {
+  content: '';
+  width: 10px;
+  height: 6px;
+  margin-top: -2px;
+  border: solid var(--color-on-pine);
+  border-width: 0 0 2px 2px;
+  transform: rotate(-45deg) scale(0.6);
+  opacity: 0;
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
+}
+.setup-channel[data-checked='true'] .setup-check {
+  border-color: var(--color-pine);
+  background: var(--color-pine);
+}
+.setup-channel[data-checked='true'] .setup-check::after {
+  transform: rotate(-45deg) scale(1);
+  opacity: 1;
+}
+
+/* Channels it can't use: one quiet list under the cards, each with its reason, said once. */
+.setup-unavailable {
+  width: 100%;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+.app-gate .setup-unavailable p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+.setup-unavailable ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.setup-unavailable li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  line-height: 1.4;
+}
+.setup-unavailable li > svg {
+  flex: none;
+  opacity: 0.7;
+}
+.setup-unavailable-name {
+  color: var(--color-ink);
+  opacity: 0.75;
+}
+.setup-unavailable-name::after {
+  content: ' ·';
+  color: var(--color-muted);
+}
+
+/*
+ * Setup actions: Next is the filled button even while it waits for an answer, just faded, so
+ * the order of importance never flips. Back is a plain text button.
+ */
+.app-gate .setup-nav {
+  margin-top: 32px;
+  gap: 8px;
+}
+.app-gate .setup-nav .app-gate-primary,
+.app-gate .setup-nav .app-gate-secondary {
+  min-width: 104px;
+  border-radius: var(--radius-control);
+}
+.app-gate .setup-nav .app-gate-primary:disabled:not(:has(.busy-label[data-busy='true'])) {
+  background: var(--color-pine);
+  box-shadow: none;
+  color: var(--color-on-pine);
+  opacity: 0.35;
+}
+.app-gate .setup-nav .app-gate-secondary {
+  min-width: 0;
+  padding: 0 14px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-muted);
+}
+.app-gate .setup-nav .app-gate-secondary:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-ink);
+}
+
+/*
+ * The answers rail doubles as the progress: done steps ticked, the current one in pine with a
+ * marker, the rest a muted dash until they're reached.
+ */
+.app-gate .setup-answers {
+  position: sticky;
+  top: 36px;
+  margin-top: 34px;
+  border-top: 0;
+}
+.app-gate .setup-answers > div {
+  position: relative;
+  grid-template-columns: 76px minmax(0, 1fr);
+  padding: 10px 0 10px 18px;
+  border-bottom-color: color-mix(in srgb, var(--color-rule) 70%, transparent);
+}
+.app-gate .setup-answers > div:last-child {
+  border-bottom: 0;
+}
+.app-gate .setup-answers > div[data-current='true']::before {
+  content: '';
+  position: absolute;
+  top: 14px;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-pine);
+}
+.app-gate .setup-answers > div[data-current='true'] dt {
+  font-weight: 500;
+}
+.app-gate .setup-answers dd:empty::before {
+  content: '—';
+  color: var(--color-muted);
+  opacity: 0.5;
+}
+.app-gate .setup-jump:not(:disabled):hover {
+  color: var(--color-ink);
+}
+
+@media (max-width: 720px) {
+  .app-gate .setup-answers {
+    position: static;
+    margin-top: 0;
+  }
+  .app-gate .setup-title {
+    font-size: 26px;
   }
 }

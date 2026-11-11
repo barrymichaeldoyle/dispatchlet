@@ -364,7 +364,11 @@ function AppShell({
               </Avatar>
               <div className="app-side-who-text">
                 <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
-                {name && email ? <span className="app-side-small">{email}</span> : null}
+                {name && email ? (
+                  <span className="app-side-small" title={email}>
+                    {email}
+                  </span>
+                ) : null}
               </div>
             </div>
             <SignOut />
