@@ -6,7 +6,7 @@
  */
 const DSN = 'https://86d51613502d5a11f3ec6aa7c48d4505@o299144.ingest.us.sentry.io/4512345285263360'
 
-type SentryBrowser = typeof import('@sentry/browser')
+type SentryBrowser = typeof import('./sdk')
 
 let sdk: SentryBrowser | undefined
 let loading: Promise<void> | undefined
@@ -41,7 +41,7 @@ export function withoutQuery(url: string): string {
 
 export function initializeErrorReporting(): Promise<void> {
   if (!allowed()) return Promise.resolve()
-  loading ??= import('@sentry/browser')
+  loading ??= import('./sdk')
     .then((Sentry) => {
       Sentry.init({
         dsn: DSN,
