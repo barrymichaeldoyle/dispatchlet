@@ -9,15 +9,12 @@ const MIN_GAP_MS = 60_000
 let reloading = false
 
 /** The messages Chrome, Firefox and Safari give for a module that did not load, and Vite's for CSS. */
+const STALE_BUILD_MESSAGE =
+  /^(Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS)/
+
 export function isStaleBuildError(error: unknown): boolean {
-  const message =
-    error instanceof Error ? error.message : typeof error === 'string' ? error : undefined
-  return (
-    message !== undefined &&
-    /^(Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Unable to preload CSS)/.test(
-      message,
-    )
-  )
+  const message = error instanceof Error ? error.message : error
+  return typeof message === 'string' && STALE_BUILD_MESSAGE.test(message)
 }
 
 /** Reloads the page, or returns false when it reloaded less than a minute ago. */

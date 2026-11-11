@@ -59,7 +59,7 @@ export function watchErrors() {
   window.addEventListener('error', (event) => reportError(event.error ?? event.message))
   window.addEventListener('unhandledrejection', (event) => reportError(event.reason))
   // Vite fires this before the failed import rejects, so the reload starts before anything renders.
-  window.addEventListener('vite:preloadError', () => reloadForNewBuild())
+  window.addEventListener('vite:preloadError', reloadForNewBuild)
 }
 
 export function track(name: string, properties?: Record<string, unknown>) {
