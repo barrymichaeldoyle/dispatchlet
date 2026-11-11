@@ -216,7 +216,10 @@ test('the automation tabs and the run page pass accessibility checks', async ({ 
     )
   }
   await page.locator('.app-runs a').first().click()
-  await page.getByRole('heading', { level: 1 }).waitFor()
+  // Wait for the run page itself, not the automation page's heading on its way out.
+  await expect(page).toHaveURL(/\/runs\//)
+  await expect(page.getByRole('heading', { level: 1, name: /run, / })).toBeVisible()
+  await expect(page.locator('.app-skeleton')).toHaveCount(0)
   const { violations } = await new AxeBuilder({ page }).analyze()
   failures.push(...violations.map((v) => `run: ${v.id} ${v.nodes.map((n) => n.target).join(', ')}`))
   expect(failures).toEqual([])
