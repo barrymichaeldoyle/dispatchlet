@@ -250,17 +250,45 @@ describe('the figures', () => {
     expect(screen.getByText('On your key')).toBeTruthy()
   })
 
-  it('links the approvals count to the drafts only when there are some', () => {
-    show()
-    const empty = screen.getAllByText('Awaiting approval')[0]!.closest('div')!
-    expect(empty.dataset.zero).toBe('true')
-    expect(within(empty).queryByRole('link')).toBeNull()
+  it('leaves out approvals at zero, and links the count to the drafts when there are some', () => {
+    const { unmount } = show()
+    expect(screen.queryByText('Awaiting approval')).toBeNull()
+    unmount()
+    show({
+      data: dashboard({
+        drafts: [
+          {
+            _id: 'd1',
+            runId: 'r-today',
+            automationId: 'a1',
+            channelName: 'GrandPrixPicks',
+            channelId: 'c1',
+            bufferPostId: 'bd1',
+            service: 'twitter',
+            text: 'A draft.',
+            limit: 280,
+            createdAt: NOW - HOUR,
+          },
+        ],
+      }),
+    })
+    const cell = screen.getByText('Awaiting approval', { selector: 'dt' }).closest('div')!
+    expect(within(cell).getByRole('link', { name: '1' }).getAttribute('href')).toBe('#approvals')
   })
 
-  it('gives the next run as a day, not a date', () => {
-    show()
-    const next = screen.getAllByText('Next run')[0]!.closest('div')!
+  it('gives the next run as a figure only when several automations share the page', () => {
+    const { unmount } = show()
+    expect(screen.queryByText('Next run', { selector: 'dt' })).toBeNull()
+    unmount()
+    show({
+      data: dashboard({
+        automations: [automation(), automation({ _id: 'a2', name: 'Tech digest' })],
+        nextRunName: 'Tech digest',
+      }),
+    })
+    const next = screen.getByText('Next run', { selector: 'dt' }).closest('div')!
     expect(next.textContent).toContain('Tomorrow, 09:00')
+    expect(next.textContent).toContain('Tech digest')
   })
 })
 
@@ -283,10 +311,9 @@ describe('Up next and recent posts', () => {
   it('links each recent post to Buffer and to its run', () => {
     show()
     const recent = screen.getByRole('heading', { name: 'Recent posts' }).closest('section')!
-    expect(within(recent).getByRole('link', { name: 'Open in Buffer' })).toHaveProperty(
-      'href',
-      'https://publish.buffer.com/posts/bp1',
-    )
+    expect(
+      within(recent).getByRole('link', { name: /^Open in Buffer.*the GrandPrixPicks post/ }),
+    ).toHaveProperty('href', 'https://publish.buffer.com/posts/bp1')
     expect(within(recent).getByRole('link', { name: 'From F1 On This Day' })).toHaveProperty(
       'href',
       expect.stringContaining('/app/a/a1/runs/r-today'),
@@ -305,7 +332,7 @@ describe('an automation row', () => {
     const user = userEvent.setup()
     mutations.set('runs:trigger', vi.fn().mockResolvedValue('r-new'))
     show()
-    await user.click(screen.getByRole('button', { name: 'Run now' }))
+    await user.click(screen.getByRole('button', { name: 'Run now F1 On This Day' }))
     expect(mutations.get('runs:trigger')).toHaveBeenCalledWith({ automationId: 'a1', dry: false })
     expect(navigate).toHaveBeenCalledWith({
       to: '/app/a/$id/runs/$runId',
@@ -317,7 +344,7 @@ describe('an automation row', () => {
     vi.useRealTimers()
     const user = userEvent.setup()
     const { unmount } = show()
-    await user.click(screen.getByRole('button', { name: 'Pause' }))
+    await user.click(screen.getByRole('button', { name: 'Pause F1 On This Day' }))
     expect(mutations.get('automations:setStatus')).toHaveBeenCalledWith({
       id: 'a1',
       status: 'paused',
@@ -325,7 +352,7 @@ describe('an automation row', () => {
     unmount()
     mutations.clear()
     show({ data: dashboard({ automations: [automation({ status: 'paused' })] }) })
-    await user.click(screen.getByRole('button', { name: 'Resume' }))
+    await user.click(screen.getByRole('button', { name: 'Resume F1 On This Day' }))
     expect(mutations.get('automations:setStatus')).toHaveBeenCalledWith({
       id: 'a1',
       status: 'active',
@@ -337,17 +364,20 @@ describe('an automation row', () => {
     const user = userEvent.setup()
     mutations.set('runs:trigger', vi.fn().mockRejectedValue(new Error('No free runs left.')))
     show()
-    await user.click(screen.getByRole('button', { name: 'Run now' }))
+    await user.click(screen.getByRole('button', { name: 'Run now F1 On This Day' }))
     expect((await screen.findByRole('alert')).textContent).toBe('No free runs left.')
     expect(navigate).not.toHaveBeenCalled()
   })
 
   it('holds Run now while a run is going, and hides the actions without a playbook', () => {
     const { unmount } = show({ data: dashboard({ automations: [automation({ running: true })] }) })
-    expect(screen.getByRole('button', { name: 'Running' })).toHaveProperty('disabled', true)
+    expect(screen.getByRole('button', { name: 'Running F1 On This Day' })).toHaveProperty(
+      'disabled',
+      true,
+    )
     unmount()
     show({ data: dashboard({ automations: [automation({ canRun: false })] }) })
-    expect(screen.queryByRole('button', { name: 'Run now' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Run now/ })).toBeNull()
   })
 
   it('opens each day’s run from the week strip and marks the failed day', () => {

@@ -3762,3 +3762,135 @@ a.app-week-count:hover {
 .app-gate .setup-select {
   border-radius: var(--radius-card);
 }
+
+/*
+ * Review fixes, 11 Nov. Home lays out by the width of the content column, not the window, so
+ * the side bar's 256px is accounted for: the row goes to two lines and the figures to two
+ * columns when the column is narrow. Today's cell keeps a focus ring. Phone fields are 16px so
+ * iOS does not zoom. Row actions are small buttons, and empty days have a visible outline.
+ */
+.app-frame .app-gate.is-app .app-gate-inner {
+  container: app-main / inline-size;
+}
+.app-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto minmax(0, auto);
+}
+@container app-main (max-width: 940px) {
+  .app-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'name last'
+      'week next';
+    gap: 14px 24px;
+  }
+  .app-row > .app-row-name {
+    grid-area: name;
+  }
+  .app-row > .app-row-last {
+    grid-area: last;
+    min-width: min(100%, 260px);
+  }
+  .app-row > .app-week-wrap {
+    grid-area: week;
+  }
+  .app-row > .app-row-next {
+    grid-area: next;
+    align-self: end;
+  }
+}
+@container app-main (max-width: 560px) {
+  .app-row {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'name' 'last' 'week' 'next';
+    gap: 12px;
+  }
+  .app-row > .app-row-last {
+    min-width: 0;
+  }
+  .app-row > .app-row-next {
+    flex-direction: row;
+    gap: 8px;
+    align-items: baseline;
+    text-align: left;
+  }
+}
+
+/* The figures: as many columns as there are figures, two by two when the column is narrow. */
+.app-gate .app-stats {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+@container app-main (max-width: 700px) {
+  .app-gate .app-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+  .app-gate .app-stats > div,
+  .app-gate .app-stats > div + div {
+    border-right: 0;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  .app-gate .app-stats > div:nth-child(odd):not(:last-child) {
+    border-right: 1px solid var(--color-rule);
+  }
+  .app-gate .app-stats > div:nth-last-child(-n + 2):nth-child(odd),
+  .app-gate .app-stats > div:last-child {
+    border-bottom: 0;
+  }
+  .app-stats dd[data-text='true'],
+  .app-stats dd.is-when {
+    font-size: 20px;
+  }
+}
+
+.app-week li[data-today='true'] a.app-week-count:focus-visible,
+.app-week a.app-week-count:focus-visible {
+  outline: 2px solid var(--color-pine);
+  outline-offset: 2px;
+}
+.app-week-count {
+  border-color: color-mix(in srgb, var(--color-ink) 30%, var(--color-card));
+}
+
+@media (max-width: 720px) {
+  .app-gate input:not([type='checkbox'], [type='radio']),
+  .app-gate textarea,
+  .app-gate select,
+  .app-gate .app-select {
+    font-size: 16px;
+  }
+}
+
+.app-row-actions {
+  gap: 8px;
+  margin-top: 6px;
+}
+.app-row-actions .app-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-control);
+  background: var(--color-card);
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.app-row-actions .app-link:hover:not(:disabled) {
+  border-color: var(--color-pine);
+  color: var(--color-pine);
+  text-decoration: none;
+}
+.app-row-actions .app-link:disabled {
+  color: var(--color-muted);
+  border-color: var(--color-rule);
+}
+@media (pointer: coarse) {
+  .app-row-actions .app-link {
+    min-height: 40px;
+    padding: 0 16px;
+  }
+}

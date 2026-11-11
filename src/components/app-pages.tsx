@@ -132,21 +132,28 @@ export function AppHome() {
           <dt>Posts this week</dt>
           <dd className="tabular">{data.postsThisWeek}</dd>
         </div>
-        <div data-attention={drafts.length > 0} data-zero={drafts.length === 0}>
-          <dt>Awaiting approval</dt>
-          <dd className="tabular">
-            {drafts.length ? <a href="#approvals">{drafts.length}</a> : 0}
-          </dd>
-        </div>
-        <div>
-          <dt>Next run</dt>
-          <dd data-text={!data.nextRunAt}>
-            {data.nextRunAt ? relativeWhen(data.nextRunAt, timezone) : 'Nothing scheduled'}
-          </dd>
-          {data.nextRunAt && data.nextRunName && automations.length > 1 ? (
-            <dd className="app-stats-note">{data.nextRunName}</dd>
-          ) : null}
-        </div>
+        {/* Approvals only when there are some; at zero the status line already says all is well. */}
+        {drafts.length ? (
+          <div data-attention="true">
+            <dt>Awaiting approval</dt>
+            <dd className="tabular">
+              <a href="#approvals">{drafts.length}</a>
+            </dd>
+          </div>
+        ) : null}
+        {/* With one automation its row already gives the next run; the figure earns its place
+            when it says which of several goes next. */}
+        {automations.length > 1 ? (
+          <div>
+            <dt>Next run</dt>
+            <dd className="is-when" data-text={!data.nextRunAt}>
+              {data.nextRunAt ? relativeWhen(data.nextRunAt, timezone) : 'Nothing scheduled'}
+            </dd>
+            {data.nextRunAt && data.nextRunName ? (
+              <dd className="app-stats-note">{data.nextRunName}</dd>
+            ) : null}
+          </div>
+        ) : null}
         <div data-attention={runsLow}>
           <dt>{viewer.ownKey ? 'Runs' : 'Free runs left'}</dt>
           {viewer.ownKey || viewer.runsLeft === null ? (
@@ -302,6 +309,9 @@ function RecentPost({ post, timezone }: { post: Dashboard['recent'][number]; tim
           className="app-link"
         >
           Open in Buffer
+          <span className="visually-hidden">
+            {`: the ${post.channelName} post, ${relativeWhen(when, timezone)}, in a new tab`}
+          </span>
         </a>
         <Link
           to="/app/a/$id/runs/$runId"
@@ -665,6 +675,7 @@ function RowActions({ a }: { a: Dashboard['automations'][number] }) {
           idle={a.running ? 'Running' : 'Run now'}
           working="Starting"
         />
+        <span className="visually-hidden"> {a.name}</span>
       </button>
       <button
         type="button"
@@ -679,6 +690,7 @@ function RowActions({ a }: { a: Dashboard['automations'][number] }) {
           idle={on ? 'Pause' : a.status === 'ready' ? 'Turn on' : 'Resume'}
           working={on ? 'Pausing' : 'Turning on'}
         />
+        <span className="visually-hidden"> {a.name}</span>
       </button>
       {error ? (
         <span className="app-connection-error" role="alert">
