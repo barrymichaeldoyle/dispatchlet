@@ -98,6 +98,11 @@ const [HERO_STORY] = STORIES
 const [, HERO_POST] = HERO_STORY.posts[0]
 
 const BUILD_LOG_URL = 'https://x.com/barrymdoyle'
+const GRANDPRIXPICKS_X_URL = 'https://x.com/GrandPrixPicks'
+
+/** A real post Dispatchlet wrote and sent for GrandPrixPicks, word for word from Buffer. */
+const GRANDPRIXPICKS_POST =
+  '1926: Maria Teresa de Filippis is born in Naples. In 1958 she became the first woman to compete in an F1 championship race, finishing 10th at the Belgian Grand Prix. Born 100 years ago today.\n\nhttps://en.wikipedia.org/wiki/Maria_Teresa_de_Filippis'
 const COMMITS_URL = 'https://github.com/barrymichaeldoyle/dispatchlet/commits/main'
 
 const noop = () => () => {}
@@ -394,9 +399,27 @@ function Home() {
             <p>
               <BrandText>
                 Dispatchlet is that script, rebuilt so anyone with a Buffer account can set it up
-                with a few questions and have it run on their own schedule.
+                with a few questions and have it run on their own schedule. It now posts for
+                GrandPrixPicks too.
               </BrandText>
             </p>
+            <figure className="landing-real-post flow-writing">
+              <PostPreview
+                channel="X"
+                // X counts every link as 23 characters, whatever its length.
+                length={GRANDPRIXPICKS_POST.replace(/https?:\/\/\S+/g, 'x'.repeat(23)).length}
+                author={{ name: 'GrandPrixPicks', handle: '@GrandPrixPicks', initials: 'GP' }}
+              >
+                {GRANDPRIXPICKS_POST}
+              </PostPreview>
+              <figcaption>
+                <BrandText>
+                  Researched, written and sent through Buffer by Dispatchlet on 11 November 2026,
+                  the centenary of her birth.
+                </BrandText>{' '}
+                <a href={GRANDPRIXPICKS_X_URL}>See it on X</a>
+              </figcaption>
+            </figure>
             <p className="landing-origin-name">Barry Michael Doyle</p>
           </div>
         </section>

@@ -2989,6 +2989,30 @@ html:has(.landing-header) {
   }
 }
 
+/* A real post from GrandPrixPicks, under the story of why it exists. */
+.landing-real-post {
+  max-width: 440px;
+  margin: 28px 0 0;
+}
+.landing-real-post .flow-post-preview p {
+  margin: 10px 0 0;
+  font-size: var(--type-small);
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.landing-real-post figcaption {
+  margin-top: 10px;
+  color: var(--color-muted);
+  font-size: var(--type-small);
+  line-height: 1.5;
+}
+.flow-avatar-initials {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 /* How it differs from the obvious alternatives. */
 .landing-compare {
   list-style: none;
