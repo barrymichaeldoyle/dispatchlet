@@ -428,7 +428,7 @@ function Webhooks({ timezone }: { timezone: string }) {
                   }
                 />
                 <span>{EVENT_LABELS[ev]}</span>
-                <span className="app-muted tabular">{ev}</span>
+                <code className="app-muted app-event-name">{ev}</code>
               </label>
             </li>
           ))}
@@ -555,7 +555,9 @@ function DeliveryRows({ webhookId, timezone }: { webhookId: Id<'webhooks'>; time
         <tbody>
           {rows.map((d) => (
             <tr key={d._id} data-status={d.status}>
-              <td className="tabular">{d.event}</td>
+              <td>
+                <code className="app-event-name">{d.event}</code>
+              </td>
               <td className="tabular">{whenIn(d.createdAt, timezone)}</td>
               <td>
                 {d.status === 'ok'

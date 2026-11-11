@@ -3677,3 +3677,16 @@ a.app-week-count:hover {
 .app-playbook > .app-playbook-save[data-dirty='false'] .app-gate-primary {
   display: none;
 }
+
+/* Event names are identifiers: monospace, small, never widened like tabular figures. */
+.app-event-name {
+  padding: 0;
+  background: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+}
+
+/* The last row of a table in a card has no rule under its label cell either. */
+.app-gate .app-section .app-table tr:last-child > th {
+  border-bottom: 0;
+}
