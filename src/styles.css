@@ -1445,6 +1445,9 @@ header nav button {
   grid-template-rows: minmax(0, 1fr);
   padding: 24px;
   overflow: hidden;
+  /* The focused layout's stable gutter would still be reserved here, taking about 15px from the
+     columns on classic-scrollbar platforms (Windows, Linux) for a scrollbar that never shows. */
+  scrollbar-gutter: auto;
 }
 .flow-workspace.is-overview .flow-scene {
   display: grid;
@@ -4086,6 +4089,21 @@ header nav button {
   .flow-dialog .flow-workspace.is-overview {
     padding-block: 8px;
   }
+}
+
+/* Headroom in every column. Text sets a little wider on Windows and Linux than on macOS, so a
+   column that only just fits on a Mac wraps a few more lines there and would need scrolling.
+   Slightly closer lines and rows leave room to spare everywhere, at the same text size. */
+.is-overview .setup-answers > div {
+  padding-block: 2px;
+  line-height: 1.38;
+}
+.is-overview .flow-rule {
+  padding-block: 5px;
+  line-height: 1.38;
+}
+.is-overview .flow-post p {
+  line-height: 1.42;
 }
 
 /* A wide but short window that cannot hold the four columns shows one step at a time. It has
