@@ -318,7 +318,7 @@ function RecentPost({ post, timezone }: { post: Dashboard['recent'][number]; tim
         >
           Open in Buffer
           <span className="visually-hidden">
-            {`: the ${post.channelName} post, ${relativeWhen(when, timezone)}, in a new tab`}
+            {`: the ${post.channelName} post, ${relativeWhenInline(when, timezone)}, in a new tab`}
           </span>
         </a>
         <Link

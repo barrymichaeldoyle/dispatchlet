@@ -295,6 +295,34 @@ function AppShell({
   const pathname = useLocation({ select: (location) => location.pathname })
   const mainRef = useRef<HTMLElement>(null)
   const firstPath = useRef(pathname)
+  // Phones: the side bar opens as a sheet from the Menu button, and closes on navigation,
+  // Escape, or a tap outside it. Focus goes into it, and back to the button after.
+  // Open on the page it was opened on, so moving to another page closes it by itself.
+  const [menuPage, setMenuPage] = useState<string | null>(null)
+  const menuOpen = menuPage === pathname
+  const menuButton = useRef<HTMLButtonElement>(null)
+  const sideRef = useRef<HTMLElement>(null)
+  const returnFocus = useRef(false)
+  const closeMenu = () => {
+    returnFocus.current = true
+    setMenuPage(null)
+  }
+  useEffect(() => {
+    if (!menuOpen) {
+      // After the page stops being inert, so the button can take focus.
+      if (returnFocus.current) menuButton.current?.focus()
+      returnFocus.current = false
+      return
+    }
+    sideRef.current?.querySelector<HTMLElement>('a, button')?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      returnFocus.current = true
+      setMenuPage(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [menuOpen])
   // After moving to another page, focus goes to the page, then to its heading once that has
   // rendered (pages show an outline while they load), so keyboard and screen-reader users start
   // at the new content rather than back at the top of the side bar.
@@ -333,7 +361,19 @@ function AppShell({
         Skip to content
       </a>
       <div className="app-frame">
-        <aside className="app-side">
+        <aside
+          className="app-side"
+          id="app-side"
+          ref={sideRef}
+          data-open={menuOpen}
+          aria-label={menuOpen ? 'Menu' : undefined}
+        >
+          {menuOpen ? (
+            <button type="button" className="app-side-close" onClick={closeMenu}>
+              Close
+              <span className="visually-hidden"> menu</span>
+            </button>
+          ) : null}
           <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
             <Wordmark size="md" />
           </Link>
@@ -429,19 +469,39 @@ function AppShell({
             <SignOut />
           </div>
         </aside>
-        <main className="app-gate is-app" id="main-content" tabIndex={-1} ref={mainRef}>
+        {menuOpen ? (
+          <div className="app-side-backdrop" aria-hidden="true" onClick={closeMenu} />
+        ) : null}
+        <main
+          className="app-gate is-app"
+          id="main-content"
+          tabIndex={-1}
+          ref={mainRef}
+          inert={menuOpen}
+        >
           <div className="app-gate-inner">
             <header className="app-top">
               <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
                 <Wordmark size="md" />
               </Link>
-              <nav aria-label="App" className="app-nav">
-                <Link to="/app" activeOptions={{ exact: true }}>
-                  Home
-                </Link>
-                <Link to="/app/settings">Settings</Link>
-                <SendFeedbackButton className="app-nav-button" />
-              </nav>
+              <button
+                type="button"
+                className="app-menu-button"
+                ref={menuButton}
+                aria-expanded={menuOpen}
+                aria-controls="app-side"
+                onClick={() => setMenuPage(pathname)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M4 7h16M4 12h16M4 17h16"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Menu
+              </button>
             </header>
             <ConnectionBanner />
             <Outlet />
