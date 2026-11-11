@@ -20,6 +20,15 @@ export default defineConfig({
       },
       {
         test: {
+          // React components rendered in a simulated browser, with Convex and the router faked,
+          // so signed-in screens are tested without signing in.
+          name: 'components',
+          include: ['src/**/*.test.tsx'],
+          environment: 'happy-dom',
+        },
+      },
+      {
+        test: {
           name: 'convex',
           include: ['convex/**/*.test.ts'],
           environment: 'edge-runtime',
