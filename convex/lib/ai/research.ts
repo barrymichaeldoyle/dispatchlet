@@ -27,6 +27,18 @@ export const Candidate = z.object({
   whyItMatters: z.string().describe('One sentence on why the audience cares'),
   confidence: z.number().min(0).max(1).describe('How sure you are this is new, real and on topic'),
   keyFacts: z.array(z.string()).describe('Facts a post may state. Nothing else may be claimed.'),
+  eventDate: z
+    .string()
+    .nullable()
+    .describe(
+      'Historical research only: when the event itself happened, YYYY-MM-DD, or YYYY-MM or YYYY when sources give no more. Null for recent news.',
+    ),
+  forDate: z
+    .string()
+    .nullable()
+    .describe(
+      'On-this-day research only: the target date from the brief, YYYY-MM-DD, that this anniversary is for. Otherwise null.',
+    ),
 })
 export type Candidate = z.infer<typeof Candidate>
 
@@ -36,6 +48,48 @@ export const ResearchResult = z.object({
   notes: z.string().describe('What you looked at and why anything notable was left out'),
 })
 export type ResearchResult = z.infer<typeof ResearchResult>
+
+/**
+ * What a run looks for. `recent` is news inside the freshness window, as before. `archive` is
+ * historical or evergreen material, where publication age does not matter but the event's date
+ * must be verified. `anniversary` is "on this day": events whose date matches a posting date.
+ */
+export type ResearchMode = 'recent' | 'archive' | 'anniversary'
+export const RESEARCH_MODES: readonly ResearchMode[] = ['recent', 'archive', 'anniversary']
+
+const DATE = /^(\d{4})(?:-(0[1-9]|1[0-2])(?:-(0[1-9]|[12]\d|3[01]))?)?$/
+
+/**
+ * Why a historical candidate cannot be used, or null. Checked by the server, not left to the
+ * model: a missing, malformed or future event date, or an anniversary that does not fall on
+ * one of the run's target dates, is dropped rather than posted.
+ */
+export function historicalProblem(
+  c: Pick<Candidate, 'eventDate' | 'forDate'>,
+  mode: ResearchMode,
+  targets: string[],
+  today: string,
+): string | null {
+  if (mode === 'recent') return null
+  const event = c.eventDate?.trim() ?? ''
+  const parts = DATE.exec(event)
+  if (!parts) return 'No verified date for the event, so it was left out.'
+  if (event > today) return `The event date, ${event}, is in the future.`
+  if (mode === 'archive') return null
+  if (!parts[3]) return 'An on-this-day post needs the exact day of the event.'
+  const target = c.forDate?.trim() ?? ''
+  if (!targets.includes(target)) return 'It was not for one of this run’s posting dates.'
+  if (event.slice(5) !== target.slice(5))
+    return `The event (${event}) is not on the same day of the year as its posting date (${target}).`
+  if (Number(event.slice(0, 4)) >= Number(target.slice(0, 4)))
+    return 'An anniversary needs at least a year between the event and the post.'
+  return null
+}
+
+/** Whole years from an event to the day it is remembered, for the writer to state as a fact. */
+export function yearsSince(eventDate: string, onDate: string): number {
+  return Number(onDate.slice(0, 4)) - Number(eventDate.slice(0, 4))
+}
 
 /** Daily runs look two days back; weekly runs eight, so a Monday run sees the whole week. */
 export function freshnessFor(preset: 'daily' | 'weekly'): number {
@@ -141,6 +195,31 @@ How to work:
 - Fewer, better candidates beat many weak ones. Returning none is correct when nothing worthwhile happened, but only after you have opened the sources and run the brief's searches. Returning none without looking is wrong.
 - When a listing shows a story as recent but you cannot pin the exact time, open it. If it is still unclear, include it with a confidence of about 0.5 and say why in notes, rather than drop it. Dropping a real story costs more than one uncertain candidate.`
 
+/**
+ * The historical variant swaps the rules about recency for rules about verification. It is a
+ * separate fixed prompt so each variant stays cacheable.
+ */
+export const RESEARCH_SYSTEM_HISTORICAL = RESEARCH_SYSTEM.replace(
+  'finds genuinely new stories in one niche',
+  'finds well-documented stories from the history of one niche',
+)
+  .replace(
+    /- A candidate must be a specific story published or materially updated inside the freshness window\.[^\n]*/,
+    '- A candidate is a specific, documented event from the past. When the source was published does not matter; old archives, official records, contemporary reports and reputable histories all count. Give eventDate, the date the event happened, as precisely as the sources confirm. Rumours, legends and unsourced "fun facts" do not count.',
+  )
+  .replace(
+    /- When a listing shows a story as recent but you cannot pin the exact time[^\n]*/,
+    '- Confirm the event date on the page you cite, or on a second reliable page. If sources disagree or you cannot confirm it, leave the story out and say why in notes. A wrong date is worse than a missing story.',
+  )
+  .replace(
+    "a publisher's own latest-news page lists today's stories with dates, which search engines rarely do",
+    'archives and records pages list events with their dates',
+  )
+
+export function researchSystemFor(mode: ResearchMode): string {
+  return mode === 'recent' ? RESEARCH_SYSTEM : RESEARCH_SYSTEM_HISTORICAL
+}
+
 export type ResearchContext = {
   now: Date
   timezone: string
@@ -150,6 +229,9 @@ export type ResearchContext = {
   requested?: { title: string; url?: string; notes?: string } | null
   /** A planned batch: its stories are posted one a day over this many days. */
   batch?: { days: number; stories: number } | null
+  mode?: ResearchMode
+  /** Anniversary mode: the local posting dates (YYYY-MM-DD) to find events for. */
+  targetDates?: string[]
 }
 
 /** The first run of an automation has nothing covered yet, so it looks back twice as far. */
@@ -165,15 +247,20 @@ export function researchUserMessage(brief: ResearchBrief, context: ResearchConte
     timeStyle: 'short',
   })
   const hours = lookbackHours(brief.freshnessHours, context.covered.length)
+  const mode = context.mode ?? 'recent'
   const lines = [
     `Brief: ${brief.name}`,
     `Now: ${when} (${context.timezone}).`,
     `Research: ${brief.topic}`,
-    `Freshness: published or materially updated in the last ${hours} hours.${
-      hours > brief.freshnessHours
-        ? ' This is the first run, so it looks back further than usual.'
-        : ''
-    }`,
+    mode === 'recent'
+      ? `Freshness: published or materially updated in the last ${hours} hours.${
+          hours > brief.freshnessHours
+            ? ' This is the first run, so it looks back further than usual.'
+            : ''
+        }`
+      : mode === 'archive'
+        ? 'Period: history. Find documented past events; there is no freshness window. Give each eventDate; set forDate to null.'
+        : `Period: on this day. Find documented past events that happened on the same day and month as these posting dates, in an earlier year: ${(context.targetDates ?? []).join(', ')}.${context.batch ? ' At most one story per date.' : ''} Give each eventDate as YYYY-MM-DD and forDate as the posting date it matches. A date with no well-documented event is better left empty.`,
   ]
   if (context.requested) {
     const r = context.requested

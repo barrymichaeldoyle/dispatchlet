@@ -10,6 +10,7 @@ import {
   type QueryCtx,
 } from './_generated/server'
 import { isTextService } from './buffer'
+import { RESEARCH_MODES, type ResearchMode } from './lib/ai/research'
 import { SetupAnswers, type Service } from './lib/ai/setup'
 import { SERVICE_LIMITS } from './lib/ai/write'
 import {
@@ -26,6 +27,7 @@ import {
   cadenceValidator,
   postingModeValidator,
   publicationPlanValidator,
+  researchModeValidator,
   setupValidator,
 } from './schema'
 import { draftName } from './lib/draftName'
@@ -222,6 +224,7 @@ const automationSummary = v.object({
   postingMode: v.string(),
   maxPostsPerRun: v.number(),
   publicationPlan: v.union(publicationPlanValidator, v.null()),
+  researchMode: researchModeValidator,
   channelIds: v.array(v.string()),
   nextRunAt: v.union(v.number(), v.null()),
   lastRunAt: v.union(v.number(), v.null()),
@@ -239,6 +242,7 @@ function summary(a: Doc<'automations'>, version: number) {
     postingMode: a.postingMode,
     maxPostsPerRun: a.maxPostsPerRun,
     publicationPlan: a.publicationPlan ?? null,
+    researchMode: a.researchMode ?? 'recent',
     channelIds: a.channelIds,
     // The time the person set; a busy minute may start it a little later (spreadStart).
     nextRunAt: a.nextRunSetFor ?? a.nextRunAt ?? null,
@@ -423,6 +427,7 @@ export const updateConfig = mutation({
     postingMode: v.optional(postingModeValidator),
     maxPostsPerRun: v.optional(v.number()),
     publicationPlan: v.optional(publicationPlanValidator),
+    researchMode: v.optional(researchModeValidator),
   },
   returns: v.null(),
   handler: async (ctx, { id, ...changes }) =>
@@ -435,6 +440,7 @@ export type ConfigChanges = {
   postingMode?: PostingMode
   maxPostsPerRun?: number
   publicationPlan?: PublicationPlan
+  researchMode?: ResearchMode
 }
 
 export type PostingMode = 'draft' | 'queue' | 'spread' | 'planned'
@@ -458,6 +464,7 @@ export async function updateConfigFor(
     if (changes.postingMode) patch.postingMode = changes.postingMode
     if (changes.maxPostsPerRun !== undefined) patch.maxPostsPerRun = changes.maxPostsPerRun
     if (changes.publicationPlan) patch.publicationPlan = normalPlan(changes.publicationPlan)
+    if (changes.researchMode) patch.researchMode = changes.researchMode
     await ctx.db.patch(id, patch)
     if (changes.cadence) await scheduleNext(ctx, { ...automation, ...patch })
     return null
@@ -476,6 +483,8 @@ export async function validateConfigChanges(
 ): Promise<void> {
   if (changes.postingMode !== undefined && !POSTING_MODES.includes(changes.postingMode))
     throw new Error('Choose draft, queue, spread or planned posting mode')
+  if (changes.researchMode !== undefined && !RESEARCH_MODES.includes(changes.researchMode))
+    throw new Error('Choose recent, archive or anniversary research')
   if (changes.publicationPlan) {
     const problem = planProblem(changes.publicationPlan)
     if (problem) throw new Error(problem)

@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { describePlan, freeSlots, normalPlan, planProblem, planSlots, WEEKDAYS } from './plan'
+import {
+  datedSlots,
+  datedTargets,
+  describePlan,
+  freeSlots,
+  normalPlan,
+  planProblem,
+  planSlots,
+  postingDates,
+  type QueueSchedule,
+  WEEKDAYS,
+} from './plan'
 
 const everyDay = { time: '09:00', weekdays: [...WEEKDAYS] }
 const local = (at: number, zone: string) =>
@@ -107,5 +118,97 @@ describe('plan validation and wording', () => {
       'Weekdays at 08:15',
     )
     expect(describePlan({ time: '18:00', weekdays: ['sat', 'mon'] })).toBe('Mon, Sat at 18:00')
+  })
+})
+
+const JHB = 'Africa/Johannesburg'
+const queue = (timezone = JHB, over: Partial<QueueSchedule> = {}): QueueSchedule => ({
+  timezone,
+  paused: false,
+  days: WEEKDAYS.map((day) => ({
+    day,
+    times: day === 'sun' ? [] : ['11:10', '08:02'],
+    paused: day === 'sat',
+  })),
+  ...over,
+})
+const hm = (at: number, zone = JHB) =>
+  new Date(at).toLocaleString('en-GB', {
+    timeZone: zone,
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  })
+
+describe('datedSlots', () => {
+  it('uses the queue times of that weekday, in order', () => {
+    // Thursday 12 November 2026.
+    expect(datedSlots(queue(), '2026-11-12', JHB).map((at) => hm(at))).toEqual([
+      '12 Nov, 08:02',
+      '12 Nov, 11:10',
+    ])
+  })
+
+  it('borrows the usual times on a paused or empty day, and has fallbacks with no queue', () => {
+    expect(datedSlots(queue(), '2026-11-14', JHB).map((at) => hm(at))).toEqual([
+      '14 Nov, 08:02',
+      '14 Nov, 11:10',
+    ])
+    expect(datedSlots(null, '2026-11-14', JHB).map((at) => hm(at))).toEqual([
+      '14 Nov, 09:00',
+      '14 Nov, 12:00',
+      '14 Nov, 15:00',
+    ])
+  })
+
+  it('keeps the slots of a channel in another zone that fall on the account date', () => {
+    // 23:30 in London is 01:30 the next day in Johannesburg.
+    const late = queue('Europe/London', {
+      days: WEEKDAYS.map((day) => ({ day, times: ['07:00', '23:30'], paused: false })),
+    })
+    expect(datedSlots(late, '2026-11-12', JHB).map((at) => hm(at))).toEqual([
+      '12 Nov, 01:30',
+      '12 Nov, 09:00',
+    ])
+  })
+})
+
+const at = (iso: string) => Date.parse(iso)
+
+describe('postingDates', () => {
+  it('targets today when a queue time is still ahead, otherwise tomorrow', () => {
+    // Daily run at 06:00 local, next at 06:00 tomorrow.
+    expect(
+      postingDates([queue()], JHB, at('2026-11-12T04:30:00Z'), at('2026-11-13T04:30:00Z')),
+    ).toEqual(['2026-11-12'])
+    // Daily run at 20:00 local.
+    expect(
+      postingDates([queue()], JHB, at('2026-11-12T18:30:00Z'), at('2026-11-13T18:30:00Z')),
+    ).toEqual(['2026-11-13'])
+  })
+
+  it('covers every posting day until the next weekly run', () => {
+    expect(
+      postingDates([null], JHB, at('2026-11-16T04:30:00Z'), at('2026-11-23T04:30:00Z')),
+    ).toEqual([
+      '2026-11-16',
+      '2026-11-17',
+      '2026-11-18',
+      '2026-11-19',
+      '2026-11-20',
+      '2026-11-21',
+      '2026-11-22',
+    ])
+  })
+})
+
+describe('datedTargets', () => {
+  it('takes the next posting date when the next run would come first', () => {
+    // 19:44 on Wednesday, next daily run at 08:00 tomorrow, first queue time 08:02.
+    const from = at('2026-11-11T18:14:00Z')
+    expect(datedTargets([queue()], JHB, from, at('2026-11-12T06:30:00Z'))).toEqual(['2026-11-12'])
+    expect(datedTargets([queue()], JHB, from, null)).toEqual(['2026-11-12'])
   })
 })

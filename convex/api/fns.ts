@@ -23,6 +23,7 @@ import {
   hintValidator,
   postingModeValidator,
   publicationPlanValidator,
+  researchModeValidator,
   setupValidator,
 } from '../schema'
 import { postView } from '../views'
@@ -101,6 +102,7 @@ export const updateAutomation = internalMutation({
     postingMode: v.optional(postingModeValidator),
     maxPostsPerRun: v.optional(v.number()),
     publicationPlan: v.optional(publicationPlanValidator),
+    researchMode: v.optional(researchModeValidator),
     status: v.optional(v.union(v.literal('active'), v.literal('paused'))),
   },
   returns: v.null(),

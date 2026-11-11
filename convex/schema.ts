@@ -32,6 +32,13 @@ export const publicationPlanValidator = v.object({
   weekdays: v.array(v.string()),
 })
 
+/** lib/ai/research ResearchMode: recent news, history, or on this day. */
+export const researchModeValidator = v.union(
+  v.literal('recent'),
+  v.literal('archive'),
+  v.literal('anniversary'),
+)
+
 export const postingModeValidator = v.union(
   v.literal('draft'),
   v.literal('queue'),
@@ -45,6 +52,7 @@ export const automationConfigChangesValidator = v.object({
   postingMode: v.optional(postingModeValidator),
   maxPostsPerRun: v.optional(v.number()),
   publicationPlan: v.optional(publicationPlanValidator),
+  researchMode: v.optional(researchModeValidator),
 })
 
 export const automationEditSnapshotValidator = v.object({
@@ -53,6 +61,7 @@ export const automationEditSnapshotValidator = v.object({
   postingMode: postingModeValidator,
   maxPostsPerRun: v.number(),
   publicationPlan: v.optional(publicationPlanValidator),
+  researchMode: v.optional(researchModeValidator),
   text: v.string(),
   timezone: v.string(),
 })
@@ -189,6 +198,8 @@ export default defineSchema({
     maxPostsPerRun: v.number(),
     /** Required when postingMode is 'planned'; kept when switching away so it can come back. */
     publicationPlan: v.optional(publicationPlanValidator),
+    /** Absent means recent news, the behaviour before research modes existed. */
+    researchMode: v.optional(researchModeValidator),
     playbookVersionId: v.optional(v.id('playbookVersions')),
     /** Optimistic concurrency for editorial/configuration edits; absent means revision zero. */
     configurationRevision: v.optional(v.number()),
@@ -365,6 +376,9 @@ export default defineSchema({
     whyItMatters: v.string(),
     keyFacts: v.array(v.string()),
     confidence: v.number(),
+    /** Historical research: when the event happened, and the posting date an anniversary is for. */
+    eventDate: v.optional(v.string()),
+    forDate: v.optional(v.string()),
     /** kept, skipped_dup, skipped_quality, skipped_limit, dry (kept on a dry run, not covered). */
     decision: v.string(),
     reason: v.string(),

@@ -167,6 +167,12 @@ export function createDispatchletServer(
             weekdays: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).min(1),
           })
           .optional(),
+        research_mode: z
+          .enum(['recent', 'archive', 'anniversary'])
+          .optional()
+          .describe(
+            'recent news (default), archive for documented history, or anniversary for on-this-day events matching each posting date. Anniversary posts are scheduled for their own date in every posting mode.',
+          ),
         status: z.enum(['active', 'paused']).optional(),
       },
       annotations: { destructiveHint: true },
@@ -178,6 +184,7 @@ export function createDispatchletServer(
       posting_mode,
       max_posts_per_run,
       publication_plan,
+      research_mode,
       status,
     }) =>
       guarded(() =>
@@ -187,6 +194,7 @@ export function createDispatchletServer(
           ...(posting_mode ? { postingMode: posting_mode } : {}),
           ...(max_posts_per_run !== undefined ? { maxPostsPerRun: max_posts_per_run } : {}),
           ...(publication_plan ? { publicationPlan: publication_plan } : {}),
+          ...(research_mode ? { researchMode: research_mode } : {}),
           ...(status ? { status } : {}),
         }),
       ),

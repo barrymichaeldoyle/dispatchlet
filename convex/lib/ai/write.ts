@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { Playbook } from '../playbook'
 import { SERVICE_NAMES } from '../playbook'
 import type { Service } from './setup'
-import type { Candidate } from './research'
+import { yearsSince, type Candidate } from './research'
 
 /** What each service accepts. X is 280 unless the channel is Premium; Mastodon servers vary. */
 export const SERVICE_LIMITS: Record<
@@ -185,12 +185,22 @@ export function writeUserMessage(
       `   why it matters: ${s.whyItMatters}`,
       `   key facts: ${s.keyFacts.map((f) => `• ${f}`).join(' ')}`,
     )
+    if (s.eventDate) lines.push(`   event date: ${s.eventDate}`)
+    if (s.eventDate && s.forDate)
+      lines.push(
+        `   anniversary: posted on ${s.forDate}, ${yearsSince(s.eventDate, s.forDate)} years after the event. You may state this.`,
+      )
     const at = schedule?.at.get(s.canonicalUrl)
     if (at)
       lines.push(
         `   posts on: ${new Date(at).toLocaleString('en-GB', { timeZone: schedule!.timezone, dateStyle: 'full', timeStyle: 'short' })}`,
       )
   })
+  if (stories.some((st) => st.eventDate))
+    lines.push(
+      '',
+      'Some stories are history, not news: write them in the past tense, give the event date where it helps, and never present them as new.',
+    )
   if (schedule)
     lines.push(
       '',

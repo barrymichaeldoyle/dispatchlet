@@ -21,7 +21,7 @@ type Changes = Infer<typeof automationConfigChangesValidator>
 
 /** Server-owned contract. Extend it only when the corresponding execution path is implemented. */
 const capabilities = {
-  version: 2,
+  version: 3,
   editable: [
     'playbookText',
     'cadence',
@@ -29,6 +29,7 @@ const capabilities = {
     'postingMode',
     'maxPostsPerRun',
     'publicationPlan',
+    'researchMode',
   ],
   cadence: ['daily', 'weekly'],
   postingModes: POSTING_MODES,
@@ -51,10 +52,17 @@ const capabilities = {
     shortBatches:
       'When research finds fewer good stories than posting days, the remaining days stay empty and the run says which.',
   },
+  researchModes: {
+    recent: 'News published or updated inside the playbook freshness window (the default).',
+    archive:
+      'History: documented past events, whatever their publication date. Each story needs a verified event date or it is dropped.',
+    anniversary:
+      'On this day: past events on the same day and month as the posting date, in an earlier year. With planned posting each day gets an event for its own date. In queue or spread mode the run looks for the dates its channels post on before the next run and schedules each post on its own date at that day’s Buffer queue time; drafts keep the date and are scheduled for it when approved, never late. Days without a well-documented event stay empty.',
+    note: 'Freshness hours only apply to recent research.',
+  },
   timezone: 'Read from account settings; not editable through proposals.',
   requiresReview: true,
   unsupported: [
-    'Archival or anniversary research outside the recent-news freshness rules',
     'Different posting times on different days, or more than one story per day',
     'Draft approval for planned batches',
     'Changing or deleting posts already in Buffer',
@@ -75,6 +83,7 @@ async function snapshot(ctx: QueryCtx | MutationCtx, a: Doc<'automations'>): Pro
     postingMode: a.postingMode as Snapshot['postingMode'],
     maxPostsPerRun: a.maxPostsPerRun,
     ...(a.publicationPlan ? { publicationPlan: normalPlan(a.publicationPlan) } : {}),
+    researchMode: a.researchMode ?? 'recent',
     text: version.text,
     timezone: a.timezone,
   }
@@ -93,6 +102,12 @@ function sameCadence(before: Snapshot, after: Snapshot) {
     before.cadence.weekday === after.cadence.weekday
   )
 }
+
+const RESEARCH_WORDS = {
+  recent: 'recent news',
+  archive: 'history',
+  anniversary: 'on this day',
+} as const
 
 function samePlan(before: Snapshot, after: Snapshot) {
   const a = before.publicationPlan
@@ -114,6 +129,10 @@ function summarize(before: Snapshot, after: Snapshot): string[] {
   if (!samePlan(before, after))
     summary.push(
       `Publication plan: ${before.publicationPlan ? describePlan(before.publicationPlan) : 'none'} → ${after.publicationPlan ? describePlan(after.publicationPlan) : 'none'} (${after.timezone}).`,
+    )
+  if ((before.researchMode ?? 'recent') !== (after.researchMode ?? 'recent'))
+    summary.push(
+      `Research: ${RESEARCH_WORDS[before.researchMode ?? 'recent']} → ${RESEARCH_WORDS[after.researchMode ?? 'recent']}.`,
     )
   if (before.maxPostsPerRun !== after.maxPostsPerRun)
     summary.push(`At most ${before.maxPostsPerRun} → ${after.maxPostsPerRun} stories per run.`)
@@ -143,6 +162,8 @@ function changedConfig(before: Snapshot, after: Snapshot): Changes {
   if (before.maxPostsPerRun !== after.maxPostsPerRun) changes.maxPostsPerRun = after.maxPostsPerRun
   if (!samePlan(before, after) && after.publicationPlan)
     changes.publicationPlan = after.publicationPlan
+  if ((before.researchMode ?? 'recent') !== (after.researchMode ?? 'recent'))
+    changes.researchMode = after.researchMode ?? 'recent'
   return changes
 }
 

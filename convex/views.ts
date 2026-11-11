@@ -19,6 +19,7 @@ export function postView(p: Doc<'posts'>, channelName: string) {
     bufferStatus: p.bufferStatus ?? null,
     externalLink: p.externalLink ?? null,
     dueAt: p.dueAt ?? null,
+    plannedFor: p.plannedFor ?? null,
     sentAt: p.sentAt ?? null,
     metrics: p.metrics ?? null,
     createdAt: p.createdAt,

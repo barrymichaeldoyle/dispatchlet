@@ -54,6 +54,8 @@ function candidates(n: number) {
     whyItMatters: 'Fans care.',
     confidence: 0.9 - i * 0.01,
     keyFacts: [title],
+    eventDate: null as string | null,
+    forDate: null as string | null,
   }))
 }
 
@@ -71,9 +73,13 @@ function anthropicReply(json: unknown) {
 }
 
 /** Routes the run's outbound calls: research and writing to "Anthropic", posts to "Buffer". */
-function stubServices(found: number) {
+type Queue = { id: string; timezone: string; days: { day: string; times: string[] }[] }
+function stubServices(found: number | ReturnType<typeof candidates>, queues: Queue[] = []) {
   const writePrompts: string[] = []
+  const researchSystems: string[] = []
+  const researchPrompts: string[] = []
   const created: { channelId: string; dueAt: string | undefined; mode: string }[] = []
+  const approved: { mode: string; dueAt: string | undefined }[] = []
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input)
     const body = JSON.parse(
@@ -81,8 +87,15 @@ function stubServices(found: number) {
     )
     if (url.includes('anthropic')) {
       const text = JSON.stringify(body)
-      if (text.includes('research step'))
-        return anthropicReply({ candidates: candidates(found), searchesRun: [], notes: '' })
+      if (text.includes('research step')) {
+        researchSystems.push(JSON.stringify(body.system))
+        researchPrompts.push(JSON.stringify(body.messages))
+        return anthropicReply({
+          candidates: typeof found === 'number' ? candidates(found) : found,
+          searchesRun: [],
+          notes: '',
+        })
+      }
       const prompt = body.messages
         .map((m: { content: unknown }) => JSON.stringify(m.content))
         .join('\n')
@@ -99,6 +112,33 @@ function stubServices(found: number) {
             linkAttachment: null,
           })),
         ),
+      })
+    }
+    if (String(body.query).includes('DispatchletQueues'))
+      return Response.json({
+        data: {
+          channels: queues.map((q) => ({
+            id: q.id,
+            timezone: q.timezone,
+            isQueuePaused: false,
+            postingSchedule: q.days.map((d) => ({ ...d, paused: false })),
+          })),
+        },
+      })
+    if (String(body.query).includes('DispatchletApprove')) {
+      const mode = String(body.query).includes('customScheduled') ? 'customScheduled' : 'addToQueue'
+      approved.push({ mode, dueAt: body.variables.dueAt })
+      return Response.json({
+        data: {
+          editPost: {
+            __typename: 'PostActionSuccess',
+            post: {
+              id: body.variables.id,
+              status: 'scheduled',
+              dueAt: body.variables.dueAt ?? null,
+            },
+          },
+        },
       })
     }
     if (String(body.query).includes('DispatchletLimits'))
@@ -123,7 +163,7 @@ function stubServices(found: number) {
     return Response.json({ data: {} })
   })
   vi.stubGlobal('fetch', fetch)
-  return { writePrompts, created }
+  return { writePrompts, created, researchSystems, researchPrompts, approved }
 }
 
 async function seed(t: TestConvex<typeof schema>, kind = 'now') {
@@ -411,6 +451,214 @@ describe('a planned weekly batch', () => {
       dueAt: slots[2],
     })
     expect(created).toEqual([expect.objectContaining({ dueAt: new Date(slots[2]!).toISOString() })])
+  })
+})
+
+describe('history and on-this-day research', () => {
+  it('keeps an old documented story and drops one without a verified date', async () => {
+    const t = convexTest(schema, modules)
+    const { runId, automationId } = await seed(t)
+    await t.run((ctx) => ctx.db.patch(automationId, { researchMode: 'archive', maxPostsPerRun: 2 }))
+    const [a, b, c] = candidates(3)
+    const { researchSystems, writePrompts } = stubServices([
+      { ...a!, publishedAt: '1976-10-25', eventDate: '1976-10-24' },
+      { ...b!, publishedAt: '1988-11-14' },
+      { ...c!, publishedAt: '2001-03-04', eventDate: '2001-03-04' },
+    ])
+    await t.action(internal.runs.execute, { runId })
+    expect(researchSystems[0]).toContain('When the source was published does not matter')
+    const stories = await t.run((ctx) =>
+      ctx.db
+        .query('stories')
+        .withIndex('by_run', (q) => q.eq('runId', runId))
+        .collect(),
+    )
+    expect(stories.find((s) => s.title === a!.title)).toMatchObject({
+      decision: 'kept',
+      eventDate: '1976-10-24',
+    })
+    expect(stories.find((s) => s.title === b!.title)).toMatchObject({
+      decision: 'skipped_quality',
+      reason: expect.stringMatching(/No verified date/),
+    })
+    expect(stories.find((s) => s.title === c!.title)?.decision).toBe('kept')
+    expect(writePrompts[0]).toContain('event date: 1976-10-24')
+    expect(writePrompts[0]).toContain('never present them as new')
+  })
+
+  it('posts each anniversary on its own date and leaves undocumented days empty', async () => {
+    const t = convexTest(schema, modules)
+    const { runId, automationId } = await seed(t)
+    await t.run((ctx) => ctx.db.patch(automationId, { researchMode: 'anniversary' }))
+    const slots = planSlots(everyDay, ZONE, MONDAY_RUN)
+    const [a, b, c, d, e] = candidates(5)
+    const { writePrompts } = stubServices([
+      // Best first: a Thursday anniversary, then Monday, a wrong date, a second Thursday,
+      // and one with no exact day.
+      { ...a!, eventDate: '1976-11-19', forDate: '2026-11-19' },
+      { ...b!, eventDate: '1996-11-16', forDate: '2026-11-16' },
+      { ...c!, eventDate: '1990-11-20', forDate: '2026-11-21' },
+      { ...d!, eventDate: '1983-11-19', forDate: '2026-11-19' },
+      { ...e!, eventDate: '1991-11', forDate: '2026-11-17' },
+    ])
+    await t.action(internal.runs.execute, { runId })
+    const stories = await t.run((ctx) =>
+      ctx.db
+        .query('stories')
+        .withIndex('by_run', (q) => q.eq('runId', runId))
+        .collect(),
+    )
+    const decision = (title: string) => stories.find((s) => s.title === title)
+    expect(decision(a!.title)?.decision).toBe('kept')
+    expect(decision(b!.title)?.decision).toBe('kept')
+    expect(decision(c!.title)?.reason).toMatch(/same day of the year/)
+    expect(decision(d!.title)).toMatchObject({
+      decision: 'skipped_limit',
+      reason: 'Another story is already planned for 2026-11-19.',
+    })
+    expect(decision(e!.title)?.reason).toMatch(/exact day/)
+    const scheduled = (await postsOf(t, runId)).filter((p) => p.status === 'scheduled')
+    // Thursday's event goes out on Thursday even though it ranked first.
+    const at = (title: string) =>
+      new Set(scheduled.filter((p) => p.storyId === decision(title)!._id).map((p) => p.dueAt))
+    expect(at(a!.title)).toEqual(new Set([slots[3]]))
+    expect(at(b!.title)).toEqual(new Set([slots[0]]))
+    expect(scheduled).toHaveLength(4)
+    expect(writePrompts.join('\n')).toContain(
+      'anniversary: posted on 2026-11-19, 50 years after the event.',
+    )
+    const note = (await t.run((ctx) => ctx.db.get(runId)))?.steps.at(-1)?.note
+    expect(note).toContain(
+      'Research found 2 stories good enough for 7 planned, so 5 days have no post.',
+    )
+  })
+
+  it('keeps the recent-news prompt and ignores stray event dates for recent research', async () => {
+    const t = convexTest(schema, modules)
+    const { runId } = await seed(t)
+    const [a] = candidates(1)
+    const { researchSystems, writePrompts } = stubServices([{ ...a!, eventDate: '1950-01-01' }])
+    await t.action(internal.runs.execute, { runId })
+    expect(researchSystems[0]).toContain('inside the freshness window')
+    expect(writePrompts[0]).not.toContain('event date')
+    const [story] = await t.run((ctx) =>
+      ctx.db
+        .query('stories')
+        .withIndex('by_run', (q) => q.eq('runId', runId))
+        .collect(),
+    )
+    expect(story?.eventDate).toBeUndefined()
+  })
+})
+
+describe('on this day without a publication plan', () => {
+  // Monday 16 November 2026, 20:00 in Johannesburg: tomorrow's queue times are the next ones.
+  const MONDAY_EVENING = Date.parse('2026-11-16T18:00:00Z')
+  const daily = { preset: 'daily' as const, time: '20:00', weekday: null }
+  const tuesdayQueue: Queue = {
+    id: 'c1',
+    timezone: ZONE,
+    days: WEEKDAYS.map((day) => ({ day, times: day === 'tue' ? ['11:39', '08:57'] : ['10:00'] })),
+  }
+  const asQueueAutomation = (
+    t: TestConvex<typeof schema>,
+    automationId: Id<'automations'>,
+    postingMode: 'queue' | 'draft',
+    cadence: typeof daily | typeof weekly = daily,
+  ) =>
+    t.run((ctx) =>
+      ctx.db.patch(automationId, {
+        researchMode: 'anniversary',
+        postingMode,
+        publicationPlan: undefined,
+        cadence,
+        maxPostsPerRun: 3,
+      }),
+    )
+
+  it('researches the next posting date and schedules each post at that day’s queue time', async () => {
+    vi.setSystemTime(MONDAY_EVENING)
+    const t = convexTest(schema, modules)
+    const { runId, automationId } = await seed(t)
+    await asQueueAutomation(t, automationId, 'queue')
+    const [a, b] = candidates(2)
+    const { created, researchPrompts } = stubServices(
+      [
+        { ...a!, eventDate: '1985-11-17', forDate: '2026-11-17' },
+        // Today's anniversary: its queue times have passed, so it is not this run's to post.
+        { ...b!, eventDate: '1985-11-16', forDate: '2026-11-16' },
+      ],
+      [tuesdayQueue],
+    )
+    await t.action(internal.runs.execute, { runId })
+    expect(researchPrompts[0]).toContain('2026-11-17')
+    expect(researchPrompts[0]).not.toContain('2026-11-16:')
+    const run = await t.run((ctx) => ctx.db.get(runId))
+    expect(run?.steps.find((s) => s.step === 'plan')?.note).toContain(
+      'looking for anniversaries on Tue 17 Nov',
+    )
+    // c1 uses its first Tuesday queue time; c2's queue is unknown, so the first fallback time.
+    expect(created.map((c) => [c.channelId, c.mode, c.dueAt])).toEqual([
+      ['c1', 'customScheduled', '2026-11-17T06:57:00.000Z'],
+      ['c2', 'customScheduled', '2026-11-17T07:00:00.000Z'],
+    ])
+    const posts = await postsOf(t, runId)
+    expect(posts.every((p) => p.status === 'scheduled' && p.plannedFor)).toBe(true)
+  })
+
+  it('spreads a weekly run’s anniversaries over their own dates, two on one day at separate times', async () => {
+    const t = convexTest(schema, modules)
+    const { runId, automationId } = await seed(t)
+    await asQueueAutomation(t, automationId, 'queue', weekly)
+    const [a, b, c] = candidates(3)
+    const { created } = stubServices(
+      [
+        { ...a!, eventDate: '1976-11-21', forDate: '2026-11-21' },
+        { ...b!, eventDate: '1991-11-18', forDate: '2026-11-18' },
+        { ...c!, eventDate: '2001-11-18', forDate: '2026-11-18' },
+      ],
+      [tuesdayQueue],
+    )
+    await t.action(internal.runs.execute, { runId })
+    const c1 = created.filter((p) => p.channelId === 'c1').map((p) => p.dueAt)
+    // c1 posts once on Wednesday (10:00), so the second Wednesday story is not doubled up there.
+    // c2 has no known queue, so its fallback times give each Wednesday story its own time.
+    expect(c1).toEqual(['2026-11-21T08:00:00.000Z', '2026-11-18T08:00:00.000Z'])
+    const c2 = created.filter((p) => p.channelId === 'c2').map((p) => p.dueAt)
+    expect(c2).toEqual([
+      '2026-11-21T07:00:00.000Z',
+      '2026-11-18T07:00:00.000Z',
+      '2026-11-18T10:00:00.000Z',
+    ])
+    const skipped = (await postsOf(t, runId)).filter((p) => p.status === 'skipped')
+    expect(skipped).toHaveLength(1)
+    expect(skipped[0]!.reason).toBe(
+      'Its date, Wed 18 Nov, has no posting time left on c1, so it was not posted late.',
+    )
+  })
+
+  it('keeps a draft’s date: approving schedules it for then, approving too late is refused', async () => {
+    vi.setSystemTime(MONDAY_EVENING)
+    const t = convexTest(schema, modules)
+    const { runId, automationId, userId } = await seed(t)
+    await asQueueAutomation(t, automationId, 'draft')
+    const [a] = candidates(1)
+    const { created, approved } = stubServices(
+      [{ ...a!, eventDate: '1985-11-17', forDate: '2026-11-17' }],
+      [tuesdayQueue],
+    )
+    await t.action(internal.runs.execute, { runId })
+    expect(created.every((p) => p.mode === 'addToQueue')).toBe(true)
+    const [first, second] = await postsOf(t, runId)
+    expect(first).toMatchObject({ status: 'draft', plannedFor: Date.parse('2026-11-17T06:57:00Z') })
+    await t.action(internal.approvals.approveForUser, { userId, postId: first!._id })
+    expect(approved).toEqual([{ mode: 'customScheduled', dueAt: '2026-11-17T06:57:00.000Z' }])
+    expect((await t.run((ctx) => ctx.db.get(first!._id)))?.status).toBe('scheduled')
+    vi.setSystemTime(Date.parse('2026-11-17T08:00:00Z'))
+    await expect(
+      t.action(internal.approvals.approveForUser, { userId, postId: second!._id }),
+    ).rejects.toThrow(/date that has passed/)
+    expect((await t.run((ctx) => ctx.db.get(second!._id)))?.status).toBe('draft')
   })
 })
 

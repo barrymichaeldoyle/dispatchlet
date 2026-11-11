@@ -26,6 +26,7 @@ const config = (changes: Partial<NonNullable<ChatReply['changes']>>) => ({
   postingMode: null,
   maxPostsPerRun: null,
   publicationPlan: null,
+  researchMode: null,
   ...changes,
 })
 const reply = (changes: Partial<ChatReply> = {}): ChatReply => ({

@@ -84,8 +84,8 @@ describe('reviewed automation changes', () => {
       capabilities: { storiesPerRun: { max: 3, plannedMax: 7 }, requiresReview: true },
     })
     expect(result.capabilities.postingModes).toContain('planned')
-    expect(result.capabilities.unsupported).toContain(
-      'Archival or anniversary research outside the recent-news freshness rules',
+    expect(Object.keys(result.capabilities.researchModes)).toEqual(
+      expect.arrayContaining(['recent', 'archive', 'anniversary']),
     )
     expect((await t.run((ctx) => ctx.db.get(id)))?.configurationRevision).toBeUndefined()
   })
@@ -468,6 +468,27 @@ describe('reviewed automation changes', () => {
       maxPostsPerRun: 1,
       cadence,
     })
+  })
+
+  it('switches research to history as a reviewed change and back with undo', async () => {
+    const t = convexTest(schema, modules)
+    const { id, user } = await fixture(t)
+    const editId = await user.mutation(api.automationEdits.propose, {
+      id,
+      baseRevision: 0,
+      changes: { researchMode: 'archive' },
+    })
+    expect((await user.query(api.automationEdits.get, { id: editId })).summary).toEqual([
+      'Research: recent news → history.',
+    ])
+    await user.mutation(api.automationEdits.apply, { id: editId })
+    expect((await t.run((ctx) => ctx.db.get(id)))?.researchMode).toBe('archive')
+    const undoId = await user.mutation(api.automationEdits.proposeUndo, {
+      id: editId,
+      baseRevision: 1,
+    })
+    await user.mutation(api.automationEdits.apply, { id: undoId })
+    expect((await t.run((ctx) => ctx.db.get(id)))?.researchMode).toBe('recent')
   })
 
   it('deletes proposal snapshots with the account', async () => {

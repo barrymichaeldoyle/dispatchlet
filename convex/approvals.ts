@@ -10,6 +10,7 @@ import {
 import { approveBufferPost, BufferPostError, editBufferPostText } from './buffer'
 import { measuredLength, SERVICE_LIMITS } from './lib/ai/write'
 import type { Service } from './lib/ai/setup'
+import { PLAN_LEAD_MS } from './lib/plan'
 import { emitPostEvent } from './runs'
 
 /** What the digest email needs: the person, the run's closing line, and each post. */
@@ -82,13 +83,14 @@ export const markApproved = internalMutation({
     bufferStatus: v.string(),
     dueAt: v.optional(v.number()),
     from: v.string(),
+    dated: v.optional(v.boolean()),
   },
   returns: v.null(),
-  handler: async (ctx, { postId, bufferStatus, dueAt, from }) => {
+  handler: async (ctx, { postId, bufferStatus, dueAt, from, dated }) => {
     const post = await ctx.db.get(postId)
     if (!post) return null
     await ctx.db.patch(postId, {
-      status: bufferStatus === 'draft' ? 'draft' : 'queued',
+      status: bufferStatus === 'draft' ? 'draft' : dated ? 'scheduled' : 'queued',
       bufferStatus,
       approveToken: undefined,
       approvingAt: undefined,
@@ -108,7 +110,7 @@ export const markApproved = internalMutation({
           {
             step: 'approve',
             at: Date.now(),
-            note: `${channel?.name ?? post.service}: approved from ${APPROVED_FROM[from] ?? from} and added to the queue.`,
+            note: `${channel?.name ?? post.service}: approved from ${APPROVED_FROM[from] ?? from} and ${dated ? 'scheduled for its date' : 'added to the queue'}.`,
           },
         ],
       })
@@ -128,7 +130,13 @@ export type ApprovedFrom = 'email' | 'app' | 'api' | 'mcp'
 
 async function approve(
   ctx: ActionCtx,
-  post: { _id: Id<'posts'>; userId: Id<'users'>; bufferPostId?: string; status: string },
+  post: {
+    _id: Id<'posts'>
+    userId: Id<'users'>
+    bufferPostId?: string
+    status: string
+    plannedFor?: number
+  },
   from: ApprovedFrom,
 ): Promise<string> {
   if (!post.bufferPostId) throw new Error('This post never reached Buffer.')
@@ -145,15 +153,29 @@ async function approve(
     )
   if (claim === 'busy')
     return 'This draft is already being approved. It will be in the queue in a moment.'
+  // A dated draft (on this day) is only worth posting on its date: approved late, it stays a draft.
+  const dated = post.plannedFor !== undefined
+  if (dated && post.plannedFor! < Date.now() + PLAN_LEAD_MS) {
+    await ctx.runMutation(internal.approvals.releaseApproval, { postId: post._id })
+    throw new ApprovalRefused(
+      'This post was for a date that has passed, so it was not scheduled. It stays a draft in Buffer.',
+    )
+  }
   try {
-    const { status, dueAt } = await approveBufferPost(ctx, post.userId, post.bufferPostId)
+    const { status, dueAt } = await approveBufferPost(
+      ctx,
+      post.userId,
+      post.bufferPostId,
+      post.plannedFor,
+    )
     await ctx.runMutation(internal.approvals.markApproved, {
       postId: post._id,
       bufferStatus: status,
       dueAt,
       from,
+      dated,
     })
-    return 'Added to your Buffer queue.'
+    return dated ? 'Scheduled in Buffer for its date.' : 'Added to your Buffer queue.'
   } catch (error) {
     await ctx.runMutation(internal.approvals.releaseApproval, { postId: post._id })
     if (error instanceof BufferPostError)

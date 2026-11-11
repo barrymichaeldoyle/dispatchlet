@@ -12,6 +12,7 @@ import {
   type MutationCtx,
 } from './_generated/server'
 import { isAllowlisted } from './lib/allowlist'
+import type { QueueSchedule } from './lib/plan'
 import { BufferApiError, bufferRequest, refreshBufferTokens, revokeBufferToken } from './lib/buffer'
 import { operationName, serverEvent } from './lib/serverEvents'
 import { take } from './api/rate'
@@ -890,6 +891,49 @@ export async function channelsAtLimit(
   }
 }
 
+/**
+ * The queue times of the given channels, one query per organization. A channel whose schedule
+ * could not be read maps to null, and the run uses fallback times for it.
+ */
+export async function channelQueues(
+  ctx: ActionCtx,
+  userId: Id<'users'>,
+  channels: { channelId: string; organizationId: string }[],
+): Promise<Map<string, QueueSchedule | null>> {
+  const out = new Map<string, QueueSchedule | null>(channels.map((c) => [c.channelId, null]))
+  for (const orgId of new Set(channels.map((c) => c.organizationId))) {
+    try {
+      const data = await bufferCallFor<{
+        channels: {
+          id: string
+          timezone: string | null
+          isQueuePaused: boolean | null
+          postingSchedule: { day: string; times: string[]; paused: boolean }[] | null
+        }[]
+      }>(
+        ctx,
+        userId,
+        `query DispatchletQueues($orgId: OrganizationId!) {
+          channels(input: { organizationId: $orgId }) {
+            id timezone isQueuePaused postingSchedule { day times paused }
+          }
+        }`,
+        { orgId },
+      )
+      for (const channel of data.channels)
+        if (out.has(channel.id))
+          out.set(channel.id, {
+            timezone: channel.timezone ?? '',
+            paused: channel.isQueuePaused ?? false,
+            days: channel.postingSchedule ?? [],
+          })
+    } catch {
+      // Unknown queues fall back to fixed times; the run says so.
+    }
+  }
+  return out
+}
+
 export type CreatePostInput = {
   channelId: string
   service: string
@@ -999,20 +1043,32 @@ export async function approveBufferPost(
   ctx: ActionCtx,
   userId: Id<'users'>,
   bufferPostId: string,
+  /** A dated post (on this day) is scheduled for its own time instead of joining the queue. */
+  dueAt?: number,
 ): Promise<{ status: string; dueAt: number | undefined }> {
   const { editPost } = await bufferCallFor<{
     editPost: MutationPayload & { post?: { id: string; status: string; dueAt: string | null } }
   }>(
     ctx,
     userId,
-    `mutation DispatchletApprove($id: PostId!) {
+    dueAt === undefined
+      ? `mutation DispatchletApprove($id: PostId!) {
       editPost(input: { id: $id, saveToDraft: false, mode: addToQueue }) {
         __typename
         ... on PostActionSuccess { post { id status dueAt } }
         ... on MutationError { message }
       }
+    }`
+      : `mutation DispatchletApproveAt($id: PostId!, $dueAt: DateTime!) {
+      editPost(input: { id: $id, saveToDraft: false, mode: customScheduled, dueAt: $dueAt }) {
+        __typename
+        ... on PostActionSuccess { post { id status dueAt } }
+        ... on MutationError { message }
+      }
     }`,
-    { id: bufferPostId },
+    dueAt === undefined
+      ? { id: bufferPostId }
+      : { id: bufferPostId, dueAt: new Date(dueAt).toISOString() },
     'interactive',
   )
   if (editPost.post)

@@ -566,6 +566,41 @@ function ScheduleEditor({ a }: { a: Loaded }) {
           </label>
         ))}
       </div>
+      <h2>What it looks for</h2>
+      <ul className="app-choices">
+        {(
+          [
+            ['recent', 'Recent news', 'Stories published inside the playbook’s freshness window.'],
+            [
+              'archive',
+              'History',
+              'Documented past events, however old the sources. Each needs a verified date, or it is left out.',
+            ],
+            [
+              'anniversary',
+              'On this day',
+              a.postingMode === 'planned'
+                ? 'An event from an earlier year on the same date as each posting day. Days without a well-documented event stay empty.'
+                : a.postingMode === 'draft'
+                  ? 'Events from earlier years on the dates your Buffer queue posts next. Each draft keeps its date, and approving it schedules it for then.'
+                  : 'Events from earlier years on the dates your Buffer queue posts next. Each post is scheduled for its own date, at that day’s queue time.',
+            ],
+          ] as const
+        ).map(([mode, title, detail]) => (
+          <li key={mode} data-checked={a.researchMode === mode}>
+            <label>
+              <input
+                type="radio"
+                name="research"
+                checked={a.researchMode === mode}
+                onChange={() => save({ researchMode: mode })}
+              />
+              <span>{title}</span>
+              <span className="app-muted">{detail}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
       <h2>How posts reach Buffer</h2>
       <ul className="app-choices">
         {[

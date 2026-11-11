@@ -146,6 +146,7 @@ const PatchBody = z
       })
       .strict()
       .optional(),
+    researchMode: z.enum(['recent', 'archive', 'anniversary']).optional(),
     status: z.enum(['active', 'paused']).optional(),
   })
   .strict()

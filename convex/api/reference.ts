@@ -70,6 +70,7 @@ export const Automation = {
     postingMode: { type: 'string', enum: ['draft', 'queue', 'spread', 'planned'] },
     maxPostsPerRun: { type: 'integer' },
     publicationPlan: nullable(PublicationPlan),
+    researchMode: { type: 'string', enum: ['recent', 'archive', 'anniversary'] },
     channelIds: { type: 'array', items: { type: 'string' } },
     nextRunAt: nullable(ms),
     lastRunAt: nullable(ms),
@@ -169,6 +170,10 @@ export const Post = {
     bufferStatus: nullable({ type: 'string' }),
     externalLink: nullable({ type: 'string' }),
     dueAt: nullable(ms),
+    plannedFor: nullable({
+      ...ms,
+      description: 'With postingMode planned: the publication slot this post was planned for',
+    }),
     sentAt: nullable(ms),
     metrics: nullable({ type: 'array', items: { type: 'object' } }),
     createdAt: ms,
@@ -422,6 +427,12 @@ export const ROUTES: RouteRef[] = [
           description: 'Up to 3, or one per posting day (up to 7) with postingMode planned',
         },
         publicationPlan: ref('PublicationPlan'),
+        researchMode: {
+          type: 'string',
+          enum: ['recent', 'archive', 'anniversary'],
+          description:
+            'recent news (default), archive for documented history, or anniversary for on-this-day events matching each posting date. Anniversary posts are scheduled for their own date (plannedFor) in every posting mode.',
+        },
         status: {
           type: 'string',
           enum: ['active', 'paused'],

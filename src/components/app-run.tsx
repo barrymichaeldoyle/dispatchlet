@@ -502,7 +502,11 @@ function RunView({
                     <a href={s.url} target="_blank" rel="noreferrer">
                       {s.title}
                     </a>
-                    <span className="app-muted">{s.source}</span>
+                    <span className="app-muted">
+                      {s.source}
+                      {s.eventDate ? `, event ${s.eventDate}` : ''}
+                      {s.forDate ? `, for ${s.forDate}` : ''}
+                    </span>
                   </p>
                   <p className="app-muted">
                     {s.reason}

@@ -15,9 +15,11 @@ import {
 } from './_generated/server'
 import { addExcludeRuleFor, ownAutomation, scheduleNext, type PostingMode } from './automations'
 import { isAllowlisted } from './lib/allowlist'
+import { nextRunAt } from './lib/schedule'
 import {
   BufferBudgetError,
   BufferPostError,
+  channelQueues,
   channelsAtLimit,
   createBufferIdea,
   createBufferPost,
@@ -35,7 +37,8 @@ import { EMPTY_USAGE } from './lib/ai/pricing'
 import {
   allowedDomains,
   briefFromPlaybook,
-  RESEARCH_SYSTEM,
+  historicalProblem,
+  researchSystemFor,
   researchTools,
   ResearchResult,
   researchUserMessage,
@@ -60,11 +63,15 @@ import {
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
 import {
+  datedSlots,
   freeSlots,
+  localDate,
   PLAN_HORIZON_DAYS,
   PLAN_LEAD_MS,
   PLAN_SELECTION_LEAD_MS,
+  datedTargets,
   type PublicationPlan,
+  type QueueSchedule,
 } from './lib/plan'
 import type { Playbook } from './lib/playbook'
 import { keyFor } from './users'
@@ -94,6 +101,23 @@ const slotLabel = (at: number, zone: string) =>
     minute: '2-digit',
     hourCycle: 'h23',
   })
+
+/** A local date, YYYY-MM-DD, as "Thu 12 Nov". */
+const dayLabel = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString('en-GB', {
+    timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+
+/**
+ * How a post goes to Buffer. A post with its own time (a planned day, or an on-this-day date) is
+ * scheduled for it in any mode but drafts, which keep the time for when they are approved.
+ */
+export function postModeFor(mode: PostingMode, plannedFor: number | undefined): PostingMode {
+  return plannedFor !== undefined && mode !== 'draft' ? 'planned' : mode
+}
 
 type Kind = 'scheduled' | 'now' | 'dry'
 
@@ -411,6 +435,8 @@ const storyFields = {
   decision: v.string(),
   reason: v.string(),
   dupOf: v.optional(v.id('stories')),
+  eventDate: v.optional(v.string()),
+  forDate: v.optional(v.string()),
 }
 
 export const saveStories = internalMutation({
@@ -595,6 +621,30 @@ export const finish = internalMutation({
   },
 })
 
+/**
+ * Gives each story a slot, best first. An anniversary story takes only the slot on its own
+ * date; other stories take the earliest free slot.
+ */
+export function assignSlots(
+  stories: { canonicalUrl: string; forDate?: string | null }[],
+  slots: number[],
+  zone: string,
+): Map<string, number> {
+  const free = [...slots]
+  const out = new Map<string, number>()
+  for (const story of stories) {
+    const index = story.forDate
+      ? free.findIndex((at) => localDate(at, zone) === story.forDate)
+      : free.length
+        ? 0
+        : -1
+    if (index < 0) continue
+    out.set(story.canonicalUrl, free[index]!)
+    free.splice(index, 1)
+  }
+  return out
+}
+
 /** Stories written per call in a large batch; small runs stay one call, as before. */
 const WRITE_BATCH_STORIES = 3
 
@@ -717,6 +767,36 @@ export const execute = internalAction({
         )
       }
 
+      // History and on-this-day runs. An anniversary is for a posting date: each open day of a
+      // planned week. Without a plan, each story is scheduled on its own date at the channel's
+      // Buffer queue times, so the dates are the ones posts go out on before the next run.
+      const researchMode = automation.researchMode ?? 'recent'
+      const today = localDate(Date.now(), automation.timezone)
+      const dated = researchMode === 'anniversary' && !plan
+      const queues = dated
+        ? await channelQueues(ctx, user._id, usable)
+        : new Map<string, QueueSchedule | null>()
+      const targetDates =
+        researchMode !== 'anniversary'
+          ? []
+          : plan
+            ? [...new Set(openSlots.map((at) => localDate(at, automation.timezone)))]
+            : datedTargets(
+                [...queues.values()],
+                automation.timezone,
+                Date.now() + PLAN_SELECTION_LEAD_MS,
+                automation.status === 'active'
+                  ? nextRunAt(automation.cadence, automation.timezone) + PLAN_SELECTION_LEAD_MS
+                  : null,
+              )
+      if (dated) {
+        const unknown = usable.filter((c) => !queues.get(c.channelId)).map((c) => c.name)
+        await say(
+          'plan',
+          `On this day: looking for anniversaries on ${targetDates.map((d) => dayLabel(d)).join(', ')}. Each post is scheduled for its own date${unknown.length === usable.length ? ', at 09:00, 12:00 or 15:00 because Buffer did not share the queue times' : ' at the channel’s Buffer queue times'}.${unknown.length && unknown.length < usable.length ? ` ${unknown.join(', ')}: queue times unknown, so 09:00, 12:00 or 15:00.` : ''}`,
+        )
+      }
+
       const client = anthropicClient(await keyFor(user))
       const brief = briefFromPlaybook(playbook, {
         onlyTheseSources: automation.setup.onlyTheseSources,
@@ -727,13 +807,15 @@ export const execute = internalAction({
         model: modelFor('research'),
         effort: 'high',
         maxTokens: STRUCTURED_MAX_TOKENS,
-        system: RESEARCH_SYSTEM,
+        system: researchSystemFor(researchMode),
         user: researchUserMessage(brief, {
           now: new Date(),
           timezone: automation.timezone,
           covered: covered.map((c) => ({ title: c.title, url: c.canonicalUrl })),
           requested: run.hint ?? null,
           batch: plan ? { days: PLAN_HORIZON_DAYS, stories: storyLimit } : null,
+          mode: researchMode,
+          targetDates,
         }),
         schema: ResearchResult,
         tools: researchTools(domains, undefined, brief.maxCandidates),
@@ -753,7 +835,12 @@ export const execute = internalAction({
         )
         return null
       }
-      const found = research.output.candidates
+      // Dates only mean something in the mode that asked for them.
+      const found = research.output.candidates.map((c) => ({
+        ...c,
+        eventDate: researchMode === 'recent' ? null : c.eventDate,
+        forDate: researchMode === 'anniversary' ? c.forDate : null,
+      }))
       await say(
         'research',
         `Searched ${research.record.usage.webSearches} times and opened ${research.record.usage.webFetches} pages. Found ${found.length} ${found.length === 1 ? 'story' : 'stories'}.`,
@@ -794,6 +881,27 @@ export const execute = internalAction({
           continue
         }
         const requested = isRequested(c)
+        const datedWrong = historicalProblem(c, researchMode, targetDates, today)
+        if (datedWrong) {
+          decided.push({ ...c, canonicalUrl: url, decision: 'skipped_quality', reason: datedWrong })
+          continue
+        }
+        // A planned week remembers one event per day, on that day.
+        if (
+          plan &&
+          researchMode === 'anniversary' &&
+          decided.some(
+            (d) => (d.decision === 'kept' || d.decision === 'dry') && d.forDate === c.forDate,
+          )
+        ) {
+          decided.push({
+            ...c,
+            canonicalUrl: url,
+            decision: 'skipped_limit',
+            reason: `Another story is already planned for ${c.forDate}.`,
+          })
+          continue
+        }
         if (requested && c.confidence < MIN_REQUESTED_CONFIDENCE) {
           decided.push({
             ...c,
@@ -808,7 +916,10 @@ export const execute = internalAction({
             ...c,
             canonicalUrl: url,
             decision: 'skipped_quality',
-            reason: `Not sure enough it is new and on topic (${Math.round(c.confidence * 100)}%).`,
+            reason:
+              researchMode === 'recent'
+                ? `Not sure enough it is new and on topic (${Math.round(c.confidence * 100)}%).`
+                : `Not sure enough of the facts and the date (${Math.round(c.confidence * 100)}%).`,
           })
           continue
         }
@@ -840,7 +951,12 @@ export const execute = internalAction({
       const storyIds = await ctx.runMutation(internal.runs.saveStories, {
         runId,
         automationId: automation._id,
-        stories: decided.map(({ dupOf, ...s }) => ({ ...s, dupOf })),
+        stories: decided.map(({ dupOf, eventDate, forDate, ...s }) => ({
+          ...s,
+          dupOf,
+          eventDate: eventDate ?? undefined,
+          forDate: forDate ?? undefined,
+        })),
       })
       const keep = decided
         .map((s, i) => ({ ...s, _id: storyIds[i]! }))
@@ -875,7 +991,21 @@ export const execute = internalAction({
       }))
       // Planned dates the writer can see, so a post meant for Friday does not say "today".
       const tentative = new Map<string, number>()
-      if (plan) keep.forEach((k, i) => openSlots[i] && tentative.set(k.canonicalUrl, openSlots[i]))
+      if (plan)
+        assignSlots(keep, openSlots, automation.timezone).forEach((at, url) =>
+          tentative.set(url, at),
+        )
+      if (dated)
+        for (const k of keep)
+          if (k.forDate)
+            tentative.set(
+              k.canonicalUrl,
+              datedSlots(
+                queues.get(usable[0]!.channelId) ?? null,
+                k.forDate,
+                automation.timezone,
+              )[0]!,
+            )
       // A large batch is written a few stories at a time, so one reply never has to carry them all.
       const writtenPosts: PostDraft[] = []
       for (let from = 0; from < keep.length; from += WRITE_BATCH_STORIES) {
@@ -1010,7 +1140,36 @@ export const execute = internalAction({
           }),
           PLAN_LEAD_MS,
         )
-        keep.forEach((k, i) => fresh[i] !== undefined && slotFor.set(k._id, fresh[i]))
+        const assigned = assignSlots(keep, fresh, automation.timezone)
+        for (const k of keep) {
+          const at = assigned.get(k.canonicalUrl)
+          if (at !== undefined) slotFor.set(k._id, at)
+        }
+      }
+      // On this day without a plan: each post gets its channel's next queue time on the story's
+      // date, one story per time. A date with no time left is not posted late.
+      const datedAt = new Map<string, number | null>()
+      if (dated) {
+        const taken = new Set(
+          await ctx.runQuery(internal.runs.occupiedSlots, {
+            automationId: automation._id,
+            from: Date.now(),
+          }),
+        )
+        const used = new Map<string, Set<number>>()
+        for (const k of keep)
+          for (const t of targets) {
+            const channelUsed = used.get(t.channelId) ?? new Set<number>()
+            used.set(t.channelId, channelUsed)
+            const at = k.forDate
+              ? datedSlots(queues.get(t.channelId) ?? null, k.forDate, automation.timezone).find(
+                  (slot) =>
+                    slot >= Date.now() + PLAN_LEAD_MS && !channelUsed.has(slot) && !taken.has(slot),
+                )
+              : undefined
+            if (at !== undefined) channelUsed.add(at)
+            datedAt.set(`${k._id}|${t.channelId}`, at ?? null)
+          }
       }
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
@@ -1038,7 +1197,11 @@ export const execute = internalAction({
           text: checked.post.text,
           thread: checked.post.thread ?? undefined,
           linkAttachment: checked.post.linkAttachment ?? undefined,
-          plannedFor: plan ? slotFor.get(story._id) : undefined,
+          plannedFor: plan
+            ? slotFor.get(story._id)
+            : dated
+              ? (datedAt.get(`${story._id}|${channel.channelId}`) ?? undefined)
+              : undefined,
         }
         if (!checked.ok) {
           await ctx.runMutation(internal.runs.savePost, {
@@ -1060,6 +1223,16 @@ export const execute = internalAction({
           })
           continue
         }
+        if (dated && base.plannedFor === undefined) {
+          await ctx.runMutation(internal.runs.savePost, {
+            ...base,
+            status: 'skipped',
+            reason: story.forDate
+              ? `Its date, ${dayLabel(story.forDate)}, has no posting time left on ${channel.name}, so it was not posted late.`
+              : 'It had no date to post on.',
+          })
+          continue
+        }
         if (dry) {
           await ctx.runMutation(internal.runs.savePost, { ...base, status: 'dry' })
           continue
@@ -1076,7 +1249,7 @@ export const execute = internalAction({
         if (published === 0) await say('publish', 'Sending to Buffer.', 'publishing')
         if (!tagByOrg.has(row.organizationId))
           tagByOrg.set(row.organizationId, await ensureTag(ctx, user._id, row.organizationId))
-        const mode = automation.postingMode as PostingMode
+        const mode = postModeFor(automation.postingMode as PostingMode, base.plannedFor)
         // The row goes in before the call, so a run that dies mid-way leaves a trace of a post that
         // may be in Buffer (the sweeper fails it) instead of a post Buffer has and Dispatchlet forgot.
         const postId = await ctx.runMutation(internal.runs.savePost, {
@@ -1158,7 +1331,11 @@ export const execute = internalAction({
             text: draft.text,
             thread: draft.thread ?? undefined,
             linkAttachment: draft.linkAttachment ?? undefined,
-            plannedFor: plan ? slotFor.get(story._id) : undefined,
+            plannedFor: plan
+              ? slotFor.get(story._id)
+              : dated
+                ? (datedAt.get(`${story._id}|${channel.channelId}`) ?? undefined)
+                : undefined,
             status: 'held',
             reason: 'Waiting for Buffer to accept more posts.',
           })
@@ -1301,7 +1478,6 @@ export const sendHeld = internalAction({
         })
       return null
     }
-    const mode = automation.postingMode as PostingMode
     const tagByOrg = new Map<string, string | null>()
     const atLimit = await channelsAtLimit(ctx, automation.userId, [
       ...new Set(held.map((p) => p.channelId)),
@@ -1318,8 +1494,9 @@ export const sendHeld = internalAction({
         })
         continue
       }
-      // A planned post keeps its day. If that time has passed while Buffer was busy, it is not
-      // posted late or moved onto another story's day.
+      // A planned or dated post keeps its day. If that time has passed while Buffer was busy, it
+      // is not posted late or moved onto another story's day.
+      const mode = postModeFor(automation.postingMode as PostingMode, post.plannedFor)
       if (mode === 'planned' && (!post.plannedFor || post.plannedFor < Date.now() + PLAN_LEAD_MS)) {
         await ctx.runMutation(internal.runs.markSent, {
           postId: post._id,
@@ -1582,6 +1759,8 @@ export async function runView(
         url: s.canonicalUrl,
         source: s.source,
         publishedAt: s.publishedAt,
+        eventDate: s.eventDate ?? null,
+        forDate: s.forDate ?? null,
         summary: s.summary,
         whyItMatters: s.whyItMatters,
         keyFacts: s.keyFacts,
