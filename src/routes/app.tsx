@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { AppGate } from '../components/app-gate'
+// The app's own styles; public pages load only styles.css.
+import appOnlyCss from '../app.css?url'
 
 /**
  * The app. Not linked from the site, not in the sitemap and not indexed. Until the public
@@ -12,5 +14,6 @@ export const Route = createFileRoute('/app')({
   // Client-only, so the server sends the first screen sign-in shows rather than a blank page.
   head: () => ({
     meta: [{ title: 'Dispatchlet' }, { name: 'robots', content: 'noindex, nofollow' }],
+    links: [{ rel: 'stylesheet', href: appOnlyCss }],
   }),
 })

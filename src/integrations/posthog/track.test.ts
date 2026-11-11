@@ -17,13 +17,13 @@ afterEach(() => {
 describe('deferred analytics', () => {
   test('preserves early funnel events and initializes once', async () => {
     const { track, initializeAnalytics } = await import('./track')
-    track('waitlist_viewed')
+    track('landing_viewed')
     track('waitlist_submitted', { position: 7 })
     expect(sdk.capture).not.toHaveBeenCalled()
     await Promise.all([initializeAnalytics(), initializeAnalytics()])
     expect(sdk.init).toHaveBeenCalledTimes(1)
     expect(sdk.capture.mock.calls).toEqual([
-      ['waitlist_viewed', undefined],
+      ['landing_viewed', undefined],
       ['waitlist_submitted', { position: 7 }],
     ])
     track('waitlist_confirmed')
@@ -33,7 +33,7 @@ describe('deferred analytics', () => {
   test('does not load analytics when unconfigured', async () => {
     vi.stubEnv('VITE_POSTHOG_KEY', '')
     const { track, initializeAnalytics } = await import('./track')
-    track('waitlist_viewed')
+    track('landing_viewed')
     await initializeAnalytics()
     expect(sdk.init).not.toHaveBeenCalled()
     expect(sdk.capture).not.toHaveBeenCalled()

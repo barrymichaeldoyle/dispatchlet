@@ -122,7 +122,7 @@ function useNotice(): { notice: Notice; mounted: boolean } {
   const mounted = useIsClient()
   const notice = mounted ? readNotice() : null
   useEffect(() => {
-    track('waitlist_viewed')
+    track('landing_viewed')
     if (readNotice() === 'confirmed') track('waitlist_confirmed')
   }, [])
   return { notice, mounted }

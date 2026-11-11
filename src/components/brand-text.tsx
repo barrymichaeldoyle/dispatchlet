@@ -1,11 +1,16 @@
 import { Wordmark } from './wordmark'
 
-// Letterforms from Buffer's official wordmark: https://buffer.com/press
-function BufferWordmark() {
+const BUFFER_WORDMARK_ID = 'buffer-wordmark-glyphs'
+
+/**
+ * Letterforms from Buffer's official wordmark: https://buffer.com/press. Drawn once per page by
+ * the root document; every inline mention points at it with <use>, so the paths aren't repeated
+ * twenty times in the HTML.
+ */
+export function BufferWordmarkSymbol() {
   return (
-    <span className="buffer-wordmark">
-      <span className="sr-only">Buffer</span>
-      <svg viewBox="38 5 94 27" aria-hidden="true" fill="currentColor">
+    <svg width="0" height="0" aria-hidden="true" style={{ position: 'absolute' }}>
+      <symbol id={BUFFER_WORDMARK_ID} viewBox="38 5 94 27">
         <path d="M86.068 12.909v-.175c0-2.421 1.425-3.195 3.823-3.02V5.294c-5.746-.35-8.47 2.521-8.47 7.439v.175h-2.598v4.418h3.598v13.38h4.647v-13.38h5.346v13.38h4.647v-13.38h3.823v-4.418h-3.823v-.175c0-2.421 1.4-3.195 3.823-3.02V5.294c-5.746-.35-8.47 2.521-8.47 7.439v.175h-5.346Z"></path>
         <path
           fillRule="evenodd"
@@ -17,6 +22,17 @@ function BufferWordmark() {
           d="M119.147 23.667h-13.592c.675 2.346 2.623 3.345 5.047 3.345 1.824 0 3.273-.749 4.047-1.773l3.748 2.122c-1.674 2.422-4.372 3.82-7.845 3.82-6.046 0-9.869-4.094-9.869-9.411 0-5.317 3.848-9.41 9.519-9.41 5.322 0 9.119 4.168 9.119 9.41 0 .699-.075 1.298-.174 1.897Zm-8.945-7.14c-2.498 0-4.197 1.324-4.722 3.595h9.194c-.574-2.57-2.523-3.594-4.472-3.594Z"
         ></path>
         <path d="M126.044 15.954v-3.07h-4.648v17.798h4.648V22.17c0-3.745 3.048-4.818 5.471-4.519v-5.117c-2.273 0-4.547.999-5.471 3.42Z"></path>
+      </symbol>
+    </svg>
+  )
+}
+
+function BufferWordmark() {
+  return (
+    <span className="buffer-wordmark">
+      <span className="sr-only">Buffer</span>
+      <svg viewBox="38 5 94 27" aria-hidden="true" fill="currentColor">
+        <use href={`#${BUFFER_WORDMARK_ID}`} />
       </svg>
     </span>
   )

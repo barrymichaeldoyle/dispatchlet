@@ -1,4 +1,4 @@
-import { BrandText } from '../components/brand-text'
+import { BrandText, BufferWordmarkSymbol } from '../components/brand-text'
 import { Wordmark } from '../components/wordmark'
 import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
 import { useSyncExternalStore } from 'react'
@@ -103,6 +103,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body>
+        <BufferWordmarkSymbol />
         <PostHogProvider>
           <BootPlaceholder />
           {children}
