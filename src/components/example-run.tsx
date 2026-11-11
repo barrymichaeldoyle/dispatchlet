@@ -141,7 +141,18 @@ function FlowPanel({
 }
 
 const subscribe = () => () => {}
-const OVERVIEW_QUERY = '(min-width: 1100px) and (min-height: 650px)'
+/*
+ * The four-column view is only used where every column fits without scrolling. Narrower columns
+ * wrap more, so a narrower window has to be taller; anything smaller gets one step at a time.
+ * `e2e/example-run.spec.ts` holds these sizes to that promise.
+ */
+const OVERVIEW_QUERY = [
+  '(min-width: 1536px) and (min-height: 695px)',
+  '(min-width: 1440px) and (min-height: 720px)',
+  '(min-width: 1280px) and (min-height: 800px)',
+  '(min-width: 1200px) and (min-height: 940px)',
+  '(min-width: 1100px) and (min-height: 1030px)',
+].join(', ')
 const subscribeLayout = (onChange: () => void) => {
   const layout = window.matchMedia(OVERVIEW_QUERY)
   layout.addEventListener('change', onChange)
@@ -234,14 +245,18 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
 
   useEffect(() => {
     if (!playing) return
-    const clock = { previous: performance.now() }
-    const timer = window.setInterval(() => {
+    // One step per painted frame, so typing and the progress bar move as smoothly as the screen
+    // allows; a slow device simply takes bigger steps, because each one covers the time passed.
+    const clock = { previous: performance.now(), frame: 0 }
+    const step = () => {
       const now = performance.now()
       const delta = (now - clock.previous) * speed
       setElapsed((value) => Math.min(DURATION, value + delta))
       clock.previous = now
-    }, 50)
-    return () => window.clearInterval(timer)
+      clock.frame = window.requestAnimationFrame(step)
+    }
+    clock.frame = window.requestAnimationFrame(step)
+    return () => window.cancelAnimationFrame(clock.frame)
   }, [playing, speed])
 
   useEffect(() => {
@@ -445,6 +460,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
         ref={dialog}
         id="flow-dialog"
         className="flow-dialog"
+        data-layout={overview ? 'overview' : 'steps'}
         aria-label="Dispatchlet walkthrough"
         aria-describedby="walkthrough-description"
         onKeyDown={(event) => {
@@ -453,7 +469,10 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           const onControl = target.closest(
             'button, a, input, select, summary, [role="slider"], [popover]',
           )
-          if (event.metaKey || event.ctrlKey || event.altKey) return
+          // Safari reaches buttons with Option+Tab, so the modifier check must not stop the
+          // focus wrap below; it only keeps browser shortcuts from playing or seeking.
+          const modified = event.metaKey || event.ctrlKey || event.altKey
+          if (modified && event.key !== 'Tab') return
           if (event.key === 'k' || (event.key === ' ' && !onControl)) {
             event.preventDefault()
             play()
@@ -464,7 +483,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             scrubTo(elapsed + (event.key === 'ArrowRight' ? 5000 : -5000))
             return
           }
-          if (event.key !== 'Tab') return
+          if (event.key !== 'Tab' || event.metaKey || event.ctrlKey) return
           const themeTab =
             themeGroup.current?.querySelector<HTMLInputElement>('input:checked') ??
             themeGroup.current?.querySelector<HTMLInputElement>('input')
@@ -1076,40 +1095,83 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           >
             <NextDay elapsed={elapsed} onBack={() => seek(STAGES.length - 1)} />
           </div>
-          <div className="flow-player">
+          {/* Like a video: the scrubber sits on top of the controls, clear of the screen edge. */}
+          <div
+            className="flow-progress"
+            role="slider"
+            tabIndex={0}
+            aria-label="Walkthrough progress"
+            aria-valuenow={Math.floor(elapsed / 1000)}
+            aria-valuemin={0}
+            aria-valuemax={TOTAL_SECONDS}
+            aria-valuetext={`${Math.floor(elapsed / 1000)} of ${TOTAL_SECONDS} seconds`}
+            aria-controls="flow-workspace"
+            onPointerDown={(event) => {
+              if (event.button !== 0) return
+              event.currentTarget.setPointerCapture(event.pointerId)
+              resumeAfterScrub.current = playing
+              setPlaying(false)
+              scrubToPointer(event)
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) scrubToPointer(event)
+            }}
+            onPointerUp={endScrub}
+            onPointerCancel={endScrub}
+            onKeyDown={scrubByKey}
+          >
             <span
-              aria-live="polite"
-              aria-atomic="true"
-              className={complete ? 'sr-only' : 'flow-player-status'}
-            >
-              {!started ? (
-                'Ready when you are'
-              ) : complete ? (
-                'Walkthrough complete'
-              ) : overview ? (
-                // Desktop has no chapter captions, so the player narrates what is happening.
-                <>
-                  <span className="flow-player-narration">
-                    <BrandText>
-                      {elapsed >= NEXT_DAY ? NEXT_DAY_TITLE : TITLES[viewStage]}
-                    </BrandText>
-                  </span>
-                  {playing ? null : <span className="flow-player-state"> Paused.</span>}
-                </>
-              ) : (
-                <>
-                  <span className="flow-player-stage">
-                    <BrandText>{STAGES[viewStage]}</BrandText>
-                  </span>{' '}
-                  <span className="flow-player-state">{playing ? 'playing' : 'paused'}</span>
-                </>
-              )}
-            </span>
-            {complete ? (
-              <a href="/app?signin" className="flow-join">
-                Start with Buffer <Icon kind="arrow" />
-              </a>
-            ) : null}
+              className="flow-progress-fill"
+              style={{ transform: `scaleX(${elapsed / DURATION})` }}
+            />
+            {/* The handle stays fully on the bar at both ends. */}
+            <span
+              className="flow-progress-thumb"
+              style={{ left: `calc(6px + (100% - 12px) * ${elapsed / DURATION})` }}
+            />
+          </div>
+          <div className="flow-player">
+            <div className="flow-player-info">
+              {complete ? (
+                <a href="/app?signin" className="flow-join">
+                  Start with Buffer <Icon kind="arrow" />
+                </a>
+              ) : null}
+              {/* What was a footer of its own: the note sits under the status. */}
+              <div className="flow-player-text">
+                <span
+                  aria-live="polite"
+                  aria-atomic="true"
+                  className={complete ? 'sr-only' : 'flow-player-status'}
+                >
+                  {!started ? (
+                    'Ready when you are'
+                  ) : complete ? (
+                    'Walkthrough complete'
+                  ) : overview ? (
+                    // Desktop has no chapter captions, so the player narrates what is happening.
+                    <>
+                      <span className="flow-player-narration">
+                        <BrandText>
+                          {elapsed >= NEXT_DAY ? NEXT_DAY_TITLE : TITLES[viewStage]}
+                        </BrandText>
+                      </span>
+                      {playing ? null : <span className="flow-player-state"> Paused.</span>}
+                    </>
+                  ) : (
+                    <>
+                      <span className="flow-player-stage">
+                        <BrandText>{STAGES[viewStage]}</BrandText>
+                      </span>{' '}
+                      <span className="flow-player-state">{playing ? 'playing' : 'paused'}</span>
+                    </>
+                  )}
+                </span>
+                <p id="walkthrough-description" className="flow-player-note">
+                  Illustrative story details.
+                </p>
+              </div>
+            </div>
             <div className="flow-player-actions">
               <label className="flow-speed">
                 <span className="flow-speed-label">Speed</span>
@@ -1163,55 +1225,19 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                 </button>
               ) : null}
             </div>
-          </div>
-          <div
-            className="flow-progress"
-            role="slider"
-            tabIndex={0}
-            aria-label="Walkthrough progress"
-            aria-valuenow={Math.floor(elapsed / 1000)}
-            aria-valuemin={0}
-            aria-valuemax={TOTAL_SECONDS}
-            aria-valuetext={`${Math.floor(elapsed / 1000)} of ${TOTAL_SECONDS} seconds`}
-            aria-controls="flow-workspace"
-            onPointerDown={(event) => {
-              if (event.button !== 0) return
-              event.currentTarget.setPointerCapture(event.pointerId)
-              resumeAfterScrub.current = playing
-              setPlaying(false)
-              scrubToPointer(event)
-            }}
-            onPointerMove={(event) => {
-              if (event.currentTarget.hasPointerCapture(event.pointerId)) scrubToPointer(event)
-            }}
-            onPointerUp={endScrub}
-            onPointerCancel={endScrub}
-            onKeyDown={scrubByKey}
-          >
-            <span
-              className="flow-progress-fill"
-              style={{ transform: `scaleX(${elapsed / DURATION})` }}
-            />
-            {/* The handle stays fully on the bar at both ends. */}
-            <span
-              className="flow-progress-thumb"
-              style={{ left: `calc(6px + (100% - 12px) * ${elapsed / DURATION})` }}
-            />
+            <button
+              ref={readControl}
+              type="button"
+              className="flow-read"
+              onClick={() => {
+                readAfterClose.current = true
+                close()
+              }}
+            >
+              Read instead
+            </button>
           </div>
         </div>
-        <footer className="flow-focus-footer">
-          <p id="walkthrough-description">Illustrative story details.</p>
-          <button
-            ref={readControl}
-            type="button"
-            onClick={() => {
-              readAfterClose.current = true
-              close()
-            }}
-          >
-            Read instead
-          </button>
-        </footer>
       </dialog>
       <noscript>
         <p className="flow-disclaimer">

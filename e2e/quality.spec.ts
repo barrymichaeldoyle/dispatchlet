@@ -23,6 +23,8 @@ test('keyboard users can skip navigation and keep focus when starting the demo',
 test('chapters allow inspection without waiting, and Read instead leaves the player', async ({
   page,
 }) => {
+  // Big enough for the four-column overview.
+  await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/')
   await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()

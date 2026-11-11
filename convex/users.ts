@@ -4,6 +4,8 @@ import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { scheduleNext } from './automations'
+import { deleteAutomationConversation } from './automationChat'
+import { deleteFeedbackFor } from './feedback'
 import { isAllowlisted, isSignupOpen } from './lib/allowlist'
 import { decryptSecret, encryptSecret } from './lib/crypto'
 import { allowanceFor } from './lib/limits'
@@ -92,7 +94,11 @@ export const setTimezone = mutation({
       .collect()
     for (const a of automations) {
       if (a.deletedAt || a.timezone !== before) continue
-      await ctx.db.patch(a._id, { timezone, updatedAt: Date.now() })
+      await ctx.db.patch(a._id, {
+        timezone,
+        configurationRevision: (a.configurationRevision ?? 0) + 1,
+        updatedAt: Date.now(),
+      })
       if (a.status === 'active') await scheduleNext(ctx, { ...a, timezone })
     }
     return null
@@ -203,8 +209,16 @@ export const deleteUserData = internalMutation({
       .query('automations')
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .collect()
+    await deleteFeedbackFor(ctx, userId)
     for (const a of automations) {
       if (a.scheduledFnId) await ctx.scheduler.cancel(a.scheduledFnId)
+      await deleteAutomationConversation(ctx, a._id)
+      await deleteAll(
+        await ctx.db
+          .query('automationEdits')
+          .withIndex('by_automation', (q) => q.eq('automationId', a._id))
+          .collect(),
+      )
       await deleteAll(
         await ctx.db
           .query('playbookVersions')

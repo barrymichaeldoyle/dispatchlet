@@ -15,11 +15,12 @@ const DEFAULT_MODELS = {
   write: 'claude-sonnet-5-5',
   playbook: 'claude-sonnet-5-5',
   reparse: 'claude-haiku-5-5',
+  chat: 'claude-sonnet-5-5',
 } as const satisfies Record<string, ModelId>
 
 export type Step = keyof typeof DEFAULT_MODELS
 
-/** The model for a step, overridable per deployment with MODEL_RESEARCH, MODEL_WRITE, MODEL_PLAYBOOK. */
+/** The model for a step, overridable per deployment with MODEL_<STEP>, including MODEL_CHAT. */
 export function modelFor(step: Step): ModelId {
   const override = process.env[`MODEL_${step.toUpperCase()}`]
   return override && isKnownModel(override) ? override : DEFAULT_MODELS[step]
@@ -54,6 +55,10 @@ export type StructuredCall<T extends z.ZodType> = {
   effort: Effort
   /** Thinking counts against this, so high-effort calls need room: 8,000 cut a research reply mid-JSON. */
   maxTokens: number
+  /** Interactive chat bounds spend by avoiding a second billable call after malformed output. */
+  retryMalformed?: boolean
+  /** Preserve the usage receipt when a chat response's JSON fails local validation. */
+  captureInvalidOutput?: boolean
   tools?: Anthropic.Beta.BetaToolUnion[]
 }
 
@@ -113,17 +118,34 @@ export function usageFrom(usage: Anthropic.Beta.BetaUsage): Usage {
   }
 }
 
-function parse<T extends z.ZodType>(client: Anthropic, call: StructuredCall<T>) {
-  return client.beta.messages.parse({
+async function parse<T extends z.ZodType>(client: Anthropic, call: StructuredCall<T>) {
+  const request = {
     model: call.model,
     max_tokens: call.maxTokens,
     betas: ['server-side-fallback-2026-07-01'],
-    fallbacks: 'default',
+    fallbacks: 'default' as const,
     output_config: { effort: call.effort, format: zodOutputFormat(call.schema) },
-    system: [{ type: 'text', text: call.system, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: call.user }],
+    system: [
+      { type: 'text' as const, text: call.system, cache_control: { type: 'ephemeral' as const } },
+    ],
+    messages: [{ role: 'user' as const, content: call.user }],
     ...(call.tools ? { tools: call.tools } : {}),
-  })
+  }
+  if (!call.captureInvalidOutput) return client.beta.messages.parse(request)
+  const message = await client.beta.messages.create(request)
+  let parsed_output: z.infer<T> | null = null
+  if (message.stop_reason !== 'refusal') {
+    try {
+      const text = message.content
+        .filter((block) => block.type === 'text')
+        .map((block) => block.text)
+        .join('')
+      parsed_output = call.schema.parse(JSON.parse(text))
+    } catch {
+      // Invalid output still cost money. Return its usage so completion records the receipt.
+    }
+  }
+  return { ...message, parsed_output }
 }
 
 /** Room for thinking plus the JSON on the research, playbook and write calls. Under 21,333, past which the SDK insists on streaming. */
@@ -145,7 +167,8 @@ export async function callStructured<T extends z.ZodType>(
   try {
     message = await parse(client, call)
   } catch (error) {
-    if (attempt === 0 && !(error instanceof APIError)) return callStructured(client, call, 1)
+    if (attempt === 0 && call.retryMalformed !== false && !(error instanceof APIError))
+      return callStructured(client, call, 1)
     throw error
   }
   const usage = usageFrom(message.usage)

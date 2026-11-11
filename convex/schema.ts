@@ -11,10 +11,35 @@ export const usageValidator = v.object({
   webFetches: v.number(),
 })
 
+export const aiCallRecordValidator = v.object({
+  model: v.string(),
+  stopReason: v.union(v.string(), v.null()),
+  usage: usageValidator,
+  costUsd: v.number(),
+  durationMs: v.number(),
+  refusal: v.union(v.string(), v.null()),
+})
+
 export const cadenceValidator = v.object({
   preset: v.union(v.literal('daily'), v.literal('weekly')),
   time: v.string(),
   weekday: v.union(v.string(), v.null()),
+})
+
+export const automationConfigChangesValidator = v.object({
+  cadence: v.optional(cadenceValidator),
+  channelIds: v.optional(v.array(v.string())),
+  postingMode: v.optional(v.union(v.literal('draft'), v.literal('queue'), v.literal('spread'))),
+  maxPostsPerRun: v.optional(v.number()),
+})
+
+export const automationEditSnapshotValidator = v.object({
+  cadence: cadenceValidator,
+  channelIds: v.array(v.string()),
+  postingMode: v.union(v.literal('draft'), v.literal('queue'), v.literal('spread')),
+  maxPostsPerRun: v.number(),
+  text: v.string(),
+  timezone: v.string(),
 })
 
 /** The seven setup answers (lib/ai/setup), as the automation keeps them. */
@@ -65,6 +90,11 @@ export default defineSchema({
     /** Set once, so the first-run milestones are only said once. */
     firstPlaybookAt: v.optional(v.number()),
     firstPostAt: v.optional(v.number()),
+    /** Chat uses its own daily attempt allowance, never scheduled-run or dry-run credits. */
+    chatDay: v.optional(v.string()),
+    chatTurnsToday: v.optional(v.number()),
+    chatLastTurnAt: v.optional(v.number()),
+    chatActiveTurnId: v.optional(v.id('automationChatTurns')),
   })
     .index('email', ['email'])
     .index('phone', ['phone']),
@@ -143,6 +173,8 @@ export default defineSchema({
     postingMode: v.string(),
     maxPostsPerRun: v.number(),
     playbookVersionId: v.optional(v.id('playbookVersions')),
+    /** Optimistic concurrency for editorial/configuration edits; absent means revision zero. */
+    configurationRevision: v.optional(v.number()),
     /** Why generation failed, shown on the setup screen. */
     generationError: v.optional(v.string()),
     /** When the next run really starts, after spreading a busy minute (automations.spreadStart). */
@@ -167,6 +199,100 @@ export default defineSchema({
     createdBy: v.string(),
     createdAt: v.number(),
   }).index('by_automation_version', ['automationId', 'version']),
+  /** Reviewed configuration proposals and their immutable before/after revision snapshots. */
+  automationEdits: defineTable({
+    automationId: v.id('automations'),
+    baseRevision: v.number(),
+    before: automationEditSnapshotValidator,
+    after: automationEditSnapshotValidator,
+    summary: v.array(v.string()),
+    status: v.union(v.literal('proposed'), v.literal('applied'), v.literal('discarded')),
+    restoresEditId: v.optional(v.id('automationEdits')),
+    createdAt: v.number(),
+    appliedAt: v.optional(v.number()),
+    appliedRevision: v.optional(v.number()),
+  }).index('by_automation', ['automationId']),
+  /** One bounded, private editing conversation per automation. */
+  automationConversations: defineTable({
+    automationId: v.id('automations'),
+    turnCount: v.number(),
+    createdAt: v.number(),
+  }).index('by_automation', ['automationId']),
+  automationChatTurns: defineTable({
+    conversationId: v.id('automationConversations'),
+    requestId: v.string(),
+    userId: v.id('users'),
+    userText: v.string(),
+    baseRevision: v.number(),
+    /** Bounded context captured before the model call; never returned in public chat queries. */
+    prompt: v.string(),
+    status: v.union(v.literal('pending'), v.literal('complete'), v.literal('failed')),
+    kind: v.optional(
+      v.union(
+        v.literal('proposal'),
+        v.literal('clarification'),
+        v.literal('unsupported'),
+        v.literal('answer'),
+      ),
+    ),
+    assistantText: v.optional(v.string()),
+    featureRequest: v.optional(v.string()),
+    alternative: v.optional(v.string()),
+    proposalId: v.optional(v.id('automationEdits')),
+    errorCode: v.optional(
+      v.union(
+        v.literal('service'),
+        v.literal('invalid_response'),
+        v.literal('conflict'),
+        v.literal('expired'),
+        v.literal('declined'),
+      ),
+    ),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    workerFnId: v.optional(v.id('_scheduled_functions')),
+    expiryFnId: v.optional(v.id('_scheduled_functions')),
+    budgetId: v.optional(v.id('automationChatBudgets')),
+    budgetSettledUsd: v.optional(v.number()),
+    callRecorded: v.optional(v.boolean()),
+  })
+    .index('by_conversation', ['conversationId'])
+    .index('by_conversation_request', ['conversationId', 'requestId']),
+  /** Shared-key chat reservations and reconciled spend, independent of run credits. */
+  automationChatBudgets: defineTable({
+    day: v.string(),
+    reservedUsd: v.number(),
+    chargedUsd: v.number(),
+  }).index('by_day', ['day']),
+  /**
+   * Product feedback, sent only when the person submits it. Context is a consented reference
+   * (and a label snapshot for triage), never a copy of conversations, secrets or post text.
+   */
+  feedback: defineTable({
+    userId: v.id('users'),
+    requestId: v.string(),
+    category: v.union(v.literal('bug'), v.literal('idea'), v.literal('general')),
+    message: v.string(),
+    source: v.union(v.literal('app'), v.literal('assistant')),
+    automationId: v.optional(v.id('automations')),
+    automationName: v.optional(v.string()),
+    runId: v.optional(v.id('runs')),
+    chatTurnId: v.optional(v.id('automationChatTurns')),
+    status: v.union(
+      v.literal('new'),
+      v.literal('reviewing'),
+      v.literal('planned'),
+      v.literal('done'),
+      v.literal('declined'),
+    ),
+    note: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_user', ['userId', 'createdAt'])
+    .index('by_user_request', ['userId', 'requestId'])
+    .index('by_status', ['status', 'createdAt']),
   /**
    * One row per run of an automation (scheduled, run now, dry run) and per eval run. Totals are
    * summed from aiCalls as each step finishes, so the live run log and the cost per run come from

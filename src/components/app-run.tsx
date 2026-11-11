@@ -15,7 +15,6 @@ import {
   metricLabel,
   serviceName,
   timeIn,
-  usd,
   whenIn,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
@@ -414,7 +413,6 @@ function RunView({
         {live
           ? 'Running.'
           : `${run.status === 'done' ? 'Finished' : run.status === 'failed' ? 'Failed' : 'Skipped'} at ${timeIn(run.finishedAt!, tz)}.`}{' '}
-        {run.costUsd > 0 ? `Cost ${usd(run.costUsd)}.` : ''}
         {run.usage.webSearches
           ? ` ${run.usage.webSearches} searches, ${run.usage.webFetches} pages opened.`
           : ''}

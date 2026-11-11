@@ -96,8 +96,8 @@ function CostPerRun() {
         cheaper, I need searches to cost less. A cheaper model wouldn’t save much now.
       </p>
       <p>
-        The settings page in the app shows what your own runs cost. Every Claude call is logged with
-        its price, so the numbers there are what you really spent.
+        If you use your own Anthropic key, Settings shows the recorded AI provider cost. This is
+        usage information, not a Dispatchlet bill. Dispatchlet covers runs on its free allowance.
       </p>
 
       <h2>Sonnet, then Haiku</h2>

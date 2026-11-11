@@ -39,7 +39,7 @@ const START: Answers = {
   preset: 'daily',
   time: '08:00',
   weekday: 'mon',
-  maxStories: 3,
+  maxStories: 1,
   postingMode: 'draft',
 }
 
@@ -120,7 +120,8 @@ export function NewAutomation() {
   const questions: {
     label: string
     hint?: string
-    optional?: boolean
+    /** Set on optional questions: true while nothing has been answered, so Next reads Skip. */
+    blank?: boolean
     valid: boolean
     body: ReactNode
   }[] = [
@@ -136,7 +137,6 @@ export function NewAutomation() {
             maxLength={300}
             autoFocus
             onChange={(e) => set('research', e.target.value)}
-            placeholder="F1 race results and team news"
           />
           <p className="setup-hint">Or start from an example and change what you like.</p>
           <div className="setup-templates">
@@ -227,7 +227,8 @@ export function NewAutomation() {
     },
     {
       label: 'Anything to avoid?',
-      optional: true,
+      blank: !a.avoid.trim(),
+      hint: 'For example, rumours without a named source, or betting. Leave it blank to skip.',
       valid: true,
       body: (
         <input
@@ -236,14 +237,13 @@ export function NewAutomation() {
           value={a.avoid}
           maxLength={500}
           onChange={(e) => set('avoid', e.target.value)}
-          placeholder="Rumours without a named source, betting"
         />
       ),
     },
     {
       label: 'Any sources you prefer?',
-      optional: true,
-      hint: 'Sites or URLs, separated by commas. Unless you tick the box, it can find other reliable sources too.',
+      blank: !a.sources.trim(),
+      hint: 'Sites or URLs, separated by commas, like formula1.com. Leave it blank to skip and it finds reliable sources itself.',
       valid: true,
       body: (
         <>
@@ -253,7 +253,6 @@ export function NewAutomation() {
             rows={2}
             value={a.sources}
             onChange={(e) => set('sources', e.target.value)}
-            placeholder="formula1.com, the-race.com"
           />
           <Block
             type="checkbox"
@@ -446,7 +445,7 @@ export function NewAutomation() {
             <div className="setup-question" key={index}>
               <p className="setup-count">
                 Question {index + 1} of {questions.length}
-                {q.optional ? ', optional' : ''}
+                {q.blank === undefined ? null : <span className="setup-optional">Optional</span>}
               </p>
               <h2 className="setup-title">{q.label}</h2>
               <div className="setup-answer">{q.body}</div>
@@ -463,9 +462,9 @@ export function NewAutomation() {
                 ) : null}
                 <button type="submit" className="app-gate-primary" disabled={!q.valid}>
                   <BusyLabel
-                    busy={index === questions.length - 1}
+                    busy={q.blank === true || index === questions.length - 1}
                     idle="Next"
-                    working="Check answers"
+                    working={q.blank === true ? 'Skip' : 'Check answers'}
                   />
                 </button>
               </div>

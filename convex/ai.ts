@@ -9,7 +9,13 @@ import {
 } from './_generated/server'
 import { FIXTURES } from './evals/setupAnswers'
 import { usageValidator } from './schema'
-import { anthropicClient, callStructured, modelFor, STRUCTURED_MAX_TOKENS } from './lib/ai/client'
+import {
+  anthropicClient,
+  callStructured,
+  modelFor,
+  STRUCTURED_MAX_TOKENS,
+  type CallRecord,
+} from './lib/ai/client'
 import { addUsage, EMPTY_USAGE } from './lib/ai/pricing'
 import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import {
@@ -236,6 +242,17 @@ async function addSpend(ctx: MutationCtx, userId: Id<'users'> | undefined, usd: 
     .first()
   if (bucket) await ctx.db.patch(bucket._id, { usd: bucket.usd + usd })
   else await ctx.db.insert('aiSpend', { hourStart, userId, usd })
+}
+
+/** Used inside chat completion's transaction so retrying a receipt cannot double-count spend. */
+export async function recordStandaloneFor(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  purpose: string,
+  record: CallRecord,
+) {
+  await ctx.db.insert('aiCalls', { userId, purpose, ...record, createdAt: Date.now() })
+  await addSpend(ctx, userId, record.costUsd)
 }
 
 export const recordCall = internalMutation({

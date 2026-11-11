@@ -89,11 +89,9 @@ test('closing pauses playback, restores focus and page position, and allows resu
   await opener.click()
   const demo = page.getByRole('dialog')
   await page.clock.runFor(2000)
-  const progress = await demo
-    .getByRole('slider', { name: 'Walkthrough progress' })
-    .getAttribute('aria-valuenow')
   await demo.getByRole('button', { name: 'Close walkthrough' }).click()
   await expect(demo).not.toBeVisible()
+  const progress = await page.locator('.flow-progress').getAttribute('aria-valuenow')
   await expect(opener).toBeFocused()
   expect(await page.evaluate(() => window.scrollY)).toBe(before)
   await page.clock.runFor(3000)
@@ -166,7 +164,10 @@ for (const viewport of [
 
 test('focus stays inside the player and Read instead moves to the step-by-step run', async ({
   page,
+  browserName,
 }) => {
+  // Safari only tabs to text fields and links unless the user turns on full keyboard access.
+  test.skip(browserName === 'webkit', 'Safari does not tab to buttons by default')
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
   const demo = page.getByRole('dialog')
@@ -403,6 +404,7 @@ test('research skips previous coverage and spreads three fresh stories across bo
 
 test('restart begins a fresh run from playing, paused and partially typed states', async ({
   page,
+  browserName,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.clock.install()
@@ -417,7 +419,8 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await restart.click()
   await expect(progress).toHaveAttribute('aria-valuenow', '0')
   await expect(demo.getByRole('heading', { name: 'Answer a few quick questions.' })).toBeVisible()
-  await expect(restart).toBeFocused()
+  // Safari does not focus a button when it is clicked.
+  if (browserName !== 'webkit') await expect(restart).toBeFocused()
   await expect(demo.getByRole('button', { name: 'Pause walkthrough' })).toBeVisible()
   await expect(demo.getByLabel('Example question').locator('.flow-stream').first()).toBeEmpty()
   await page.clock.runFor(2000)
@@ -437,11 +440,16 @@ test('restart begins a fresh run from playing, paused and partially typed states
   await expect(demo.getByRole('heading', { name: 'It writes a playbook.' })).toBeVisible()
 })
 
+// The smallest screen of each overview breakpoint, plus common sizes. Shorter screens get one
+// chapter at a time instead.
 for (const viewport of [
-  { width: 1280, height: 720 },
+  { width: 1536, height: 695 },
+  { width: 1440, height: 720 },
+  { width: 1280, height: 800 },
+  { width: 1200, height: 940 },
+  { width: 1100, height: 1030 },
   // A 13-inch MacBook Air with the browser's own bars taken off.
   { width: 1470, height: 828 },
-  { width: 1440, height: 780 },
   { width: 1440, height: 900 },
   { width: 1920, height: 1080 },
 ]) {
@@ -506,21 +514,16 @@ for (const viewport of [
     ]) {
       await expect(demo.locator(selector)).toBeVisible()
     }
-    // All four columns stay within the viewport. The shortest screens scroll inside a column,
-    // because the reading size is not shrunk to fit; from 780px tall everything fits.
+    // All four columns stay within the viewport and nothing in them needs scrolling.
     for (const column of await columns.all()) {
       const rect = (await column.boundingBox())!
       expect(rect.x + rect.width).toBeLessThanOrEqual(viewport.width)
       expect(rect.y + rect.height).toBeLessThanOrEqual(viewport.height)
-      if (viewport.height >= 780) {
-        const overflow = await column.evaluate((el) => el.scrollHeight - el.clientHeight)
-        expect(
-          overflow,
-          `${await column.getAttribute('aria-label')} overflows by ${overflow}px`,
-        ).toBeLessThanOrEqual(1)
-      } else {
-        expect(await column.evaluate((el) => getComputedStyle(el).overflowY)).toMatch(/auto|scroll/)
-      }
+      const overflow = await column.evaluate((el) => el.scrollHeight - el.clientHeight)
+      expect(
+        overflow,
+        `${await column.getAttribute('aria-label')} overflows by ${overflow}px`,
+      ).toBeLessThanOrEqual(1)
     }
     await demo.getByRole('button', { name: 'Replay walkthrough' }).click()
     await expect(demo.locator('.flow-panel[data-pending="true"]')).toHaveCount(4)
@@ -620,7 +623,7 @@ for (const viewport of [
 test('desktop story inspection pauses, links the workspace and keeps every preview in place', async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.setViewportSize({ width: 1280, height: 800 })
   await page.clock.install()
   await page.goto('/')
   await page.getByRole('button', { name: 'Play the demo', exact: true }).click()
@@ -907,7 +910,7 @@ test('demo columns are tab stops only when they have something to scroll', async
   // Everything fits on a large screen, so no column needs to take focus.
   await expect(columns.and(page.locator('[tabindex="0"]'))).toHaveCount(0)
   // On a short screen the columns scroll, so keyboard users can reach and scroll them.
-  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.setViewportSize({ width: 844, height: 390 })
   await expect(columns.and(page.locator('[tabindex="0"]'))).not.toHaveCount(0)
 })
 
@@ -920,7 +923,8 @@ test('playback speed changes how fast the walkthrough runs and is remembered', a
   await pausePlayback(page)
   const progress = demo.getByRole('slider', { name: 'Walkthrough progress' })
   await demo.getByRole('combobox', { name: 'Speed' }).selectOption('2')
-  await page.clock.runFor(5000)
+  // A little over five seconds, since playback advances once per animation frame.
+  await page.clock.runFor(5050)
   await expect(progress).toHaveAttribute('aria-valuenow', '10')
   await demo.getByRole('button', { name: 'Close walkthrough' }).click()
   await page.reload()

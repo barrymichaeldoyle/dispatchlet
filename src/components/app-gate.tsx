@@ -9,6 +9,7 @@ import { Wordmark } from './wordmark'
 import { channelProblem } from '../lib/format'
 import { registerServiceWorker } from '../lib/service-worker'
 import { BusyLabel } from './busy-label'
+import { FeedbackProvider, SendFeedbackButton } from './feedback'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
@@ -269,84 +270,88 @@ function AppShell({
   }, [timezone, setTimezone])
   const channels = connection?.channels ?? []
   return (
-    <div className="app-frame">
-      <aside className="app-side">
-        <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
-          <Wordmark size="md" />
-        </Link>
-        <nav aria-label="App" className="app-side-nav">
-          <Link to="/app" activeOptions={{ exact: true }}>
-            Home
+    <FeedbackProvider>
+      <div className="app-frame">
+        <aside className="app-side">
+          <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
+            <Wordmark size="md" />
           </Link>
-          <Link to="/app/new">New automation</Link>
-          <Link to="/app/settings">Settings</Link>
-        </nav>
-        {automations && automations.length ? (
-          <div className="app-side-group">
-            <h2>Automations</h2>
-            <ul>
-              {automations.map((a) => (
-                <li key={a._id} data-status={a.status}>
-                  <Link to="/app/a/$id" params={{ id: a._id }}>
-                    <span className="app-side-name">{a.name}</span>
-                    <span className="app-side-state">{SIDE_STATES[a.status] ?? a.status}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        {channels.length ? (
-          <div className="app-side-group">
-            <h2>Channels</h2>
-            <ul>
-              {channels.map((c) => (
-                <li
-                  key={c.channelId}
-                  data-usable={c.usable}
-                  title={c.usable ? undefined : channelProblem(c.problem, c.service)}
-                >
-                  <span className="app-side-channel">
-                    <ChannelMark channel={SERVICE_NAMES[c.service] ?? c.service} size={14} />
-                    <span className="app-side-name">{c.name}</span>
-                    {c.usable ? null : (
-                      <span className="visually-hidden">
-                        {` (${channelProblem(c.problem, c.service)})`}
-                      </span>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <Link to="/app/settings" className="app-side-small">
-              Manage in settings
+          <nav aria-label="App" className="app-side-nav">
+            <Link to="/app" activeOptions={{ exact: true }}>
+              Home
             </Link>
-          </div>
-        ) : null}
-        <div className="app-side-account">
-          <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
-          {name && email ? <span className="app-side-small">{email}</span> : null}
-          <SignOut />
-        </div>
-      </aside>
-      <main className="app-gate is-app">
-        <div className="app-gate-inner">
-          <header className="app-top">
-            <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
-              <Wordmark size="md" />
-            </Link>
-            <nav aria-label="App" className="app-nav">
-              <Link to="/app" activeOptions={{ exact: true }}>
-                Home
+            <Link to="/app/new">New automation</Link>
+            <Link to="/app/settings">Settings</Link>
+            <SendFeedbackButton className="app-nav-button" />
+          </nav>
+          {automations && automations.length ? (
+            <div className="app-side-group">
+              <h2>Automations</h2>
+              <ul>
+                {automations.map((a) => (
+                  <li key={a._id} data-status={a.status}>
+                    <Link to="/app/a/$id" params={{ id: a._id }}>
+                      <span className="app-side-name">{a.name}</span>
+                      <span className="app-side-state">{SIDE_STATES[a.status] ?? a.status}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {channels.length ? (
+            <div className="app-side-group">
+              <h2>Channels</h2>
+              <ul>
+                {channels.map((c) => (
+                  <li
+                    key={c.channelId}
+                    data-usable={c.usable}
+                    title={c.usable ? undefined : channelProblem(c.problem, c.service)}
+                  >
+                    <span className="app-side-channel">
+                      <ChannelMark channel={SERVICE_NAMES[c.service] ?? c.service} size={14} />
+                      <span className="app-side-name">{c.name}</span>
+                      {c.usable ? null : (
+                        <span className="visually-hidden">
+                          {` (${channelProblem(c.problem, c.service)})`}
+                        </span>
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/app/settings" className="app-side-small">
+                Manage in settings
               </Link>
-              <Link to="/app/settings">Settings</Link>
-            </nav>
-          </header>
-          <ConnectionBanner />
-          <Outlet />
-        </div>
-      </main>
-    </div>
+            </div>
+          ) : null}
+          <div className="app-side-account">
+            <span className="app-side-name">{name ?? email ?? 'Signed in with Buffer'}</span>
+            {name && email ? <span className="app-side-small">{email}</span> : null}
+            <SignOut />
+          </div>
+        </aside>
+        <main className="app-gate is-app">
+          <div className="app-gate-inner">
+            <header className="app-top">
+              <Link to="/app" className="app-gate-home" aria-label="Dispatchlet app home">
+                <Wordmark size="md" />
+              </Link>
+              <nav aria-label="App" className="app-nav">
+                <Link to="/app" activeOptions={{ exact: true }}>
+                  Home
+                </Link>
+                <Link to="/app/settings">Settings</Link>
+                <SendFeedbackButton className="app-nav-button" />
+              </nav>
+            </header>
+            <ConnectionBanner />
+            <Outlet />
+          </div>
+        </main>
+      </div>
+    </FeedbackProvider>
   )
 }
 

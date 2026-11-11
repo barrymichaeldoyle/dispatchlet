@@ -22,6 +22,7 @@ import {
 import { Playbook, parsePlaybook, renderPlaybook } from './lib/playbook'
 import { nextRunAt, type Cadence } from './lib/schedule'
 import { cadenceValidator, setupValidator } from './schema'
+import { draftName } from './lib/draftName'
 
 /**
  * Counts one playbook generation for a person on Dispatchlet's key and refuses past the daily cap.
@@ -39,9 +40,10 @@ async function claimGeneration(ctx: MutationCtx, user: Doc<'users'>): Promise<vo
 }
 
 /** The longest playbook text accepted, so a huge playbook cannot inflate every run's prompt. */
-const MAX_PLAYBOOK_CHARS = 20_000
+export const MAX_PLAYBOOK_CHARS = 20_000
+export const MAX_STORIES_PER_RUN = 3
 
-async function viewerId(ctx: QueryCtx | MutationCtx): Promise<Id<'users'>> {
+export async function viewerId(ctx: QueryCtx | MutationCtx): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx)
   if (!userId) throw new Error('Not signed in')
   return userId
@@ -170,7 +172,7 @@ export async function createFor(
     const now = Date.now()
     const id = await ctx.db.insert('automations', {
       userId,
-      name: setup.research.slice(0, 60),
+      name: draftName(setup.research),
       status: 'generating',
       setup,
       channelIds: chosen.map((c) => c.channelId),
@@ -296,6 +298,8 @@ export async function getFor(ctx: QueryCtx, userId: Id<'users'>, id: Id<'automat
     return {
       ...summary(a, version?.version ?? 0),
       setup: a.setup,
+      /** Configuration revision, for reviewed change proposals and undo. */
+      revision: a.configurationRevision ?? 0,
       playbook: version ? (version.playbook as Playbook) : null,
       text: version?.text ?? null,
       playbookCreatedBy: version?.createdBy ?? null,
@@ -330,7 +334,7 @@ export async function savePlaybookFor(
   text: string,
 ): Promise<{ ok: true; version: number } | { ok: false; line: number; message: string }> {
   {
-    await automationOf(ctx, userId, id)
+    const automation = await automationOf(ctx, userId, id)
     if (text.length > MAX_PLAYBOOK_CHARS)
       return {
         ok: false as const,
@@ -352,6 +356,7 @@ export async function savePlaybookFor(
     await ctx.db.patch(id, {
       playbookVersionId: versionId,
       name: parsed.playbook.name,
+      configurationRevision: (automation.configurationRevision ?? 0) + 1,
       updatedAt: Date.now(),
     })
     return { ok: true as const, version }
@@ -389,6 +394,7 @@ export const storeGenerated = internalMutation({
       name: checked.name,
       playbookVersionId: versionId,
       generationError: undefined,
+      configurationRevision: (automation.configurationRevision ?? 0) + 1,
       updatedAt: Date.now(),
     })
     const user = await ctx.db.get(automation.userId)
@@ -429,27 +435,11 @@ export async function updateConfigFor(
 ): Promise<null> {
   {
     const automation = await automationOf(ctx, userId, id)
-    if (
-      changes.maxPostsPerRun !== undefined &&
-      (changes.maxPostsPerRun < 1 || changes.maxPostsPerRun > 3)
-    )
-      throw new Error('Between 1 and 3 stories a run')
-    if (changes.channelIds) {
-      const channels = await ctx.db
-        .query('bufferChannels')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
-        .collect()
-      const known = new Set(
-        channels.filter((c) => isTextService(c.service)).map((c) => c.channelId),
-      )
-      if (!changes.channelIds.length || changes.channelIds.some((c) => !known.has(c)))
-        throw new Error('Pick at least one channel, from your Buffer channels')
+    await validateConfigChanges(ctx, userId, changes)
+    const patch: Partial<Doc<'automations'>> = {
+      updatedAt: Date.now(),
+      configurationRevision: (automation.configurationRevision ?? 0) + 1,
     }
-    if (changes.cadence) {
-      const problem = cadenceProblem(changes.cadence)
-      if (problem) throw new Error(problem)
-    }
-    const patch: Partial<Doc<'automations'>> = { updatedAt: Date.now() }
     if (changes.cadence) patch.cadence = normalCadence(changes.cadence)
     if (changes.channelIds) patch.channelIds = changes.channelIds
     if (changes.postingMode) patch.postingMode = changes.postingMode
@@ -457,6 +447,45 @@ export async function updateConfigFor(
     await ctx.db.patch(id, patch)
     if (changes.cadence) await scheduleNext(ctx, { ...automation, ...patch })
     return null
+  }
+}
+
+/** Shared by manual/API edits and reviewed proposals, including validation before any writes. */
+export async function validateConfigChanges(
+  ctx: QueryCtx | MutationCtx,
+  userId: Id<'users'>,
+  changes: ConfigChanges,
+): Promise<void> {
+  if (
+    changes.maxPostsPerRun !== undefined &&
+    (!Number.isInteger(changes.maxPostsPerRun) ||
+      changes.maxPostsPerRun < 1 ||
+      changes.maxPostsPerRun > MAX_STORIES_PER_RUN)
+  )
+    throw new Error('Between 1 and 3 stories a run')
+  if (
+    changes.postingMode !== undefined &&
+    !['draft', 'queue', 'spread'].includes(changes.postingMode)
+  )
+    throw new Error('Choose draft, queue or spread posting mode')
+  if (changes.channelIds) {
+    const channels = await ctx.db
+      .query('bufferChannels')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .collect()
+    const known = new Set(
+      channels.filter((c) => isTextService(c.service) && c.usable).map((c) => c.channelId),
+    )
+    if (
+      !changes.channelIds.length ||
+      new Set(changes.channelIds).size !== changes.channelIds.length ||
+      changes.channelIds.some((c) => !known.has(c))
+    )
+      throw new Error('Pick at least one channel, from your Buffer channels')
+  }
+  if (changes.cadence) {
+    const problem = cadenceProblem(changes.cadence)
+    if (problem) throw new Error(problem)
   }
 }
 
@@ -477,6 +506,7 @@ export function normalCadence(
 }
 
 export function cadenceProblem(cadence: Doc<'automations'>['cadence']): string | null {
+  if (!['daily', 'weekly'].includes(cadence.preset)) return 'Choose a daily or weekly cadence.'
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(cadence.time))
     return 'Give the time as HH:MM, from 00:00 to 23:59.'
   if (cadence.preset === 'weekly') {
@@ -685,7 +715,7 @@ export async function addExcludeRuleFor(
   rule: string,
 ): Promise<number> {
   {
-    await automationOf(ctx, userId, id)
+    const automation = await automationOf(ctx, userId, id)
     const text = rule.trim().replace(/\s+/g, ' ')
     if (text.length < 3 || text.length > 200) throw new Error('A rule is one short sentence.')
     const latest = await latestVersion(ctx, id)
@@ -704,7 +734,11 @@ export async function addExcludeRuleFor(
       createdBy: 'user',
       createdAt: Date.now(),
     })
-    await ctx.db.patch(id, { playbookVersionId: versionId, updatedAt: Date.now() })
+    await ctx.db.patch(id, {
+      playbookVersionId: versionId,
+      configurationRevision: (automation.configurationRevision ?? 0) + 1,
+      updatedAt: Date.now(),
+    })
     return version
   }
 }

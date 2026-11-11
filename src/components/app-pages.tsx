@@ -16,7 +16,7 @@ import {
 } from '../lib/push'
 import { Automate } from './app-api'
 import { StepArt } from './step-art'
-import { bufferChannelUrl, channelProblem, errorText as message, whenIn } from '../lib/format'
+import { bufferChannelUrl, channelProblem, errorText as message, usd, whenIn } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
 
@@ -703,7 +703,7 @@ function BufferConnection() {
   )
 }
 
-/** This month in numbers: runs, what the AI cost, posts by channel. */
+/** This month’s runs and posts, plus provider usage for accounts with their own key. */
 function Usage() {
   const usage = useQuery(api.users.usage)
   if (!usage) return null
@@ -720,14 +720,12 @@ function Usage() {
             <th>Dry runs</th>
             <td className="tabular">{usage.dryRuns}</td>
           </tr>
-          <tr>
-            <th>AI cost</th>
-            <td className="tabular">
-              {usage.costUsd < 0.01 && usage.costUsd > 0
-                ? 'under $0.01'
-                : `$${usage.costUsd.toFixed(2)}`}
-            </td>
-          </tr>
+          {usage.ownKey ? (
+            <tr>
+              <th>AI provider cost</th>
+              <td className="tabular">{usd(usage.costUsd)}</td>
+            </tr>
+          ) : null}
           {usage.posts.map((p) => (
             <tr key={p.channel}>
               <th>Posts on {p.channel}</th>
@@ -738,8 +736,8 @@ function Usage() {
       </table>
       <p className="app-muted">
         {usage.ownKey
-          ? 'The AI cost is billed to your own Anthropic key.'
-          : `On Dispatchlet’s key: ${usage.runsLeft} free ${usage.runsLeft === 1 ? 'run' : 'runs'} and ${usage.dryRunsLeft} dry ${usage.dryRunsLeft === 1 ? 'run' : 'runs'} left.`}
+          ? 'Recorded AI usage, not a Dispatchlet bill. Runs on your own key are billed directly by Anthropic.'
+          : `Dispatchlet covers your free runs. ${usage.runsLeft} free ${usage.runsLeft === 1 ? 'run' : 'runs'} and ${usage.dryRunsLeft} dry ${usage.dryRunsLeft === 1 ? 'run' : 'runs'} left.`}
       </p>
     </section>
   )
