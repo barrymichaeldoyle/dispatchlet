@@ -248,6 +248,28 @@ describe('the home page’s automation rows', () => {
     )
   })
 
+  it('shows the latest run, whether it was this week or long before', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await seedUser(t)
+    const recent = await seedAutomation(t, userId, { name: 'Recent' })
+    await seedRun(t, userId, recent, { startedAt: NOW - 50 * HOUR })
+    const newest = await seedRun(t, userId, recent, { kind: 'dry', startedAt: NOW - 2 * HOUR })
+    const quiet = await seedAutomation(t, userId, { name: 'Quiet' })
+    await seedRun(t, userId, quiet, { startedAt: NOW - 40 * 24 * HOUR })
+    const old = await seedRun(t, userId, quiet, {
+      status: 'failed',
+      startedAt: NOW - 20 * 24 * HOUR,
+    })
+    await seedAutomation(t, userId, { name: 'Never' })
+
+    const data = await as(t, userId).query(api.automations.dashboard, {})
+    const last = Object.fromEntries(data!.automations.map((a) => [a.name, a.lastRun?._id ?? null]))
+    expect(last).toEqual({ Recent: newest, Quiet: old, Never: null })
+    const quietRow = data!.automations.find((a) => a.name === 'Quiet')
+    expect(quietRow?.weekRuns).toEqual([])
+    expect(quietRow?.lastRun?.status).toBe('failed')
+  })
+
   it('says a run is going only while the latest is unfinished and under fifteen minutes old', async () => {
     const t = convexTest(schema, modules)
     const userId = await seedUser(t)
