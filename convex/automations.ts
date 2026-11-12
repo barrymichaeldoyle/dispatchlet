@@ -637,16 +637,22 @@ export const dashboard = query({
       channels.filter((c) => c.maxLength).map((c) => [c.channelId, c.maxLength!] as const),
     )
     const live = rows.filter((a) => !a.deletedAt)
-    // Each automation's runs of the last week, read side by side. The latest run comes from that
-    // list, so the older-run lookup only happens for an automation that has not run this week.
+    // The week's runs for every automation in one read, oldest first. The latest run comes from
+    // there, so only an automation that has been quiet all week needs a lookup of its own.
+    const weekRuns = await ctx.db
+      .query('runs')
+      .withIndex('by_user_startedAt', (q) => q.eq('userId', userId).gt('startedAt', weekAgo))
+      .collect()
+    const runsBy = new Map<Id<'automations'>, Doc<'runs'>[]>()
+    for (const r of weekRuns) {
+      if (!r.automationId) continue
+      const list = runsBy.get(r.automationId)
+      if (list) list.push(r)
+      else runsBy.set(r.automationId, [r])
+    }
     const perAutomation = await Promise.all(
       live.map(async (a) => {
-        const runsThisWeek = await ctx.db
-          .query('runs')
-          .withIndex('by_automation_startedAt', (q) =>
-            q.eq('automationId', a._id).gt('startedAt', weekAgo),
-          )
-          .collect()
+        const runsThisWeek = runsBy.get(a._id) ?? []
         const last =
           runsThisWeek.at(-1) ??
           (await ctx.db

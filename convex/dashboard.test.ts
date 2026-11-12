@@ -270,6 +270,26 @@ describe('the home page’s automation rows', () => {
     expect(quietRow?.lastRun?.status).toBe('failed')
   })
 
+  it('gives each automation its own runs, and never another person’s', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await seedUser(t)
+    const other = await t.run((ctx) =>
+      ctx.db.insert('users', { email: 'b@example.com', emailPrefs: 'never' }),
+    )
+    const first = await seedAutomation(t, userId, { name: 'First' })
+    const second = await seedAutomation(t, userId, { name: 'Second' })
+    const theirs = await seedAutomation(t, other, { name: 'Theirs' })
+    const a = await seedRun(t, userId, first, { startedAt: NOW - 10 * HOUR })
+    const b = await seedRun(t, userId, second, { startedAt: NOW - 20 * HOUR })
+    await seedRun(t, other, theirs, { startedAt: NOW - 5 * HOUR })
+
+    const data = await as(t, userId).query(api.automations.dashboard, {})
+    const runs = Object.fromEntries(
+      data!.automations.map((x) => [x.name, x.weekRuns.map((r) => r._id)]),
+    )
+    expect(runs).toEqual({ First: [a], Second: [b] })
+  })
+
   it('says a run is going only while the latest is unfinished and under fifteen minutes old', async () => {
     const t = convexTest(schema, modules)
     const userId = await seedUser(t)

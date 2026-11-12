@@ -360,6 +360,8 @@ export default defineSchema({
     freeRun: v.optional(v.boolean()),
   })
     .index('by_user', ['userId'])
+    /** Every automation's run has its user (runs.start), so home reads the week in one query. */
+    .index('by_user_startedAt', ['userId', 'startedAt'])
     .index('by_automation_startedAt', ['automationId', 'startedAt'])
     .index('by_kind_startedAt', ['kind', 'startedAt'])
     .index('by_finishedAt_startedAt', ['finishedAt', 'startedAt'])
