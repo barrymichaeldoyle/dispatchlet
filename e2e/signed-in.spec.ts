@@ -262,3 +262,47 @@ test('settings splits everyday settings from developer tools, and old links stil
   )
   await expect(page.getByRole('heading', { name: 'Webhooks' })).toBeInViewport()
 })
+
+test('on a phone the settings sections are a row of chips that stays in reach', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openSignedIn(page, '/app/settings')
+  const index = page.getByRole('navigation', { name: 'Settings sections' })
+  const chip = (name: string) => index.getByRole('link', { name, exact: true })
+  await expect(chip('Account')).toHaveAttribute('aria-current', 'true')
+  // One row, not wrapped lines.
+  const tops = await index
+    .getByRole('link')
+    .evaluateAll((links) => links.map((a) => Math.round(a.getBoundingClientRect().top)))
+  expect(new Set(tops).size).toBe(1)
+
+  // Time zone sits near the end and never reaches the top, but a tap still marks it.
+  await chip('Time zone').click()
+  await expect(chip('Time zone')).toHaveAttribute('aria-current', 'true')
+  await expect(chip('Time zone')).toBeInViewport({ ratio: 1 })
+  await expect(page.getByRole('heading', { name: 'Time zone' })).toBeInViewport()
+  const navBottom = await index.evaluate((n) => n.getBoundingClientRect().bottom)
+  const headingTop = await page
+    .getByRole('heading', { name: 'Time zone' })
+    .evaluate((h) => h.getBoundingClientRect().top)
+  expect(headingTop).toBeGreaterThan(navBottom)
+
+  await page.mouse.wheel(0, -100_000)
+  await expect(chip('Account')).toHaveAttribute('aria-current', 'true')
+})
+
+for (const colorScheme of ['light', 'dark'] as const) {
+  test(`settings on a phone passes accessibility checks in ${colorScheme} mode`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' })
+    await openSignedIn(page, '/app/settings')
+    await expect(page.getByRole('heading', { name: 'Delete account' })).toBeAttached()
+    const { violations } = await new AxeBuilder({ page }).analyze()
+    expect(
+      violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
+    ).toEqual([])
+  })
+}

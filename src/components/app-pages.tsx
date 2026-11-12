@@ -2,7 +2,7 @@ import { PageSkeleton } from './page-skeleton'
 import { useAuthActions } from '@convex-dev/auth/react'
 import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { describeCadence } from '../../convex/lib/schedule'
@@ -767,26 +767,58 @@ const DEVELOPER_SECTIONS = [
 ] as const
 const DEVELOPER_IDS = new Set<string>(DEVELOPER_SECTIONS.map(([id]) => id))
 
-/** Which settings section is at the top of the screen, for the index beside them. */
-function useCurrentSection(ids: readonly string[]): string {
+/**
+ * Which settings section is at the top of the screen, for the index beside them. A section the
+ * person picked (a tap in the index, or a link such as #timezone) counts until they scroll
+ * themselves, since one near the end of the page never reaches the top to be seen there.
+ */
+function useCurrentSection(ids: readonly string[]): [string, (id: string) => void] {
   const [current, setCurrent] = useState<string>(ids[0] ?? '')
+  const [picked, setPicked] = useState<string | null>(() => {
+    const hash =
+      typeof window === 'undefined' ? '' : decodeURIComponent(window.location.hash.slice(1))
+    return ids.includes(hash) ? hash : null
+  })
   useEffect(() => {
-    const seen = new Map<string, boolean>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) seen.set(e.target.id, e.isIntersecting)
-        const first = ids.find((id) => seen.get(id))
-        if (first) setCurrent(first)
-      },
-      { rootMargin: '0px 0px -70% 0px' },
-    )
-    for (const id of ids) {
-      const el = document.getElementById(id)
-      if (el) observer.observe(el)
+    if (!picked) return
+    const release = () => setPicked(null)
+    const events = ['wheel', 'touchmove', 'keydown'] as const
+    // Not on this tick, so the key or tap that picked it does not release it at once.
+    const timer = window.setTimeout(() => {
+      for (const e of events) window.addEventListener(e, release, { passive: true, once: true })
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      for (const e of events) window.removeEventListener(e, release)
     }
-    return () => observer.disconnect()
+  }, [picked])
+  useEffect(() => {
+    // The last section whose top has passed a line 30% down the screen, or the first one when
+    // none has (the top of the page).
+    let frame = 0
+    const update = () => {
+      frame = 0
+      const line = window.innerHeight * 0.3
+      let found = ids[0] ?? ''
+      for (const id of ids) {
+        const el = document.getElementById(id)
+        if (el && el.getBoundingClientRect().top <= line) found = id
+      }
+      setCurrent(found)
+    }
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(update)
+    }
+    schedule()
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule, { passive: true })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
   }, [ids])
-  return current
+  return [picked ?? current, setPicked]
 }
 
 /**
@@ -807,7 +839,10 @@ function useScrollToHash() {
       const target = document.getElementById(id)
       const page = document.scrollingElement ?? document.documentElement
       const atBottom = window.scrollY + window.innerHeight >= page.scrollHeight - 1
-      const offset = target ? target.getBoundingClientRect().top : 0
+      // Measured from where the section should sit: below the sticky chips on narrow screens.
+      const offset = target
+        ? target.getBoundingClientRect().top - parseFloat(getComputedStyle(target).scrollMarginTop)
+        : 0
       // A section near the end cannot reach the top; at the bottom of the page it is as close as it gets.
       if (target && Math.abs(offset) > 30 && !(atBottom && offset > 0))
         // Instant: arriving at a link should land, not animate, and the site's smooth scrolling
@@ -835,13 +870,29 @@ function SettingsIndex({
 }) {
   useScrollToHash()
   const ids = useMemo(() => sections.map(([id]) => id), [sections])
-  const current = useCurrentSection(ids)
+  const [current, pick] = useCurrentSection(ids)
+  const list = useRef<HTMLOListElement>(null)
+  // When the index is a sideways row, keep the marked section's chip in view.
+  useEffect(() => {
+    const ol = list.current
+    const chip = ol?.querySelector<HTMLElement>(`a[href="#${current}"]`)
+    if (!ol || !chip || ol.scrollWidth <= ol.clientWidth) return
+    const left = chip.getBoundingClientRect().left - ol.getBoundingClientRect().left + ol.scrollLeft
+    if (left < ol.scrollLeft || left + chip.offsetWidth > ol.scrollLeft + ol.clientWidth) {
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ol.scrollTo({ left: left - 16, behavior: still ? 'instant' : 'smooth' })
+    }
+  }, [current])
   return (
     <nav className="settings-index" aria-label="Settings sections">
-      <ol>
+      <ol ref={list}>
         {sections.map(([id, label]) => (
           <li key={id}>
-            <a href={`#${id}`} aria-current={current === id ? 'true' : undefined}>
+            <a
+              href={`#${id}`}
+              aria-current={current === id ? 'true' : undefined}
+              onClick={() => pick(id)}
+            >
               {label}
             </a>
           </li>
