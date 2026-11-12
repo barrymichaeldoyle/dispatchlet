@@ -106,6 +106,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     else proceed()
   }
   const allowance = a.allowance
+  // Out of free runs, the server would only refuse; the line under the title says why.
+  const noRuns = allowance?.runsLeft === 0
+  const noDryRuns = allowance?.dryRunsLeft === 0
   const status = STATUS_WORDS[a.status] ?? a.status
   // The run going now, and the first dry run's result, drive the "what next" line under the title.
   const live = runs?.find((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000)
@@ -137,7 +140,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             <button
               type="button"
               className="app-gate-primary"
-              disabled={busy !== null || running}
+              disabled={busy !== null || running || noRuns}
               onClick={() => run(false)}
             >
               <BusyLabel busy={busy === 'now'} idle="Run now" working="Starting" />
@@ -145,7 +148,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             <button
               type="button"
               className="app-gate-secondary"
-              disabled={busy !== null || running}
+              disabled={busy !== null || running || noDryRuns}
               onClick={() => run(true)}
             >
               <BusyLabel busy={busy === 'dry'} idle="Dry run" working="Starting" />
@@ -285,7 +288,8 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
       ) : null}
       {allowance && !allowance.ownKey ? (
         <p className="app-muted">
-          Dispatchlet covers your free runs. {allowance.dryRunsLeft} dry{' '}
+          Dispatchlet covers your free runs. {allowance.runsLeft} free{' '}
+          {allowance.runsLeft === 1 ? 'run' : 'runs'} and {allowance.dryRunsLeft} dry{' '}
           {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
           <Link to="/app/settings">Add your own Anthropic key</Link> to lift the limit.
         </p>
@@ -320,7 +324,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           panelId={assistantId}
           automation={a}
           onDryRun={() => run(true)}
-          dryRunDisabled={busy !== null || running || !a.playbook}
+          dryRunDisabled={busy !== null || running || noDryRuns || !a.playbook}
         />
       ) : null}
       <nav className="app-tabs" aria-label="Sections">
