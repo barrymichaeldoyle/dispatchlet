@@ -646,8 +646,8 @@ export const dashboard = query({
     const runsBy = new Map<Id<'automations'>, Doc<'runs'>[]>()
     for (const r of weekRuns) {
       if (!r.automationId) continue
-      const list = runsBy.get(r.automationId)
-      if (list) list.push(r)
+      const runs = runsBy.get(r.automationId)
+      if (runs) runs.push(r)
       else runsBy.set(r.automationId, [r])
     }
     const perAutomation = await Promise.all(
@@ -666,8 +666,8 @@ export const dashboard = query({
     const sentBy = new Map<Id<'automations'>, Doc<'posts'>[]>()
     for (const p of recentPosts) {
       if (!p.bufferPostId) continue
-      const list = sentBy.get(p.automationId)
-      if (list) list.push(p)
+      const sent = sentBy.get(p.automationId)
+      if (sent) sent.push(p)
       else sentBy.set(p.automationId, [p])
     }
     const automations = []
