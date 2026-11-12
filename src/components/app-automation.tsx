@@ -17,7 +17,7 @@ import {
   errorText,
   metricLabel,
   serviceName,
-  whenIn,
+  whenInSentence,
   zoneName,
 } from '../lib/format'
 import { AutomationAssistant } from './automation-chat'
@@ -114,8 +114,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     a.status === 'ready' && latest?.finishedAt && runs?.every((r) => r.kind === 'dry')
       ? latest
       : null
-  const firstRunAt = whenIn(nextRunAt(a.cadence, a.timezone), a.timezone)
-  const firstRun = firstRunAt.includes(' at ') ? firstRunAt : `today at ${firstRunAt}`
+  const firstRun = whenInSentence(nextRunAt(a.cadence, a.timezone), a.timezone)
   // A brand-new automation has nothing to count yet; the stats arrive with its first run.
   const showStats = Boolean(runs?.length) || a.status === 'active' || a.status === 'paused'
   return (

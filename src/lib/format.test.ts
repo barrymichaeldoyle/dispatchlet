@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   bufferChannelUrl,
   channelHint,
+  whenInSentence,
   channelProblem,
   ideaLinkState,
   draftEmailNote,
@@ -131,5 +132,22 @@ describe('what drafts promise about email', () => {
     expect(draftEmailNote('problems', true)).toMatch(/Approval emails are off .*only problems/)
     expect(draftEmailNote('never', true)).toMatch(/Approval emails are off .*never/)
     expect(draftEmailNote('every', false)).toMatch(/^Email is off in Settings/)
+  })
+})
+
+describe('whenInSentence', () => {
+  const now = Date.UTC(2026, 10, 12, 18, 0) // Thursday
+  it('says today, tomorrow, a weekday within the week, then a date', () => {
+    expect(whenInSentence(Date.UTC(2026, 10, 12, 21, 0), 'UTC', now)).toBe('today at 21:00')
+    expect(whenInSentence(Date.UTC(2026, 10, 13, 9, 0), 'UTC', now)).toBe('tomorrow at 09:00')
+    expect(whenInSentence(Date.UTC(2026, 10, 16, 9, 0), 'UTC', now)).toBe('on Monday at 09:00')
+    expect(whenInSentence(Date.UTC(2026, 10, 20, 9, 0), 'UTC', now)).toBe('on 20 Nov at 09:00')
+  })
+
+  it('counts days in the automation’s zone', () => {
+    // 23:30 UTC on the 12th is already the 13th in Johannesburg.
+    expect(whenInSentence(Date.UTC(2026, 10, 12, 23, 30), 'Africa/Johannesburg', now)).toBe(
+      'tomorrow at 01:30',
+    )
   })
 })

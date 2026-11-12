@@ -24,7 +24,32 @@ export function whenIn(at: number, timeZone: string, now = Date.now()): string {
  * then "15 Oct, 09:00". For the home page, where a date alone makes people count days.
  */
 export function relativeWhen(at: number, timeZone: string, now = Date.now()): string {
-  const time = timeIn(at, timeZone)
+  const { days, time } = dayOffset(at, timeZone, now)
+  if (days === 0) return `Today, ${time}`
+  if (days === 1) return `Tomorrow, ${time}`
+  if (days === -1) return `Yesterday, ${time}`
+  if (days > 1 && days < 7) return `${weekdayIn(at, timeZone, 'short')}, ${time}`
+  return `${dateIn(at, timeZone)}, ${time}`
+}
+
+/**
+ * A future time as a sentence says it: "today at 09:00", "tomorrow at 09:00", "on Saturday at
+ * 09:00" within the coming week, then "on 20 Nov at 09:00".
+ */
+export function whenInSentence(at: number, timeZone: string, now = Date.now()): string {
+  const { days, time } = dayOffset(at, timeZone, now)
+  if (days <= 0) return `today at ${time}`
+  if (days === 1) return `tomorrow at ${time}`
+  if (days < 7) return `on ${weekdayIn(at, timeZone, 'long')} at ${time}`
+  return `on ${dateIn(at, timeZone)} at ${time}`
+}
+
+function weekdayIn(at: number, timeZone: string, weekday: 'short' | 'long'): string {
+  return new Date(at).toLocaleDateString('en-GB', { timeZone, weekday })
+}
+
+/** Whole calendar days from now to at in the zone, and at's time there. */
+function dayOffset(at: number, timeZone: string, now: number) {
   const dayNumber = (t: number) => {
     const [y, m, d] = new Date(t)
       .toLocaleDateString('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -32,15 +57,7 @@ export function relativeWhen(at: number, timeZone: string, now = Date.now()): st
       .map(Number)
     return Date.UTC(y!, m! - 1, d!) / 86_400_000
   }
-  const days = dayNumber(at) - dayNumber(now)
-  if (days === 0) return `Today, ${time}`
-  if (days === 1) return `Tomorrow, ${time}`
-  if (days === -1) return `Yesterday, ${time}`
-  if (days > 1 && days < 7) {
-    const weekday = new Date(at).toLocaleDateString('en-GB', { timeZone, weekday: 'short' })
-    return `${weekday}, ${time}`
-  }
-  return `${dateIn(at, timeZone)}, ${time}`
+  return { days: dayNumber(at) - dayNumber(now), time: timeIn(at, timeZone) }
 }
 
 /**
