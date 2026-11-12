@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { environmentFor, isLocalHost, withoutQuery } from './errors'
+import { environmentFor, isLocalHost, isStaleBuildError, withoutQuery } from './errors'
 
 describe('browser error reports', () => {
   test('tell production from everything else', () => {
@@ -20,5 +20,21 @@ describe('browser error reports', () => {
       'https://dispatchlet.com/oauth/consent',
     )
     expect(withoutQuery('https://dispatchlet.com/app')).toBe('https://dispatchlet.com/app')
+  })
+
+  test('skip the missing files of an old build, which a reload fixes', () => {
+    expect(
+      isStaleBuildError(
+        new TypeError(
+          'Failed to fetch dynamically imported module: https://dispatchlet.com/assets/app-CBK65lTy.js',
+        ),
+      ),
+    ).toBe(true)
+    expect(isStaleBuildError(new TypeError('error loading dynamically imported module'))).toBe(true)
+    expect(isStaleBuildError('Importing a module script failed.')).toBe(true)
+    expect(
+      isStaleBuildError(new TypeError("Cannot read properties of undefined (reading 'some')")),
+    ).toBe(false)
+    expect(isStaleBuildError(undefined)).toBe(false)
   })
 })

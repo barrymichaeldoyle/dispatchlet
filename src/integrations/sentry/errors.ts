@@ -39,6 +39,18 @@ export function withoutQuery(url: string): string {
   return url.split(/[?#]/)[0] ?? url
 }
 
+/**
+ * A deploy replaces the hashed files, so a tab opened before it asks for ones that are gone. The
+ * router reloads the page when a page's code fails to load (lazyRouteComponent), which fixes it;
+ * a report would only be noise. Browsers word it differently: Chrome, Firefox, Safari.
+ */
+export function isStaleBuildError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
+  return /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i.test(
+    message,
+  )
+}
+
 export function initializeErrorReporting(): Promise<void> {
   if (!allowed()) return Promise.resolve()
   loading ??= import('./sdk')
@@ -71,7 +83,7 @@ export function initializeErrorReporting(): Promise<void> {
 }
 
 export function reportToSentry(error: unknown) {
-  if (!allowed()) return
+  if (!allowed() || isStaleBuildError(error)) return
   if (sdk) sdk.captureException(error)
   else if (pending.length < 10) pending.push(error)
 }
