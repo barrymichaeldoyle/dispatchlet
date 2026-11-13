@@ -6,7 +6,7 @@ const SKIPPED = CANDIDATES.filter(([, status]) => status.endsWith('skipped'))
 
 /**
  * Where one run's posts go: each channel sits at the end of a line from the run.
- * `x` is in the 360-wide viewBox (the column scales it); `y` is in pixels.
+ * Both are in the 360 by 210 viewBox, which stretches to the room the fan is given.
  */
 const CHANNELS = [
   { channel: 'X', x: 70, y: 150, path: 'M14 8 C 14 90, 40 150, 70 150' },
@@ -17,14 +17,12 @@ const CHANNELS = [
 ]
 
 /**
- * Decoration for the hero's example run: the stories it skipped, pushed behind the post it wrote,
- * and the run fanning out to every channel Buffer can post to. Purely visual, so it is hidden from
- * assistive tech; the run itself is described in the figure's text.
+ * The stories the example run skipped, pushed behind the post it wrote. Purely visual, so it is
+ * hidden from assistive tech; the run itself is described in the figure's text.
  */
 export function HeroField() {
   return (
     <div className="hero-field" aria-hidden="true">
-      <div className="hero-field-grid" />
       {SKIPPED.map(([title, status, source], index) => (
         <div key={title} className="hero-slip" data-slip={index}>
           <span className="hero-slip-source">{source}</span>
@@ -32,7 +30,18 @@ export function HeroField() {
           <span className="hero-slip-status">{status}</span>
         </div>
       ))}
-      <div className="hero-fan">
+    </div>
+  )
+}
+
+/**
+ * The run fanning out to every channel Buffer can post to. It fills whatever room the hero has
+ * left beside the copy and stretches to fit, so it never runs past the hero; see `.hero-fan`.
+ */
+export function HeroFan() {
+  return (
+    <div className="hero-fan" aria-hidden="true">
+      <div className="hero-fan-inner">
         <svg className="hero-fan-lines" viewBox="0 0 360 210" preserveAspectRatio="none">
           {CHANNELS.map(({ channel, path }, index) => (
             <path
@@ -50,7 +59,7 @@ export function HeroField() {
             className="hero-fan-channel"
             style={{
               left: `${(x / 360) * 100}%`,
-              top: `${y}px`,
+              top: `${(y / 210) * 100}%`,
               animationDelay: `${index * -1.7}s, ${index * 1.6}s`,
             }}
           >

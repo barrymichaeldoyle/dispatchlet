@@ -2258,6 +2258,14 @@ html:has(.landing-header) {
   position: relative;
   isolation: isolate;
 }
+/* The proof and its fan share the copy's full height, so the fan can fill what's left over. */
+.landing-proof-column {
+  position: relative;
+  isolation: isolate;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+}
 .hero-field {
   position: absolute;
   inset: 0;
@@ -2267,7 +2275,8 @@ html:has(.landing-header) {
 }
 .hero-field-grid {
   position: absolute;
-  inset: -48px -24px -230px -72px;
+  z-index: -1;
+  inset: -48px -24px 0 -72px;
   background: radial-gradient(
       circle,
       color-mix(in srgb, var(--color-pine) 38%, transparent) 1px,
@@ -2317,12 +2326,25 @@ html:has(.landing-header) {
   left: -64px;
   rotate: 4deg;
 }
+/*
+ * The fan takes the room left under the caption, up to its full size, and squashes to fit. Too
+ * little room (the copy column is barely taller than the proof) and it steps aside entirely.
+ */
 .hero-fan {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  max-height: 250px;
+  container-type: size;
+}
+.hero-fan-inner {
   position: absolute;
-  top: calc(100% + 14px);
-  left: 0;
-  width: 100%;
-  height: 210px;
+  inset: 22px 0 22px;
+}
+@container (height < 150px) {
+  .hero-fan-inner {
+    display: none;
+  }
 }
 .hero-fan-lines {
   position: absolute;
@@ -2341,7 +2363,7 @@ html:has(.landing-header) {
 }
 .hero-fan-origin {
   position: absolute;
-  top: 3px;
+  top: calc(8 / 210 * 100% - 5px);
   left: calc(14 / 360 * 100% - 5px);
   width: 10px;
   height: 10px;
@@ -2425,7 +2447,7 @@ html:has(.landing-header) {
     rotate: 3deg;
   }
   .hero-field-grid {
-    inset: -40px -20px -24px;
+    inset: -40px -20px 0;
   }
 }
 @media (forced-colors: active) {

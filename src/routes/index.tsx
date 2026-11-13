@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
-import { HeroField } from '../components/hero-field'
+import { HeroFan, HeroField } from '../components/hero-field'
 import { BrandText } from '../components/brand-text'
 import { BufferMark } from '../components/brand-icons'
 import { SiteFooter } from '../components/site-footer'
@@ -241,29 +241,33 @@ function Home() {
               <a href={SOURCE_URL}>Read the source</a>
             </p>
           </div>
-          <figure className="landing-proof flow-writing">
-            <HeroField />
-            <PostPreview channel="X" length={HERO_POST.length}>
-              {HERO_POST}
-            </PostPreview>
-            <div className="landing-proof-day">
-              <p className="landing-proof-receipt">
-                Found {CANDIDATES.length} stories, skipped {SKIPPED}, wrote {STORIES.length * 2}{' '}
-                posts.
-              </p>
-              <ol>
-                {STORIES.map((story) => (
-                  <li key={story.title}>
-                    <time>{story.time}</time>
-                    <span>{story.title}</span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-            <figcaption>
-              <BrandText>{`One morning’s run for an example account. Each story gets an X and a LinkedIn post in Buffer.`}</BrandText>
-            </figcaption>
-          </figure>
+          <div className="landing-proof-column">
+            <div className="hero-field-grid" aria-hidden="true" />
+            <figure className="landing-proof flow-writing">
+              <HeroField />
+              <PostPreview channel="X" length={HERO_POST.length}>
+                {HERO_POST}
+              </PostPreview>
+              <div className="landing-proof-day">
+                <p className="landing-proof-receipt">
+                  Found {CANDIDATES.length} stories, skipped {SKIPPED}, wrote {STORIES.length * 2}{' '}
+                  posts.
+                </p>
+                <ol>
+                  {STORIES.map((story) => (
+                    <li key={story.title}>
+                      <time>{story.time}</time>
+                      <span>{story.title}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <figcaption>
+                <BrandText>{`One morning’s run for an example account. Each story gets an X and a LinkedIn post in Buffer.`}</BrandText>
+              </figcaption>
+            </figure>
+            <HeroFan />
+          </div>
         </section>
 
         <ExampleRun ref={demo} />
