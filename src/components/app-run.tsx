@@ -9,6 +9,7 @@ import { BufferMark, ChannelMark } from './brand-icons'
 import { PostText } from './post-text'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
+import { toolInput, toolNote } from '../../convex/lib/runLog'
 import type { Service } from '../../convex/lib/ai/setup'
 import {
   bufferChannelUrl,
@@ -25,14 +26,6 @@ import {
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
 import { usePageTitle } from '../lib/use-page-title'
-
-const DECISION_WORDS: Record<string, string> = {
-  kept: 'Kept',
-  dry: 'Kept',
-  skipped_dup: 'Already covered',
-  skipped_quality: 'Skipped',
-  skipped_limit: 'Over the limit',
-}
 
 /** Matches runs.IDEA_DECISIONS: good stories that missed the cut, and a dry run's picks. */
 const IDEA_DECISIONS = new Set(['skipped_limit', 'skipped_quality', 'dry'])
@@ -87,6 +80,7 @@ const POST_WORDS: Record<string, string> = {
   scheduled: 'scheduled',
   deleted: 'deleted in Buffer',
   sent: 'sent',
+  publishing: 'sending to Buffer',
   failed: 'failed',
 }
 
@@ -376,6 +370,289 @@ function StoryReview({
     </form>
   )
 }
+/** Stories a run chose: kept on a real run, picked on a dry run. */
+const KEPT = new Set(['kept', 'dry'])
+
+/** The four things a run does, in order. A dry run stops before Buffer. */
+const PHASES = [
+  { key: 'research', label: 'Research', steps: ['research', 'search', 'read', 'plan', 'notes'] },
+  { key: 'select', label: 'Choose', steps: ['select'] },
+  { key: 'write', label: 'Write', steps: ['write'] },
+  { key: 'publish', label: 'Send to Buffer', steps: ['publish'] },
+] as const
+
+const LIVE_WORDS = ['Researching', 'Choosing stories', 'Writing posts', 'Sending to Buffer']
+
+/** How far a run has got: the index of the phase it is in, from its status and its log. */
+function phaseOf(run: RunData): number {
+  if (run.status === 'publishing') return 3
+  if (run.status === 'writing') return 2
+  let at = 0
+  for (const s of run.steps) {
+    const index = PHASES.findIndex((p) => (p.steps as readonly string[]).includes(s.step))
+    if (index > at) at = index
+  }
+  return at
+}
+
+/** "48 s", "1 min 8 s". */
+function took(ms: number): string {
+  const s = Math.max(1, Math.round(ms / 1000))
+  return s < 60 ? `${s} s` : `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} s` : ''}`
+}
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** What the run came to, in one line, and what the person can do about it. */
+function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; shared: boolean }) {
+  const setStatus = useMutation(api.automations.setStatus)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const live = !run.finishedAt
+  const tz = run.timezone
+  const reviewed = new Set(run.stories.filter((s) => s.review).map((s) => s._id))
+  const posts = run.posts.filter((p) => !reviewed.has(p.storyId))
+  const count = (...statuses: string[]) => posts.filter((p) => statuses.includes(p.status)).length
+  const kept = run.stories.filter((s) => KEPT.has(s.decision)).length
+  const found = run.stories.length
+  const repeats = run.stories.filter((s) => s.decision === 'skipped_dup').length
+  const drafts = count('draft')
+  const sent = count('sent')
+  const booked = count('queued', 'scheduled', 'publishing')
+  const held = count('held')
+  const wouldSend = count('dry')
+  const lastNote = run.steps.at(-1)?.note ?? ''
+
+  let headline: string
+  let detail: string | null = null
+  if (live) headline = `${LIVE_WORDS[phaseOf(run)]}…`
+  else if (run.status === 'failed') {
+    headline = 'This run stopped early.'
+    detail = lastNote
+  } else if (run.status === 'skipped') {
+    headline = 'This run was skipped.'
+    detail = lastNote
+  } else if (run.kind === 'dry')
+    headline = wouldSend
+      ? `It would send ${plural(wouldSend, 'post')} for ${plural(kept, 'story', 'stories')}.`
+      : kept
+        ? `It kept ${plural(kept, 'story', 'stories')}, but none of the posts passed the checks.`
+        : 'Nothing worth posting this time.'
+  else if (drafts)
+    headline = `${plural(drafts, 'draft')} ${drafts === 1 ? 'is' : 'are'} waiting for your approval.`
+  else if (booked || sent)
+    headline = [
+      booked ? `${plural(booked, 'post')} scheduled in Buffer` : null,
+      sent ? `${plural(sent, 'post')} ${booked ? 'already sent' : 'sent'}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ')
+      .concat('.')
+  else if (held) headline = `${plural(held, 'post')} waiting for Buffer.`
+  else if (kept) headline = 'No posts reached Buffer.'
+  else headline = found ? 'Nothing new worth posting this time.' : 'No stories found this time.'
+  if (!live && run.status === 'done' && held && (drafts || booked || sent))
+    detail = `${plural(held, 'more post')} waiting for Buffer to accept them.`
+
+  const facts = [
+    found
+      ? `Found ${plural(found, 'story', 'stories')}, kept ${kept}${repeats ? `, ${repeats} already covered` : ''}.`
+      : null,
+    run.usage.webSearches
+      ? `${plural(run.usage.webSearches, 'search', 'searches')}, ${plural(run.usage.webFetches, 'page')} read.`
+      : null,
+    run.finishedAt ? `Took ${took(run.finishedAt - run.startedAt)}.` : null,
+    run.finishedAt && run.costUsd > 0 ? `Cost ${usd(run.costUsd)}.` : null,
+  ].filter(Boolean)
+
+  const canTurnOn =
+    !shared && id && run.kind === 'dry' && !live && run.automation?.status === 'ready'
+  const next = run.automation?.nextRunAt ?? null
+  return (
+    <div className="run-outcome" data-live={live} data-status={run.status} role="status">
+      {live ? (
+        <ol className="run-phases" aria-label="Progress">
+          {PHASES.filter((p) => run.kind !== 'dry' || p.key !== 'publish').map((p, i) => {
+            const at = phaseOf(run)
+            return (
+              <li key={p.key} data-state={i < at ? 'done' : i === at ? 'now' : 'later'}>
+                {p.label}
+              </li>
+            )
+          })}
+        </ol>
+      ) : null}
+      <p className="run-headline">
+        {live ? <span className="flow-spinner" aria-hidden="true" /> : null}
+        {headline}
+      </p>
+      {detail ? <p className="run-detail">{detail}</p> : null}
+      {facts.length ? <p className="run-facts">{facts.join(' ')}</p> : null}
+      {run.kind === 'dry' && !live ? (
+        <p className="run-detail">A dry run sends nothing to Buffer.</p>
+      ) : null}
+      {canTurnOn ? (
+        <div className="run-next">
+          <button
+            type="button"
+            className="app-gate-primary"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              setError(null)
+              setStatus({ id, status: 'active' })
+                .catch((reason: unknown) =>
+                  setError(errorText(reason, 'Not turned on. Try again.')),
+                )
+                .finally(() => setBusy(false))
+            }}
+          >
+            <BusyLabel busy={busy} idle="Turn it on" working="Turning on" />
+          </button>
+          <span className="app-muted">Happy with these? From now on it runs on its schedule.</span>
+          {error ? (
+            <span className="app-connection-error" role="alert">
+              {error}
+            </span>
+          ) : null}
+        </div>
+      ) : !live && !shared && next ? (
+        <p className="run-detail">Next run {relativeWhenInline(next, tz)}.</p>
+      ) : null}
+    </div>
+  )
+}
+
+/** "Sent Tue, 08:22", "Scheduled for tomorrow, 09:00", "Draft": a post's status and its one time. */
+function postWhen(post: RunData['posts'][number], tz: string): string {
+  const words = POST_WORDS[post.status] ?? post.status
+  const status = words.charAt(0).toUpperCase() + words.slice(1)
+  if (post.status === 'sent') {
+    const at = post.dueAt ?? post.sentAt
+    return at ? `${status} ${relativeWhenInline(at, tz)}` : status
+  }
+  if (post.dueAt) return `${status} for ${relativeWhenInline(post.dueAt, tz)}`
+  if (post.plannedFor) return `${status}, planned for ${relativeWhenInline(post.plannedFor, tz)}`
+  return status
+}
+
+/** One post as the network will show it: the only card on the page. */
+function PostCard({
+  post,
+  story,
+  run,
+  shared,
+}: {
+  post: RunData['posts'][number]
+  story: RunData['stories'][number] | undefined
+  run: RunData
+  shared: boolean
+}) {
+  const approve = useAction(api.runs.approve)
+  const [editing, setEditing] = useState(false)
+  const [approving, setApproving] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const tz = run.timezone
+  const parts = [post.text, ...(post.thread ?? [])]
+  const actionable = post.status === 'draft' && !story?.review && !shared && !editing
+  return (
+    <li className="app-draft" data-status={post.status}>
+      <p className="app-draft-head">
+        <span className="app-draft-avatar" aria-hidden="true">
+          <ChannelMark channel={serviceName(post.service)} size={14} />
+        </span>
+        <strong>{post.channelName}</strong>
+        <span className="run-post-status">{postWhen(post, tz)}</span>
+      </p>
+      {editing ? (
+        <DraftEditor
+          postId={post._id}
+          text={post.text}
+          service={post.service}
+          limit={post.limit}
+          onDone={() => setEditing(false)}
+        />
+      ) : (
+        parts.map((part, i) => <PostText key={i} text={part} />)
+      )}
+      {post.linkAttachment ? (
+        <p className="app-muted">Link card: {post.linkAttachment.title}</p>
+      ) : null}
+      {post.metrics?.length ? (
+        <p className="app-muted tabular">
+          {post.metrics
+            .filter((m) => m.value > 0)
+            .map(metricLabel)
+            .join(', ')}
+        </p>
+      ) : null}
+      {post.reason ? <p className="run-post-reason">{post.reason}</p> : null}
+      {story?.review && post.bufferPostId ? (
+        <p className="app-muted">Skipped in Dispatchlet. Its status in Buffer is unchanged.</p>
+      ) : null}
+      <div className="app-gate-actions">
+        <span className="app-muted tabular run-post-length">
+          {measuredLength(post.text, post.service as Service)} characters
+          {post.thread?.length ? `, ${post.thread.length + 1} parts` : ''}
+        </span>
+        {actionable ? (
+          <button type="button" className="app-link" onClick={() => setEditing(true)}>
+            Edit
+          </button>
+        ) : null}
+        {actionable ? (
+          <button
+            type="button"
+            className="app-gate-primary"
+            disabled={approving}
+            onClick={() => {
+              setApproving(true)
+              approve({ postId: post._id })
+                .then(setNote)
+                .catch((reason: unknown) => setNote(errorText(reason, 'Not approved.')))
+                .finally(() => setApproving(false))
+            }}
+          >
+            <BusyLabel busy={approving} idle="Approve" working="Approving" />
+          </button>
+        ) : null}
+        {post.externalLink ? (
+          <a
+            href={webHref(post.externalLink)}
+            target="_blank"
+            rel="noreferrer"
+            className="app-link"
+          >
+            See it live
+          </a>
+        ) : null}
+        {post.bufferPostId && !shared ? (
+          <a
+            href={bufferChannelUrl(post.channelId, post.status, post.bufferPostId)}
+            target="_blank"
+            rel="noreferrer"
+            className="app-gate-secondary app-buffer-link"
+          >
+            <BufferMark size={14} />
+            Open in Buffer
+          </a>
+        ) : null}
+        {note ? (
+          <span className="app-muted" role="status">
+            {note}
+          </span>
+        ) : null}
+      </div>
+    </li>
+  )
+}
+
+/** Why a story was left out, as a short tag. */
+const LEFT_OUT_WORDS: Record<string, string> = {
+  skipped_dup: 'Already covered',
+  skipped_quality: 'Not sure enough',
+  skipped_limit: 'No room',
+}
 
 function RunView({
   run,
@@ -389,7 +666,6 @@ function RunView({
   const runId = run._id
   const runName = `${run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'}, ${relativeWhen(run.startedAt, run.timezone)}`
   usePageTitle(shared ? null : `${runName} · ${run.automationName}`)
-  const approve = useAction(api.runs.approve)
   const share = useMutation(api.runs.share)
   const unshare = useMutation(api.runs.unshare)
   const [shareNote, setShareNote] = useState<string | null>(null)
@@ -403,17 +679,13 @@ function RunView({
       .catch((reason: unknown) => setShareError(errorText(reason, 'That did not work. Try again.')))
       .finally(() => setShareBusy(false))
   }
-  const [approving, setApproving] = useState<string | null>(null)
-  const [editing, setEditing] = useState<string | null>(null)
-  const [notes, setNotes] = useState<Record<string, string>>({})
   const live = !run.finishedAt
-  const stepsDone = ['research', 'select', 'write', 'publish'].filter((s) =>
-    run.steps.some((x) => x.step === s),
-  ).length
-  const progress = run.finishedAt ? 1 : Math.max(0.08, stepsDone / 4)
-  const tz = run.timezone
+  const kept = run.stories.filter((s) => KEPT.has(s.decision))
+  const leftOut = run.stories.filter((s) => !KEPT.has(s.decision))
+  const postsFor = (storyId: Id<'stories'>) => run.posts.filter((p) => p.storyId === storyId)
+  const orphans = run.posts.filter((p) => !kept.some((s) => s._id === p.storyId))
   return (
-    <>
+    <article className="run-page">
       {shared || !id ? (
         <p className="app-crumbs">{run.automationName}, shared from Dispatchlet.</p>
       ) : (
@@ -424,253 +696,234 @@ function RunView({
           </Link>
         </p>
       )}
-      <h1>{runName}</h1>
-      <p className="app-status-line">
-        {live
-          ? 'Running.'
-          : `${run.status === 'done' ? 'Finished' : run.status === 'failed' ? 'Failed' : 'Skipped'} at ${timeIn(run.finishedAt!, tz)}.`}{' '}
-        {run.usage.webSearches
-          ? ` ${run.usage.webSearches} searches, ${run.usage.webFetches} pages opened.`
-          : ''}
-        {run.finishedAt && run.costUsd > 0 ? ` Cost ${usd(run.costUsd)}.` : ''}
-      </p>
-      {!shared && id ? (
-        <div className="app-share">
-          {run.shareToken ? (
-            <>
-              <span className="app-muted">Shared. Anyone with the link can read this run.</span>
+      <header className="run-head">
+        <h1>{runName}</h1>
+        {!shared && id ? (
+          <div className="app-share">
+            {run.shareToken ? (
+              <>
+                <span className="app-muted">Shared</span>
+                <button
+                  type="button"
+                  className="app-link"
+                  disabled={shareBusy}
+                  onClick={() => shareAct(() => copyLink(run.shareToken!))}
+                >
+                  Copy link
+                </button>
+                <a href={`${window.location.origin}/r/${run.shareToken}`} className="app-link">
+                  Open it
+                </a>
+                <button
+                  type="button"
+                  className="app-link"
+                  disabled={shareBusy}
+                  onClick={() => shareAct(() => unshare({ runId }).then(() => 'No longer shared.'))}
+                >
+                  Stop sharing
+                </button>
+              </>
+            ) : (
               <button
                 type="button"
                 className="app-link"
                 disabled={shareBusy}
-                onClick={() => shareAct(() => copyLink(run.shareToken!))}
+                onClick={() => shareAct(() => share({ runId }).then(copyLink))}
               >
-                Copy link
+                Share this run
               </button>
-              <a href={`${window.location.origin}/r/${run.shareToken}`} className="app-link">
-                Open it
-              </a>
-              <button
-                type="button"
-                className="app-link"
-                disabled={shareBusy}
-                onClick={() => shareAct(() => unshare({ runId }).then(() => 'No longer shared.'))}
-              >
-                Stop sharing
-              </button>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="app-link"
-              disabled={shareBusy}
-              onClick={() => shareAct(() => share({ runId }).then(copyLink))}
-            >
-              Share this run
-            </button>
-          )}
-          {shareNote ? <span className="app-muted">{shareNote}</span> : null}
-          {shareError ? (
-            <span className="app-connection-error" role="alert">
-              {shareError}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="app-run" data-live={live}>
-        <div className="app-run-bar" aria-hidden="true">
-          <span style={{ transform: `scaleX(${progress})` }} />
-        </div>
-        <ol className="app-log" aria-label="Run log" aria-live={live ? 'polite' : undefined}>
-          {run.steps.map((s, i) => (
-            <li key={i}>
-              <time className="tabular" dateTime={new Date(s.at).toISOString()}>
-                {timeIn(s.at, tz)}
-              </time>
-              <LogNote text={s.note} />
-            </li>
-          ))}
-          {live ? (
-            <li className="is-running">
-              <time className="tabular">now</time>
-              <p className="app-muted">
-                {run.status === 'writing'
-                  ? 'Writing posts.'
-                  : run.status === 'publishing'
-                    ? 'Sending to Buffer.'
-                    : 'Researching.'}
-              </p>
-            </li>
-          ) : null}
-        </ol>
-      </div>
-      {run.stories.length ? (
-        <section className="app-section">
-          <h2>Stories</h2>
-          <ul className="app-stories">
-            {run.stories.map((s) => {
-              const kept = s.decision === 'kept' || s.decision === 'dry'
+            )}
+            {shareNote ? <span className="app-muted">{shareNote}</span> : null}
+            {shareError ? (
+              <span className="app-connection-error" role="alert">
+                {shareError}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+      </header>
+
+      <Outcome run={run} id={id} shared={shared} />
+
+      {live ? <RunLog run={run} live /> : null}
+
+      {kept.length ? (
+        <section className="run-section" aria-labelledby="run-stories">
+          <h2 id="run-stories">
+            {run.kind === 'dry' ? 'What it would post' : 'Stories'}
+            <span className="run-count tabular">{kept.length}</span>
+          </h2>
+          <ol className="run-stories">
+            {kept.map((s) => {
+              const posts = postsFor(s._id)
               return (
-                <li key={s._id} data-kept={kept && !s.review}>
-                  <p className="app-story-head">
-                    <span className="app-story-decision">
-                      {s.review ? 'Skipped by you' : (DECISION_WORDS[s.decision] ?? s.decision)}
-                    </span>
+                <li key={s._id} className="run-story" data-skipped={Boolean(s.review)}>
+                  <p className="run-story-meta">
+                    {s.review ? <span className="run-tag">Skipped by you</span> : null}
+                    <span>{s.source}</span>
+                    {s.eventDate ? <span>Happened {s.eventDate}</span> : null}
+                    {s.forDate ? <span>For {s.forDate}</span> : null}
+                  </p>
+                  <h3>
                     <a href={webHref(s.url)} target="_blank" rel="noreferrer">
                       {s.title}
                     </a>
-                    <span className="app-muted">
-                      {s.source}
-                      {s.eventDate ? `, event ${s.eventDate}` : ''}
-                      {s.forDate ? `, for ${s.forDate}` : ''}
-                    </span>
-                  </p>
-                  <p className="app-muted">
-                    {s.reason}
-                    {kept ? ` ${s.whyItMatters}` : ''}
-                  </p>
-                  {kept ? <p>{s.summary}</p> : null}
-                  {kept && !shared && id && !live ? (
-                    <StoryReview
-                      story={s}
-                      hasBufferPosts={run.posts.some(
-                        (p) => p.storyId === s._id && Boolean(p.bufferPostId),
-                      )}
-                      dry={run.kind === 'dry'}
-                      published={run.posts.some(
-                        (p) =>
-                          p.storyId === s._id &&
-                          ['sent', 'scheduled', 'queued', 'publishing'].includes(p.status),
-                      )}
-                    />
+                  </h3>
+                  <p className="run-story-summary">{s.summary}</p>
+                  {s.whyItMatters ? <p className="run-story-why">{s.whyItMatters}</p> : null}
+                  {posts.length ? (
+                    <ul className="app-drafts run-posts">
+                      {posts.map((p) => (
+                        <PostCard key={p._id} post={p} story={s} run={run} shared={shared} />
+                      ))}
+                    </ul>
+                  ) : live ? (
+                    <p className="app-muted">Writing its posts…</p>
                   ) : null}
+                  {!shared && id && !live ? (
+                    <div className="run-story-actions">
+                      <StoryReview
+                        story={s}
+                        hasBufferPosts={posts.some((p) => Boolean(p.bufferPostId))}
+                        dry={run.kind === 'dry'}
+                        published={posts.some((p) =>
+                          ['sent', 'scheduled', 'queued', 'publishing'].includes(p.status),
+                        )}
+                      />
+                      {IDEA_DECISIONS.has(s.decision) ? (
+                        <SaveIdea storyId={s._id} saved={s.savedAsIdea} />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      ) : null}
+
+      {orphans.length ? (
+        <section className="run-section">
+          <h2>Other posts</h2>
+          <ul className="app-drafts run-posts">
+            {orphans.map((p) => (
+              <PostCard
+                key={p._id}
+                post={p}
+                story={run.stories.find((s) => s._id === p.storyId)}
+                run={run}
+                shared={shared}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {leftOut.length ? (
+        <section className="run-section" aria-labelledby="run-left-out">
+          <h2 id="run-left-out">
+            Left out<span className="run-count tabular">{leftOut.length}</span>
+          </h2>
+          <ul className="run-left-out">
+            {leftOut.map((s) => (
+              <li key={s._id}>
+                <span className="run-tag">{LEFT_OUT_WORDS[s.decision] ?? s.decision}</span>
+                <div>
+                  <a href={webHref(s.url)} target="_blank" rel="noreferrer">
+                    {s.title}
+                  </a>{' '}
+                  <span className="app-muted">{s.source}</span>
+                  <p className="app-muted">
+                    {s.repeatOf?.title ? `Same story as “${s.repeatOf.title}”. ` : `${s.reason} `}
+                    {s.repeatOf?.runId && id && !shared ? (
+                      <Link
+                        to="/app/a/$id/runs/$runId"
+                        params={{ id, runId: s.repeatOf.runId }}
+                        className="app-link"
+                      >
+                        See the earlier run
+                      </Link>
+                    ) : null}
+                  </p>
                   {!shared && id && IDEA_DECISIONS.has(s.decision) ? (
                     <SaveIdea storyId={s._id} saved={s.savedAsIdea} />
                   ) : null}
-                </li>
-              )
-            })}
+                </div>
+              </li>
+            ))}
           </ul>
         </section>
       ) : null}
-      {run.posts.length ? (
-        <section className="app-section is-plain">
-          <h2>Posts</h2>
-          <ul className="app-drafts">
-            {run.posts.map((p) => {
-              const story = run.stories.find((s) => s._id === p.storyId)
-              const parts = [p.text, ...(p.thread ?? [])]
-              return (
-                <li key={p._id} className="app-draft">
-                  <p className="app-draft-head">
-                    <span className="app-draft-avatar" aria-hidden="true">
-                      <ChannelMark channel={serviceName(p.service)} size={14} />
-                    </span>
-                    <strong>{p.channelName}</strong>
-                    <span className="app-muted">
-                      {POST_WORDS[p.status] ?? p.status}
-                      {p.dueAt
-                        ? ` for ${relativeWhenInline(p.dueAt, tz)}`
-                        : p.plannedFor
-                          ? `, planned for ${relativeWhenInline(p.plannedFor, tz)}`
-                          : ''}
-                      {p.sentAt ? ` ${relativeWhenInline(p.sentAt, tz)}` : ''}
-                    </span>
-                  </p>
-                  {story ? <p className="app-muted app-draft-story">{story.title}</p> : null}
-                  {editing === p._id ? (
-                    <DraftEditor
-                      postId={p._id}
-                      text={p.text}
-                      service={p.service}
-                      limit={p.limit}
-                      onDone={() => setEditing(null)}
-                    />
-                  ) : (
-                    parts.map((part, i) => <PostText key={i} text={part} />)
-                  )}
-                  {p.metrics?.length ? (
-                    <p className="app-muted tabular">
-                      {p.metrics
-                        .filter((m) => m.value > 0)
-                        .map(metricLabel)
-                        .join(', ')}
-                    </p>
-                  ) : null}
-                  {p.linkAttachment ? (
-                    <p className="app-muted">Link card: {p.linkAttachment.title}</p>
-                  ) : null}
-                  {story?.review ? (
-                    <p className="app-muted">
-                      Skipped in Dispatchlet. This post’s status in Buffer is unchanged.
-                    </p>
-                  ) : null}
-                  {p.reason ? <p className="app-muted">{p.reason}</p> : null}
-                  <p className="app-muted tabular">
-                    {measuredLength(p.text, p.service as Service)} characters
-                    {p.thread?.length ? `, ${p.thread.length + 1} parts` : ''}
-                  </p>
-                  <div className="app-gate-actions">
-                    {p.status === 'draft' && !story?.review && !shared && editing !== p._id ? (
-                      <button type="button" className="app-link" onClick={() => setEditing(p._id)}>
-                        Edit
-                      </button>
-                    ) : null}
-                    {p.status === 'draft' && !story?.review && !shared && editing !== p._id ? (
-                      <button
-                        type="button"
-                        className="app-gate-primary"
-                        disabled={approving === p._id}
-                        onClick={() => {
-                          setApproving(p._id)
-                          approve({ postId: p._id })
-                            .then((message) => setNotes((n) => ({ ...n, [p._id]: message })))
-                            .catch((reason: unknown) =>
-                              setNotes((n) => ({
-                                ...n,
-                                [p._id]: errorText(reason, 'Not approved.'),
-                              })),
-                            )
-                            .finally(() => setApproving(null))
-                        }}
-                      >
-                        <BusyLabel busy={approving === p._id} idle="Approve" working="Approving" />
-                      </button>
-                    ) : null}
-                    {p.externalLink ? (
-                      <a
-                        href={webHref(p.externalLink)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="app-link"
-                      >
-                        See it live
-                      </a>
-                    ) : null}
-                    {p.bufferPostId && !shared ? (
-                      <a
-                        href={bufferChannelUrl(p.channelId, p.status, p.bufferPostId)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="app-gate-secondary app-buffer-link"
-                      >
-                        <BufferMark size={14} />
-                        Open in Buffer
-                      </a>
-                    ) : null}
-                    {notes[p._id] ? (
-                      <span className="app-muted" role="status">
-                        {notes[p._id]}
-                      </span>
-                    ) : null}
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        </section>
+
+      {live ? null : <RunLog run={run} live={false} />}
+    </article>
+  )
+}
+
+/** Log lines about single searches and page reads: shown smaller, as the run's working. */
+const TOOL_STEPS = new Set(['search', 'read'])
+
+const LEGACY_TOOL_ERROR = /^A (page open|search) failed \((\w+)\): (.*)$/s
+
+/** Runs logged before 13 Nov wrote raw error codes and JSON; they read the way new runs do. */
+function legacyNote(note: string): string {
+  const m = LEGACY_TOOL_ERROR.exec(note)
+  if (!m) return note
+  const tool = m[1] === 'search' ? 'web_search' : 'web_fetch'
+  let input: unknown = null
+  try {
+    input = JSON.parse(m[3]!)
+  } catch {
+    input = null
+  }
+  return (
+    toolNote({ tool, input: toolInput(tool, input), error: m[2]! }) ??
+    `A ${m[1]} did not work, so it moved on.`
+  )
+}
+
+/** The step log. Open while the run works, so it reads as a live feed; folded once it is done. */
+function RunLog({ run, live }: { run: RunData; live: boolean }) {
+  const tz = run.timezone
+  const items = (
+    <ol className="app-log" aria-label="Run log" aria-live={live ? 'polite' : undefined}>
+      {run.steps.map((s, i) => (
+        <li key={i} data-kind={TOOL_STEPS.has(s.step) ? 'tool' : s.step}>
+          <time className="tabular" dateTime={new Date(s.at).toISOString()}>
+            {timeIn(s.at, tz)}
+          </time>
+          {s.step === 'notes' ? (
+            <LogNote text={s.note} label="Research notes" />
+          ) : (
+            <LogNote text={legacyNote(s.note)} />
+          )}
+        </li>
+      ))}
+      {live ? (
+        <li className="is-running">
+          <time className="tabular">now</time>
+          <p className="app-muted">{LIVE_WORDS[phaseOf(run)]}…</p>
+        </li>
       ) : null}
-    </>
+    </ol>
+  )
+  if (live)
+    return (
+      <section className="run-section run-feed" aria-label="What it is doing">
+        {items}
+      </section>
+    )
+  return (
+    <details className="run-section run-log">
+      <summary>
+        <h2>Run log</h2>
+        <span className="app-muted">
+          Every search, page and decision, with times.{' '}
+          {plural(run.steps.length, 'entry', 'entries')}.
+        </span>
+      </summary>
+      {items}
+    </details>
   )
 }
 
@@ -678,22 +931,25 @@ function RunView({
 const LONG_NOTE = 320
 
 /** One line of the run log. A long note folds, with a control to read the rest. */
-function LogNote({ text }: { text: string }) {
+function LogNote({ text, label }: { text: string; label?: string }) {
   const [open, setOpen] = useState(false)
-  if (text.length <= LONG_NOTE) return <p>{text}</p>
+  if (text.length <= LONG_NOTE && !label) return <p>{text}</p>
   return (
     <div>
-      <p className="app-log-note" data-open={open}>
+      {label ? <p className="app-log-label">{label}</p> : null}
+      <p className="app-log-note" data-open={open || text.length <= LONG_NOTE}>
         {text}
       </p>
-      <button
-        type="button"
-        className="app-link app-log-more"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <BusyLabel busy={open} idle="Show the whole note" working="Show less" />
-      </button>
+      {text.length > LONG_NOTE ? (
+        <button
+          type="button"
+          className="app-link app-log-more"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <BusyLabel busy={open} idle="Show the whole note" working="Show less" />
+        </button>
+      ) : null}
     </div>
   )
 }

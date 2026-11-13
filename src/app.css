@@ -692,36 +692,328 @@
   cursor: default;
 }
 
-/* The run log: a timestamp column, a 1px spine, the lines. Progress sits inside the log. */
-.app-run {
-  margin: 0 0 32px;
+/*
+ * A run page reads top to bottom as an answer: what came of it and what to do, the stories with
+ * their posts (the only cards), what was left out and why, then the full log, folded.
+ */
+.run-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 24px;
 }
 
-.app-run-bar {
-  height: 3px;
-  margin: 12px 0 8px;
-  border-radius: 2px;
-  background: var(--color-rule);
-  overflow: hidden;
+.app-gate .run-head h1 {
+  margin: 0;
 }
 
-.app-run-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--color-pine);
-  transform-origin: left;
-  transition: transform 600ms ease-out;
+.app-gate .run-head .app-share {
+  margin: 0;
 }
 
-.app-run[data-live='false'] .app-run-bar span {
-  background: var(--color-rule);
+.run-outcome {
+  margin: 20px 0 40px;
+  padding: 20px 0 24px;
+  border-top: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--color-rule);
+}
+
+.app-gate .run-outcome p {
+  max-width: 68ch;
+  margin: 0;
+}
+
+.app-gate .run-headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--type-title-lg);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.run-outcome[data-status='failed'] .run-headline {
+  color: var(--color-danger);
+}
+
+.app-gate .run-detail {
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+.app-gate .run-facts {
+  margin-top: 8px;
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.run-next {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 20px;
+  font-size: 15px;
+}
+
+/* While it works: the four phases as labels over a bar that fills as each one is reached. */
+.run-phases {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 4px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.run-phases li {
+  padding-top: 8px;
+  border-top: 3px solid var(--color-rule);
+  color: var(--color-muted);
+  font-size: 13px;
+  transition:
+    border-color 300ms ease-out,
+    color 300ms ease-out;
+}
+
+.run-phases li[data-state='done'] {
+  border-top-color: var(--color-pine);
+}
+
+.run-phases li[data-state='now'] {
+  border-top-color: var(--color-pine);
+  color: var(--color-ink);
+  font-weight: 500;
+  animation: run-phase-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes run-phase-pulse {
+  50% {
+    border-top-color: color-mix(in srgb, var(--color-pine) 35%, var(--color-rule));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-run-bar span {
-    transition: none;
+  .run-phases li[data-state='now'] {
+    animation: none;
   }
+}
+
+.app-gate .run-section {
+  margin: 0 0 40px;
+}
+
+.app-gate .run-section > h2,
+.run-log summary h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.run-count {
+  color: var(--color-muted);
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.run-stories,
+.run-left-out {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-story {
+  padding: 24px 0 28px;
+  border-top: 1px solid var(--color-rule);
+}
+
+.run-story:first-child {
+  border-top: 0;
+  padding-top: 12px;
+}
+
+.app-gate .run-story-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+
+.app-gate .run-story h3 {
+  max-width: 60ch;
+  margin: 0 0 8px;
+  font-size: var(--type-title);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.app-gate .run-story h3 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-gate .run-story h3 a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.app-gate .run-story-summary {
+  max-width: 68ch;
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.app-gate .run-story-why {
+  max-width: 68ch;
+  margin: 6px 0 0;
+  color: var(--color-muted);
+  font-size: 15px;
+}
+
+.run-story[data-skipped='true'] :is(h3, .run-story-summary, .run-story-why) {
+  color: var(--color-muted);
+}
+
+.app-gate .run-posts {
+  margin-top: 16px;
+}
+
+.run-story-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 24px;
+  margin-top: 12px;
+  font-size: 14px;
+}
+
+.run-story-actions > * {
+  margin: 0;
+}
+
+.run-tag {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.run-left-out li {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 4px 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-rule);
+  font-size: 15px;
+}
+
+.run-left-out li:first-child {
+  border-top: 0;
+}
+
+.run-left-out .run-tag {
+  padding-top: 2px;
+  color: var(--color-muted);
+}
+
+.app-gate .run-left-out p {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+@media (max-width: 560px) {
+  .run-left-out li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A post's status sits beside its channel; one that failed its checks says why, and fades. */
+.run-post-status {
+  color: var(--color-muted);
+}
+
+.app-gate .run-post-reason {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.app-gate .app-draft[data-status='rejected'] {
+  border-style: dashed;
+  background: transparent;
+}
+
+.app-gate .app-draft[data-status='rejected'] .app-draft-text {
+  color: var(--color-muted);
+}
+
+.app-draft .run-post-length {
+  margin-right: auto;
+  font-size: 13px;
+}
+
+/* The log: a live feed while the run works, then folded under its heading. */
+.run-log summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-rule);
+  cursor: pointer;
+  list-style: none;
+}
+
+.run-log summary::-webkit-details-marker {
+  display: none;
+}
+
+.run-log summary h2::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 4px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-3px) rotate(-45deg);
+  transition: transform 150ms ease-out;
+}
+
+.run-log[open] summary h2::before {
+  transform: translateY(-4px) rotate(45deg);
+}
+
+.run-log summary .app-muted {
+  font-size: 14px;
+}
+
+.app-log li[data-kind='tool'] {
+  min-height: 0;
+  padding: 3px 0;
+}
+
+.app-log li[data-kind='tool'] p {
+  color: var(--color-muted);
+  font-size: 14px;
+}
+
+.app-gate .app-log-label {
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .app-log {
@@ -769,12 +1061,6 @@
 .app-posts li {
   padding: 12px 0;
   border-bottom: 1px solid var(--color-rule);
-}
-
-.app-stories li[data-kept='true'] {
-  background: var(--color-tint);
-  padding-left: 8px;
-  padding-right: 8px;
 }
 
 .app-gate .app-stories p,
@@ -965,11 +1251,10 @@
 /* The step after the first dry run: what it found, and the button that turns it on. */
 .app-next {
   display: grid;
-  gap: 16px;
-  margin: 16px 0;
-  padding: 20px 24px;
-  border: 1px solid var(--color-pine);
-  background: var(--color-tint);
+  gap: 12px;
+  margin: 16px 0 24px;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--color-pine);
 }
 
 .app-next p {
@@ -1405,7 +1690,7 @@
   margin-top: 12px;
   padding: 16px 0 max(16px, env(safe-area-inset-bottom));
   border-top: 1px solid var(--color-rule);
-  background: var(--color-card);
+  background: var(--color-paper);
 }
 
 .app-playbook-save-status {
@@ -2173,18 +2458,19 @@
   }
 }
 
+/*
+ * Sections, not cards (Barry, 13 Nov): a page reads as one document. A section is a heading over
+ * a hairline with space around it; the only boxed things are posts, because a post is a real
+ * object that will appear somewhere else. Replaces the 30 Oct cards.
+ */
 .app-gate .app-section {
-  margin: 0 0 16px;
-  padding: 20px 24px 24px;
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius-card);
-  background: var(--color-card);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  margin: 0 0 40px;
+  padding: 20px 0 0;
+  border-top: 1px solid var(--color-rule);
 }
 
 .app-gate .app-section > h2 {
   margin-bottom: 12px;
-  color: var(--color-pine);
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -2192,7 +2478,7 @@
 
 /* Delete account: the one section that removes everything, set apart in the danger colour. */
 .app-gate .app-section.is-danger {
-  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-rule));
+  border-top-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-rule));
 }
 
 .app-gate .app-section.is-danger > h2 {
@@ -2217,28 +2503,36 @@
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
-/* A section whose items are cards already (drafts, posts) keeps its heading on the page. */
 .app-gate .app-section.is-plain {
-  padding: 8px 0 0;
-  border: 0;
-  background: none;
+  padding-top: 20px;
 }
 
-/* The figures at the top of home and an automation: one card, the four values in a row. */
+/* The figures at the top of home and an automation: four values between two rules. */
 .app-gate .app-stats {
-  margin: 16px 0 24px;
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius-card);
-  background: var(--color-card);
-  overflow: hidden;
+  margin: 16px 0 32px;
 }
 
-.app-gate .app-stats > div,
+.app-gate .app-stats > div {
+  padding: 16px 20px 16px 0;
+}
+
 .app-gate .app-stats > div + div {
-  padding: 16px 20px;
+  padding-left: 20px;
 }
 
-/* Lists that live in a card: the last row needs no line under it. */
+/* The figures close with a rule, so the section after them does not draw a second one. */
+.app-gate .app-stats + .app-section {
+  padding-top: 0;
+  border-top: 0;
+}
+
+/* Under the settings tabs, the tabs' own rule opens the first section. */
+.app-gate .settings-main > .app-section:first-child {
+  padding-top: 8px;
+  border-top: 0;
+}
+
+/* The last row of a list needs no line under it: the next section brings its own. */
 .app-gate .app-section .app-rows > li:last-child,
 .app-gate .app-section .app-runs > li:last-child,
 .app-gate .app-section .app-stories > li:last-child,
@@ -2261,35 +2555,15 @@
   margin-bottom: 0;
 }
 
-/* Tinted rows inside a card are rounded so they sit inside its corners. */
-.app-gate .app-stories li[data-kept='true'],
 .app-gate .app-choices li[data-checked='true'] {
   border-radius: var(--radius-control);
 }
 
-/* The run log is a card of its own. */
-.app-gate .app-run {
-  padding: 8px 24px;
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius-card);
-  background: var(--color-card);
-  overflow: hidden;
-}
-
-/* Cards that already were: the same corners. */
+/* Posts are the cards. Setup's choices and the one-time key reveal are controls, boxed alike. */
 .app-gate .app-draft,
 .app-gate .setup-choice,
 .app-gate .app-reveal {
   border-radius: var(--radius-card);
-}
-
-@media (max-width: 640px) {
-  .app-gate .app-section {
-    padding: 16px;
-  }
-  .app-gate .app-run {
-    padding: 4px 16px;
-  }
 }
 
 /* The owner's view of Buffer's shared call budget, as rows rather than one long sentence. */
@@ -3612,10 +3886,10 @@ a.app-week-count:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px 24px;
-  padding: 14px 16px 14px 20px;
-  border: 1px solid color-mix(in srgb, var(--color-pine) 45%, var(--color-rule));
-  border-radius: var(--radius-card);
-  background: var(--color-tint);
+  padding: 12px 0 12px 16px;
+  border: 0;
+  border-left: 3px solid var(--color-pine);
+  background: none;
 }
 .app-gate .app-banner p {
   flex: 1 1 280px;
@@ -3720,13 +3994,6 @@ a.app-week-count:hover {
 .app-segments .app-radio:has(input:focus-visible) {
   outline: 2px solid var(--color-pine);
   outline-offset: 1px;
-}
-
-.app-run[data-live='false'] .app-run-bar {
-  display: none;
-}
-.app-gate .app-run[data-live='false'] {
-  padding-block: 12px;
 }
 
 .app-gate .app-stories li,
@@ -3858,13 +4125,11 @@ a.app-week-count:hover {
   margin-top: 10px;
 }
 .app-skeleton-figures > span {
-  height: 88px;
-  border-radius: var(--radius-card);
+  height: 72px;
 }
 .app-skeleton > .app-skeleton-card {
   height: 240px;
   margin-top: 10px;
-  border-radius: var(--radius-card);
 }
 @keyframes app-skeleton-pulse {
   50% {
@@ -4183,7 +4448,7 @@ a.app-week-count:hover {
 @media (max-width: 720px) {
   .app-gate .app-banner {
     gap: 10px;
-    padding: 12px 14px;
+    padding: 10px 0 10px 14px;
   }
   .app-gate .app-banner p {
     font-size: 14px;

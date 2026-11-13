@@ -4724,9 +4724,7 @@ html:has(.landing-header) {
 }
 
 /*
- * Cards (Barry, 2026-10-30): page content sits in cards so sections read as units, instead of
- * running together between horizontal rules. Rules stay only inside a card, between the rows of
- * one list. Replaces SPEC §23.3's no-cards rule for the app.
+ * Corners: posts (the app's only cards, see app.css "Sections, not cards") and controls.
  */
 :root {
   --radius-card: 12px;

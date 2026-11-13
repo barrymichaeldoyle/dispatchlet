@@ -38,6 +38,7 @@ import type * as lib_ai_generate from "../lib/ai/generate.js";
 import type * as lib_ai_pricing from "../lib/ai/pricing.js";
 import type * as lib_ai_research from "../lib/ai/research.js";
 import type * as lib_ai_setup from "../lib/ai/setup.js";
+import type * as lib_ai_testStream from "../lib/ai/testStream.js";
 import type * as lib_ai_write from "../lib/ai/write.js";
 import type * as lib_allowlist from "../lib/allowlist.js";
 import type * as lib_apiToken from "../lib/apiToken.js";
@@ -103,6 +104,7 @@ declare const fullApi: ApiFromModules<{
   "lib/ai/pricing": typeof lib_ai_pricing;
   "lib/ai/research": typeof lib_ai_research;
   "lib/ai/setup": typeof lib_ai_setup;
+  "lib/ai/testStream": typeof lib_ai_testStream;
   "lib/ai/write": typeof lib_ai_write;
   "lib/allowlist": typeof lib_allowlist;
   "lib/apiToken": typeof lib_apiToken;

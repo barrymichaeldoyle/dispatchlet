@@ -1893,6 +1893,13 @@ export async function runView(
       .collect()
     const names = new Map(channels.map((c) => [c.channelId, c.name]))
     const limits = new Map(channels.map((c) => [c.channelId, c.maxLength] as const))
+    // The earlier story a repeat matched, so the page can show what was already posted.
+    const earlier = new Map<Id<'stories'>, { title: string; runId: Id<'runs'> }>()
+    for (const s of stories)
+      if (s.dupOf && !earlier.has(s.dupOf)) {
+        const match = await ctx.db.get(s.dupOf)
+        if (match) earlier.set(s.dupOf, { title: match.title, runId: match.runId })
+      }
     return {
       _id: run._id,
       automationId: run.automationId!,
@@ -1911,6 +1918,17 @@ export async function runView(
       shareToken: run.shareToken ?? null,
       startedBy: run.startedBy ?? 'schedule',
       hint: isShared ? null : (run.hint ?? null),
+      /** What the owner can do next from this run: turn the automation on, see when it runs. */
+      automation:
+        isShared || !automation
+          ? null
+          : {
+              status: automation.status,
+              nextRunAt:
+                automation.status === 'active'
+                  ? (automation.nextRunSetFor ?? automation.nextRunAt ?? null)
+                  : null,
+            },
       stories: stories.map((s) => ({
         _id: s._id,
         title: s.title,
@@ -1927,6 +1945,12 @@ export async function runView(
         reason: s.reason,
         savedAsIdea: Boolean(s.ideaId),
         review: isShared ? null : (s.review ?? null),
+        repeatOf: s.dupOf
+          ? {
+              title: earlier.get(s.dupOf)?.title ?? null,
+              runId: isShared ? null : (earlier.get(s.dupOf)?.runId ?? null),
+            }
+          : null,
       })),
       posts: posts.map((p) => ({
         _id: p._id,
