@@ -29,6 +29,7 @@ import {
   usd,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
+import { ConfirmDialog } from './confirm-dialog'
 import { setLeaving } from '../lib/leaving'
 import { getPreference, setTheme, subscribeTheme, type ThemePreference } from '../lib/theme'
 
@@ -1109,45 +1110,38 @@ function BufferConnection() {
               <BusyLabel busy={syncing} idle="Sync channels" working="Syncing channels" />
             </button>
           )}
-          {confirmDisconnect ? (
-            <span className="app-confirm">
-              <span className="app-muted">Nothing reaches Buffer until you connect it again.</span>
-              <button
-                type="button"
-                className="app-gate-secondary"
-                disabled={disconnecting}
-                onClick={() => {
-                  setDisconnecting(true)
-                  setError(null)
-                  disconnect()
-                    .catch((reason: unknown) => setError(message(reason, 'Disconnect failed.')))
-                    .finally(() => {
-                      setDisconnecting(false)
-                      setConfirmDisconnect(false)
-                    })
-                }}
-              >
-                <BusyLabel busy={disconnecting} idle="Disconnect" working="Disconnecting" />
-              </button>
-              <button
-                type="button"
-                className="app-link"
-                disabled={disconnecting}
-                onClick={() => setConfirmDisconnect(false)}
-              >
-                Keep it
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              className="app-gate-secondary"
-              onClick={() => setConfirmDisconnect(true)}
-            >
-              Disconnect Buffer
-            </button>
-          )}
+          <button
+            type="button"
+            className="app-gate-secondary"
+            onClick={() => setConfirmDisconnect(true)}
+          >
+            Disconnect Buffer
+          </button>
         </div>
+      ) : null}
+      {confirmDisconnect ? (
+        <ConfirmDialog
+          title="Disconnect Buffer?"
+          confirmLabel="Disconnect"
+          workingLabel="Disconnecting"
+          danger
+          busy={disconnecting}
+          error={error}
+          onCancel={() => {
+            setConfirmDisconnect(false)
+            setError(null)
+          }}
+          onConfirm={() => {
+            setDisconnecting(true)
+            setError(null)
+            disconnect()
+              .then(() => setConfirmDisconnect(false))
+              .catch((reason: unknown) => setError(message(reason, 'Disconnect failed.')))
+              .finally(() => setDisconnecting(false))
+          }}
+        >
+          <p>Nothing reaches Buffer until you connect it again.</p>
+        </ConfirmDialog>
       ) : null}
       {error ? (
         <p className="app-connection-error" role="alert">
@@ -1626,7 +1620,6 @@ function TimezoneSetting({ value }: { value: string | null }) {
   )
 }
 
-/** Deletes the account after a second, explicit click. No browser dialog. */
 const THEMES: [ThemePreference, string, string][] = [
   ['system', 'Match this device', 'Light or dark, following your system setting.'],
   ['light', 'Light', ''],
@@ -1661,6 +1654,7 @@ function Appearance() {
   )
 }
 
+/** Deletes the account once confirmed in a modal. */
 function DeleteAccount() {
   const remove = useAction(api.users.deleteAccount)
   const { signOut } = useAuthActions()
@@ -1674,51 +1668,38 @@ function DeleteAccount() {
         Deletes your Dispatchlet account and everything it holds, and removes Dispatchlet’s access
         to your Buffer account. Posts already in Buffer stay there.
       </p>
+      <button type="button" className="app-gate-danger-outline" onClick={() => setConfirming(true)}>
+        Delete account
+      </button>
       {confirming ? (
-        <div className="app-gate-actions">
-          <p className="app-danger-note" role="alert">
-            This can’t be undone. Your automations, runs and settings are deleted for good.
-          </p>
-          <button
-            type="button"
-            className="app-gate-danger"
-            disabled={pending}
-            onClick={() => {
-              setPending(true)
-              setError(null)
-              remove()
-                .then(() => signOut().catch(() => {}))
-                .then(() => window.location.replace('/app?deleted'))
-                .catch((reason: unknown) => {
-                  setPending(false)
-                  setError(message(reason, 'Your account was not deleted. Try again.'))
-                })
-            }}
-          >
-            <BusyLabel busy={pending} idle="Delete my account" working="Deleting" />
-          </button>
-          <button
-            type="button"
-            className="app-gate-secondary"
-            disabled={pending}
-            onClick={() => setConfirming(false)}
-          >
-            Keep it
-          </button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="app-gate-danger-outline"
-          onClick={() => setConfirming(true)}
+        <ConfirmDialog
+          title="Delete your account?"
+          confirmLabel="Delete my account"
+          workingLabel="Deleting"
+          danger
+          busy={pending}
+          error={error}
+          onCancel={() => {
+            setConfirming(false)
+            setError(null)
+          }}
+          onConfirm={() => {
+            setPending(true)
+            setError(null)
+            remove()
+              .then(() => signOut().catch(() => {}))
+              .then(() => window.location.replace('/app?deleted'))
+              .catch((reason: unknown) => {
+                setPending(false)
+                setError(message(reason, 'Your account was not deleted. Try again.'))
+              })
+          }}
         >
-          Delete account
-        </button>
-      )}
-      {error ? (
-        <p className="app-connection-error" role="alert">
-          {error}
-        </p>
+          <p>
+            This can’t be undone. Your automations, runs and settings are deleted for good. Posts
+            already in Buffer stay there.
+          </p>
+        </ConfirmDialog>
       ) : null}
     </section>
   )

@@ -239,7 +239,10 @@ function ApiTokens({
   )
 }
 
-/** A link that asks once before doing something that cannot be undone. */
+/**
+ * A link that asks once before doing something that cannot be undone. For small row actions only:
+ * the confirm takes the link's place, so it is always in view. Anything that would reveal a warning or buttons elsewhere uses ConfirmDialog instead.
+ */
 function ConfirmLink({
   label,
   confirm,

@@ -2164,13 +2164,6 @@
   background: color-mix(in srgb, var(--color-danger) 10%, transparent);
 }
 
-.app-danger-note {
-  flex-basis: 100%;
-  margin: 0 0 4px;
-  color: var(--color-danger);
-  font-weight: 500;
-}
-
 /* A section whose items are cards already (drafts, posts) keeps its heading on the page. */
 .app-gate .app-section.is-plain {
   padding: 8px 0 0;
