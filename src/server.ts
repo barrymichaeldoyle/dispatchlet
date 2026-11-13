@@ -24,7 +24,25 @@ type KvLike = {
   put(key: string, value: string): Promise<void>
   delete(key: string): Promise<void>
 }
-type Env = { OAUTH_KV: KvLike; OAUTH_PROVIDER: OAuthHelpersLike }
+type RateLimiter = { limit(options: { key: string }): Promise<{ success: boolean }> }
+type Env = { OAUTH_KV: KvLike; OAUTH_PROVIDER: OAuthHelpersLike; OAUTH_LIMITER?: RateLimiter }
+
+/** The OAuth routes anyone can call that write to KV: registering a client and the consent page. */
+const LIMITED_OAUTH_PATHS = new Set(['/oauth/register', '/oauth/authorize'])
+
+/**
+ * Whether this request is over the per-IP limit for the open OAuth routes. Without the binding
+ * (local tests) or if the limiter itself fails, the request goes through.
+ */
+async function oauthLimited(request: Request, env: Env, path: string): Promise<boolean> {
+  if (!LIMITED_OAUTH_PATHS.has(path) || !env.OAUTH_LIMITER) return false
+  const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
+  try {
+    return !(await env.OAUTH_LIMITER.limit({ key: `${path}:${ip}` })).success
+  } catch {
+    return false
+  }
+}
 type Ctx = {
   waitUntil(promise: Promise<unknown>): void
   props?: unknown
@@ -245,6 +263,11 @@ const worker = {
     if (!CONVEX_SITE_URL) return startFetch(request)
     const url = new URL(request.url)
     const origin = providerOrigin(url)
+    if (origin && (await oauthLimited(request, env, url.pathname)))
+      return new Response('Too many requests. Try again in a minute.', {
+        status: 429,
+        headers: { 'Retry-After': '60', 'Content-Type': 'text/plain; charset=utf-8' },
+      })
     if (origin) return await providerFor(origin).fetch(request, env as never, ctx as never)
     // Other hosts (workers.dev): MCP with a pasted token only, no OAuth.
     if (url.pathname === '/mcp') {

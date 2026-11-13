@@ -12,6 +12,11 @@
   // Daily sweep of expired OAuth grants and tokens (src/server.ts `scheduled`).
   "triggers": { "crons": ["40 3 * * *"] },
   "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "c43ca4ecd151463b8f980bf3446eecdd" }],
+  // Client registration and the consent page are open to anyone and each writes to KV, so they
+  // are limited per IP address (src/server.ts `oauthLimited`).
+  "ratelimits": [
+    { "name": "OAUTH_LIMITER", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } },
+  ],
   "routes": [
     { "pattern": "dispatchlet.com", "custom_domain": true },
     { "pattern": "www.dispatchlet.com", "custom_domain": true },
