@@ -1,5 +1,8 @@
 # Quality eval, 30 October 2026
 
+> Superseded for cost and model choice by the later benchmark on 14 test accounts, written up at
+> https://dispatchlet.com/blog/cost-per-run (Haiku researches, Sonnet writes, about $0.07 a run).
+
 The ten setup fixtures in `convex/evals/setupAnswers.ts`, each run on dev with a written playbook,
 research and posts for the fixture's own networks:
 
