@@ -23,7 +23,6 @@ import { RunPoster } from './run-steps'
 import { NextDay } from './next-day'
 import { SetupAnswers, SetupQuestions } from './setup-form'
 import { StreamText } from './stream-text'
-import { useOnceInView } from '../lib/use-once-in-view'
 import { useScrollable } from '../lib/use-scrollable'
 import { CANDIDATES, PREVIOUS_POST, RULES, STORIES, TIMING, resolveAt } from '../lib/example-run'
 
@@ -159,18 +158,6 @@ const subscribeLayout = (onChange: () => void) => {
   return () => layout.removeEventListener('change', onChange)
 }
 const getOverview = () => window.matchMedia(OVERVIEW_QUERY).matches
-
-/** Appears as people scroll past the demo without playing it, and plays it when pressed. */
-function DemoNudge({ onPlay }: { onPlay: () => void }) {
-  const [ref, state] = useOnceInView<HTMLParagraphElement>()
-  return (
-    <p ref={ref} className="flow-nudge" data-state={state}>
-      <button type="button" onClick={onPlay} aria-haspopup="dialog" aria-controls="flow-dialog">
-        Or watch the 55-second demo.
-      </button>
-    </p>
-  )
-}
 
 export type ExampleRunHandle = { play: (opener: HTMLElement) => void }
 
@@ -1247,16 +1234,6 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
           The animation needs JavaScript. The steps below show the same run.
         </p>
       </noscript>
-
-      {started ? null : (
-        <DemoNudge
-          onPlay={() => {
-            // The nudge goes away once the demo starts, so focus returns to the main play button.
-            const button = document.querySelector<HTMLElement>('.flow-launch-action')
-            if (button) launch(button)
-          }}
-        />
-      )}
     </section>
   )
 }

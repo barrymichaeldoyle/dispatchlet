@@ -65,16 +65,6 @@ test('the closing section offers a start and opens the demo', async ({ page }) =
   await page.keyboard.press('Escape')
 })
 
-test('the nudge under the demo plays it and returns focus to the play button', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.locator('#start')).toHaveAttribute('data-enhanced', 'true')
-  await page.getByRole('button', { name: 'Or watch the 55-second demo.' }).click()
-  await expect(page.getByRole('dialog', { name: 'Dispatchlet walkthrough' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(page.getByRole('button', { name: 'Or watch the 55-second demo.' })).toHaveCount(0)
-  await expect(page.locator('.flow-launch-action')).toBeFocused()
-})
-
 test('inline Buffer wordmarks draw inside their own box', async ({ page }) => {
   await page.goto('/')
   const offsets = await page.locator('.buffer-wordmark svg').evaluateAll((marks) =>
