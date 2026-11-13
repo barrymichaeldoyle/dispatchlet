@@ -48,7 +48,7 @@ const TOOLS: [string, string][] = [
 
 function McpDocs() {
   return (
-    <LegalPage title="The MCP server" updated="29 Oct 2026">
+    <LegalPage title="The MCP server" updated="30 Oct 2026">
       <p>
         Dispatchlet is a remote{' '}
         <a href="https://modelcontextprotocol.io/">Model Context Protocol</a> server at{' '}

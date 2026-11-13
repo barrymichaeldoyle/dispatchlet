@@ -219,6 +219,16 @@ function SignIn({ asked }: { asked: boolean }) {
     window.addEventListener('pageshow', restored)
     return () => window.removeEventListener('pageshow', restored)
   }, [])
+  // Signed out, /app is a sign-in page, so the tab says so rather than the route's "Home".
+  // Put back the route's title on the way out, unless another page has named the tab since.
+  useEffect(() => {
+    const before = document.title
+    const ours = `${deleted ? 'Account deleted' : 'Sign in'} | Dispatchlet`
+    document.title = ours
+    return () => {
+      if (document.title === ours) document.title = before
+    }
+  }, [deleted])
   if (direct) return <SigningIn steps={LEAVING} />
   return (
     <Screen title={deleted ? 'Your account is deleted' : 'Sign in to Dispatchlet'}>

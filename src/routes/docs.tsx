@@ -13,7 +13,7 @@ export const Route = createFileRoute('/docs')({
 
 function Docs() {
   return (
-    <LegalPage title="How Dispatchlet works" updated="28 Oct 2026">
+    <LegalPage title="How Dispatchlet works" updated="11 Nov 2026">
       <p>
         Dispatchlet is a research agent for Buffer. You describe what to post about once; on a
         schedule it finds what is new, skips what you have already covered, writes a post for each

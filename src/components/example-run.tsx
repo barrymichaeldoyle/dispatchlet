@@ -62,7 +62,7 @@ const TOTAL_SECONDS = DURATION / 1000
 const SPEEDS = [0.5, 0.75, 1, 1.5, 2]
 const SPEED_KEY = 'dispatchlet-demo-speed'
 // The sources named in the playbook, as the agent reads them.
-const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'Guardian']
+const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'The Guardian']
 const STAGES = ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']
 const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
@@ -166,7 +166,7 @@ function DemoNudge({ onPlay }: { onPlay: () => void }) {
   return (
     <p ref={ref} className="flow-nudge" data-state={state}>
       <button type="button" onClick={onPlay} aria-haspopup="dialog" aria-controls="flow-dialog">
-        Seriously, watch the demo.
+        Or watch the 55-second demo.
       </button>
     </p>
   )
@@ -605,7 +605,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
                             className={elapsed >= CLICK + 300 ? 'is-active' : ''}
                             aria-hidden={elapsed < CLICK + 300 || undefined}
                           >
-                            Your part’s done. The rest is automatic.
+                            Your part’s done.
                           </span>
                         </span>
                         <span
@@ -1137,7 +1137,7 @@ export function ExampleRun({ ref }: { ref?: Ref<ExampleRunHandle> }) {
             <div className="flow-player-info">
               {complete ? (
                 <a href="/app?signin" className="flow-join">
-                  Start with Buffer <Icon kind="arrow" />
+                  Continue with Buffer <Icon kind="arrow" />
                 </a>
               ) : null}
               {/* What was a footer of its own: the note sits under the status. */}

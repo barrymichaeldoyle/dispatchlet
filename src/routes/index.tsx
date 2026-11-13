@@ -346,7 +346,8 @@ function Home() {
               <p>
                 <BrandText>
                   Yes. Once a few posts have gone out, it reads how each did in Buffer and writes
-                  more like the ones your audience liked. Good stories it didn’t post can go to your
+                  more like the ones your audience liked. Skip a story and say why, and it can turn
+                  that into a rule for future runs. Good stories it didn’t post can go to your
                   Buffer Ideas board, so you can use them later.
                 </BrandText>
               </p>
@@ -461,9 +462,9 @@ function Home() {
           <h2 id="commit-title">Built for Buffer Commit</h2>
           <div>
             <p>
-              Dispatchlet is my entry to Buffer Commit, Buffer’s API hackathon, which runs from 28
-              October to 13 November 2026. It only uses Buffer’s public API: you sign in with
-              Buffer, and your posts go to your own queue or drafts.
+              Dispatchlet is my entry to Buffer Commit, Buffer’s API hackathon (28 October to 13
+              November 2026). It only uses Buffer’s public API: you sign in with Buffer, and your
+              posts go to your own queue or drafts.
             </p>
             <p>
               The repository is tagged where the hackathon started, so you can see exactly what was

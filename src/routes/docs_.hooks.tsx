@@ -13,7 +13,7 @@ export const Route = createFileRoute('/docs_/hooks')({
 
 function HookDocs() {
   return (
-    <LegalPage title="Inbound hooks" updated="29 Oct 2026">
+    <LegalPage title="Inbound hooks" updated="30 Oct 2026">
       <p>
         An inbound hook is a URL that starts a run of one automation when anything POSTs to it. It
         needs no header, so it works from places that cannot set one: GitHub, a cron, a Zap, a

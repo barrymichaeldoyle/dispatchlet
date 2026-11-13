@@ -14,7 +14,7 @@ export const Route = createFileRoute('/docs_/webhooks')({
 
 function WebhookDocs() {
   return (
-    <LegalPage title="Webhooks" updated="29 Oct 2026">
+    <LegalPage title="Webhooks" updated="30 Oct 2026">
       <p>
         A webhook is a URL of yours that Dispatchlet POSTs to when something happens. Buffer has no
         webhooks of its own, so this is also the simplest way to know when a Buffer post went out.
