@@ -127,16 +127,12 @@ function stubServices(found: number | ReturnType<typeof candidates>, queues: Que
       })
     if (String(body.query).includes('DispatchletApprove')) {
       const edit = body.variables.input
-      approved.push(
-        edit
-          ? { mode: edit.mode, dueAt: edit.dueAt, text: edit.text }
-          : { mode: 'addToQueue', dueAt: undefined },
-      )
+      approved.push({ mode: edit.mode, dueAt: edit.dueAt, text: edit.text })
       return Response.json({
         data: {
           editPost: {
             __typename: 'PostActionSuccess',
-            post: { id: 'b-1', status: 'scheduled', dueAt: edit?.dueAt ?? null },
+            post: { id: 'b-1', status: 'scheduled', dueAt: edit.dueAt ?? null },
           },
         },
       })

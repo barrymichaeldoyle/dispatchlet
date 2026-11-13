@@ -179,7 +179,8 @@ async function approve(
       ctx,
       post.userId,
       post.bufferPostId,
-      dated ? { dueAt: post.plannedFor!, post } : undefined,
+      post,
+      dated ? post.plannedFor : undefined,
     )
     await ctx.runMutation(internal.approvals.markApproved, {
       postId: post._id,

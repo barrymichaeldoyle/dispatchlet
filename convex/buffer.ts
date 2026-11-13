@@ -1063,52 +1063,42 @@ export async function createBufferPost(
   throw new BufferPostError(createPost.message ?? `Buffer returned ${createPost.__typename}`, kind)
 }
 
-/** Moves a draft into the queue (SPEC §24.6). Returns the post's new status and due time. */
+/**
+ * Moves a draft into the queue (SPEC §24.6), or schedules a dated post (on this day) for its own
+ * time. Returns the post's new status and due time. Buffer reads an edit without text as an empty
+ * post ("Post must have either text or media"), so the post's text and thread go every time.
+ */
 export async function approveBufferPost(
   ctx: ActionCtx,
   userId: Id<'users'>,
   bufferPostId: string,
-  /**
-   * A dated post (on this day) is scheduled for its own time instead of joining the queue. Buffer
-   * refuses a schedule change without the content, so the post's text and thread go again.
-   */
-  at?: {
-    dueAt: number
-    post: Pick<CreatePostInput, 'service' | 'text' | 'thread' | 'linkAttachment'>
-  },
+  post: Pick<CreatePostInput, 'service' | 'text' | 'thread' | 'linkAttachment'>,
+  dueAt?: number,
 ): Promise<{ status: string; dueAt: number | undefined }> {
+  const metadata = postMetadata(post)
   const { editPost } = await bufferCallFor<{
     editPost: MutationPayload & { post?: { id: string; status: string; dueAt: string | null } }
   }>(
     ctx,
     userId,
-    at === undefined
-      ? `mutation DispatchletApprove($id: PostId!) {
-      editPost(input: { id: $id, saveToDraft: false, mode: addToQueue }) {
-        __typename
-        ... on PostActionSuccess { post { id status dueAt } }
-        ... on MutationError { message }
-      }
-    }`
-      : `mutation DispatchletApproveAt($input: EditPostInput!) {
+    `mutation DispatchletApprove($input: EditPostInput!) {
       editPost(input: $input) {
         __typename
         ... on PostActionSuccess { post { id status dueAt } }
         ... on MutationError { message }
       }
     }`,
-    at === undefined
-      ? { id: bufferPostId }
-      : {
-          input: {
-            id: bufferPostId,
-            saveToDraft: false,
-            mode: 'customScheduled',
-            dueAt: new Date(at.dueAt).toISOString(),
-            text: at.post.text,
-            ...(postMetadata(at.post) ? { metadata: postMetadata(at.post) } : {}),
-          },
-        },
+    {
+      input: {
+        id: bufferPostId,
+        saveToDraft: false,
+        ...(dueAt === undefined
+          ? { mode: 'addToQueue' }
+          : { mode: 'customScheduled', dueAt: new Date(dueAt).toISOString() }),
+        text: post.text,
+        ...(metadata ? { metadata } : {}),
+      },
+    },
     'interactive',
   )
   if (editPost.post)

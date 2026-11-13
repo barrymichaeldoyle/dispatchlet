@@ -1082,6 +1082,30 @@ describe('double clicks', () => {
     expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
   })
 
+  it('send the post’s text when approving into the queue, since Buffer reads an edit without it as empty', async () => {
+    const { t, post, fetch } = await noteFixture()
+    fetch.mockImplementation(async () =>
+      Response.json({
+        data: {
+          editPost: {
+            __typename: 'PostActionSuccess',
+            post: { id: post.bufferPostId, status: 'scheduled', dueAt: null },
+          },
+        },
+      }),
+    )
+    await t.action(internal.approvals.approveForUser, { userId: post.userId, postId: post._id })
+    const body = JSON.parse(fetch.mock.calls.at(-1)![1].body)
+    expect(body.variables.input).toMatchObject({
+      id: post.bufferPostId,
+      saveToDraft: false,
+      mode: 'addToQueue',
+      text: post.text,
+    })
+    expect(body.variables.input.dueAt).toBeUndefined()
+    expect((await t.run((ctx) => ctx.db.get(post._id)))?.status).toBe('queued')
+  })
+
   it('refuse an edit while the draft is being approved, so Buffer does not take it back to drafts', async () => {
     const t = convexTest(schema, modules)
     const { postId } = await draftAndStory(t)
