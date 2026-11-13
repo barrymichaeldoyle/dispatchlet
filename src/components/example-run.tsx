@@ -62,7 +62,7 @@ const TOTAL_SECONDS = DURATION / 1000
 const SPEEDS = [0.5, 0.75, 1, 1.5, 2]
 const SPEED_KEY = 'dispatchlet-demo-speed'
 // The sources named in the playbook, as the agent reads them.
-const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'The Guardian']
+const SOURCE_TILES = ['Positive News', 'Good News Network', 'BBC', 'Guardian']
 const STAGES = ['Your answers', 'The playbook', 'Research', 'Your posts', 'In Buffer']
 const STARTS = [0, PLAYBOOK, RESEARCH, POSTS, BUFFER]
 const TITLES = [
