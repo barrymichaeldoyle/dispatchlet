@@ -23,6 +23,8 @@ describe('security headers', () => {
     const csp = SECURITY_HEADERS['Content-Security-Policy']
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("object-src 'none'")
-    expect(csp).toContain('https://*.convex.site')
+    expect(csp).toContain('wss://amiable-mosquito-364.convex.cloud')
+    expect(csp).toContain('https://amiable-mosquito-364.convex.site')
+    expect(csp).not.toContain('*.convex')
   })
 })

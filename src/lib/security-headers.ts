@@ -5,7 +5,9 @@
  *
  * Scripts and styles allow 'unsafe-inline' because the theme script and the router's hydration
  * data are inline; everything else is limited to this site, Convex, PostHog and Cloudflare's
- * analytics beacon.
+ * analytics beacon. Convex is named by deployment (production, then dev), not *.convex.cloud, so a
+ * script that did get in could not send data to a Convex deployment of its own. A self-hosted copy
+ * puts its own deployments here and in public/_headers.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -13,8 +15,8 @@ const CONTENT_SECURITY_POLICY = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   "font-src 'self'",
-  "connect-src 'self' https://*.convex.cloud wss://*.convex.cloud https://*.convex.site https://eu.i.posthog.com https://eu-assets.i.posthog.com https://o299144.ingest.us.sentry.io https://cloudflareinsights.com",
-  "form-action 'self' https://*.convex.site",
+  "connect-src 'self' https://amiable-mosquito-364.convex.cloud wss://amiable-mosquito-364.convex.cloud https://polite-marlin-194.convex.cloud wss://polite-marlin-194.convex.cloud https://amiable-mosquito-364.convex.site https://polite-marlin-194.convex.site https://eu.i.posthog.com https://eu-assets.i.posthog.com https://o299144.ingest.us.sentry.io https://cloudflareinsights.com",
+  "form-action 'self' https://amiable-mosquito-364.convex.site https://polite-marlin-194.convex.site",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "object-src 'none'",
