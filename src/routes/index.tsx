@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
-import { HeroFan, HeroField } from '../components/hero-field'
+import { HeroRun } from '../components/hero-run'
 import { BrandText } from '../components/brand-text'
 import { BufferMark } from '../components/brand-icons'
 import { SiteFooter } from '../components/site-footer'
@@ -9,7 +9,6 @@ import { PostPreview } from '../components/post-preview'
 import { RunSteps } from '../components/run-steps'
 import { ThemeToggle } from '../components/theme-toggle'
 import { Wordmark } from '../components/wordmark'
-import { CANDIDATES, STORIES } from '../lib/example-run'
 import { track } from '../integrations/posthog/track'
 
 const SITE_URL = 'https://dispatchlet.com/'
@@ -94,10 +93,6 @@ export const Route = createFileRoute('/')({
   }),
 })
 
-/** The outcome, above the fold: one post it wrote and scheduled, from the demo's run. */
-const [HERO_STORY] = STORIES
-const [, HERO_POST] = HERO_STORY.posts[0]
-
 const BUILD_LOG_URL = 'https://x.com/barrymdoyle'
 const GRANDPRIXPICKS_X_URL = 'https://x.com/GrandPrixPicks'
 
@@ -139,8 +134,6 @@ function usePastHeroStart(): boolean {
   }, [])
   return past
 }
-
-const SKIPPED = CANDIDATES.length - STORIES.length
 
 function Home() {
   const { mounted } = useLanding()
@@ -241,32 +234,7 @@ function Home() {
               <a href={SOURCE_URL}>Read the source</a>
             </p>
           </div>
-          <div className="landing-proof-column">
-            <figure className="landing-proof flow-writing">
-              <HeroField />
-              <PostPreview channel="X" length={HERO_POST.length}>
-                {HERO_POST}
-              </PostPreview>
-              <div className="landing-proof-day">
-                <p className="landing-proof-receipt">
-                  Found {CANDIDATES.length} stories, skipped {SKIPPED}, wrote {STORIES.length * 2}{' '}
-                  posts.
-                </p>
-                <ol>
-                  {STORIES.map((story) => (
-                    <li key={story.title}>
-                      <time>{story.time}</time>
-                      <span>{story.title}</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-              <figcaption>
-                <BrandText>{`One morning’s run for an example account. Each story gets an X and a LinkedIn post in Buffer.`}</BrandText>
-              </figcaption>
-            </figure>
-            <HeroFan />
-          </div>
+          <HeroRun />
         </section>
 
         <ExampleRun ref={demo} />
