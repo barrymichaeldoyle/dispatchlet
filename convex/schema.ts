@@ -393,6 +393,11 @@ export default defineSchema({
       }),
     ),
     dupOf: v.optional(v.id('stories')),
+    /**
+     * Kept, but none of its posts reached Buffer (all rejected, skipped or refused) when its run
+     * finished. Such a story is not counted as covered, so a later run may try it again.
+     */
+    notPosted: v.optional(v.boolean()),
     /** Buffer's idea id once the person saved this story to their Ideas board. */
     ideaId: v.optional(v.string()),
     /** Set while a save to Buffer Ideas is in flight, so a second click cannot save twice. */

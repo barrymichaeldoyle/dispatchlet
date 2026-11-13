@@ -1607,3 +1607,63 @@ describe('reading posts by index', () => {
     expect(loaded?.proven.map((p) => p.text).sort()).toEqual(['mine 1', 'mine 2', 'mine 3'])
   })
 })
+
+describe('a story none of whose posts reached Buffer', () => {
+  it('is not counted as covered, so a later run may try it again', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const story = (url: string) =>
+      t.run((ctx) =>
+        ctx.db.insert('stories', {
+          automationId,
+          runId,
+          title: url,
+          canonicalUrl: url,
+          source: 'e.com',
+          publishedAt: '',
+          summary: '',
+          whyItMatters: '',
+          keyFacts: [],
+          confidence: 1,
+          decision: 'kept',
+          reason: '',
+          createdAt: 0,
+        }),
+      )
+    const [rejected, queued, maybe, none] = [
+      await story('https://e.com/rejected'),
+      await story('https://e.com/queued'),
+      await story('https://e.com/maybe'),
+      await story('https://e.com/none'),
+    ]
+    await t.run(async (ctx) => {
+      const base = { userId, automationId, runId, channelId: 'c1', service: 'twitter', text: 'x' }
+      await ctx.db.insert('posts', { ...base, storyId: rejected, status: 'rejected', createdAt: 0 })
+      await ctx.db.insert('posts', {
+        ...base,
+        storyId: queued,
+        status: 'queued',
+        bufferPostId: 'b1',
+        createdAt: 0,
+      })
+      await ctx.db.insert('posts', {
+        ...base,
+        storyId: maybe,
+        status: 'failed',
+        reason:
+          'Buffer did not answer while this post was being sent. Check Buffer before sending it again.',
+        createdAt: 0,
+      })
+    })
+    await t.mutation(internal.runs.finish, { runId, status: 'done', note: 'Done.' })
+    const flags = await t.run(async (ctx) =>
+      Promise.all(
+        [rejected, queued, maybe, none].map(
+          async (id) => (await ctx.db.get(id))?.notPosted ?? false,
+        ),
+      ),
+    )
+    expect(flags).toEqual([true, false, false, true])
+  })
+})

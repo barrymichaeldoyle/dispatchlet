@@ -371,6 +371,8 @@ export const load = internalQuery({
       )
       .order('desc')
       .take(200)
+      // A story that got nothing into Buffer was not covered: a later run may try it again.
+      .then((rows) => rows.filter((s) => !s.notPosted))
     // Sent posts with Buffer's metrics from the last 90 days, for the writer's examples.
     const sentPosts = (
       await ctx.db
@@ -514,6 +516,37 @@ export const occupiedSlots = internalQuery({
   },
 })
 
+/** Statuses of a post that is in Buffer, or may be, or is waiting to go: its story is covered. */
+const REACHED_BUFFER = new Set(['publishing', 'held', 'draft', 'queued', 'scheduled', 'sent'])
+
+/**
+ * Flags the run's kept stories that got nothing into Buffer, so they are not counted as covered and
+ * a later run may try them again. A story the person skipped stays covered, and so does one with a
+ * post that failed in a way that may have reached Buffer ("Check Buffer…").
+ */
+async function markNotPosted(ctx: MutationCtx, runId: Id<'runs'>) {
+  const stories = await ctx.db
+    .query('stories')
+    .withIndex('by_run', (q) => q.eq('runId', runId))
+    .collect()
+  const kept = stories.filter((s) => s.decision === 'kept' && !s.review)
+  if (!kept.length) return
+  const posts = await ctx.db
+    .query('posts')
+    .withIndex('by_run', (q) => q.eq('runId', runId))
+    .collect()
+  for (const story of kept) {
+    const reached = posts.some(
+      (p) =>
+        p.storyId === story._id &&
+        (Boolean(p.bufferPostId) ||
+          REACHED_BUFFER.has(p.status) ||
+          (p.status === 'failed' && /Check Buffer/.test(p.reason ?? ''))),
+    )
+    if (!reached) await ctx.db.patch(story._id, { notPosted: true })
+  }
+}
+
 export const finish = internalMutation({
   args: {
     runId: v.id('runs'),
@@ -533,6 +566,7 @@ export const finish = internalMutation({
       error,
       steps: [...run.steps, { step: status, at: Date.now(), note }],
     })
+    if (run.kind !== 'dry') await markNotPosted(ctx, runId)
     if (!run.automationId) return null
     const automation = await ctx.db.get(run.automationId)
     if (!automation) return null
