@@ -26,12 +26,12 @@ function HookDocs() {
       <p>
         <strong>Nothing</strong>, or an empty JSON object: a plain run, as if you pressed Run now.{' '}
         <strong>A story</strong>: a JSON object with a <code>title</code>, and optionally a{' '}
-        <code>url</code> and <code>notes</code>. The research step opens the URL if given, treats it
-        as a story to cover whatever its date, and writes it in your playbook’s voice. If the
-        automation already covered it, it is skipped as a duplicate and the log says so, so a hook
-        that fires twice does not post twice. Add <code>"dry": true</code>, or <code>?dry=1</code>{' '}
-        to the URL, to see what it would post without sending anything to Buffer. Use the URL form
-        for GitHub, whose body you cannot change.
+        <code>url</code> (http or https) and <code>notes</code>. The research step opens the URL if
+        given, treats it as a story to cover whatever its date, and writes it in your playbook’s
+        voice. If the automation already covered it, it is skipped as a duplicate and the log says
+        so, so a hook that fires twice does not post twice. Add <code>"dry": true</code>, or{' '}
+        <code>?dry=1</code> to the URL, to see what it would post without sending anything to
+        Buffer. Use the URL form for GitHub, whose body you cannot change.
       </p>
       <pre tabIndex={0}>{`curl -X POST https://dispatchlet.com/api/v1/hooks/dlh_… \\
   -H "Content-Type: application/json" \\
@@ -40,7 +40,9 @@ function HookDocs() {
 { "run": { "id": "…", "url": "https://dispatchlet.com/app/a/…/runs/…" } }`}</pre>
       <p>
         The response is 202 with the run; the run page link shows it live. 409 means a run is
-        already going, 402 that the free allowance is spent. A hook takes ten requests a minute.
+        already going, the automation is paused, or its playbook is not ready; 402 that the free
+        allowance is spent; 400 that the body is wrong. A hook takes ten requests a minute, and 429
+        says to wait.
       </p>
 
       <h2>GitHub releases</h2>
@@ -48,8 +50,9 @@ function HookDocs() {
         In a repository, Settings → Webhooks → Add webhook: the hook URL as Payload URL, content
         type <code>application/json</code>, no secret needed, and under “Let me select individual
         events” tick only <strong>Releases</strong>. Each <em>published</em> release then starts a
-        run whose first story is the release: its name, link and notes. Pre-releases and drafts are
-        ignored. The GitHub “ping” when you save the webhook is answered without starting a run.
+        run whose first story is the release: its repository and name, link and notes. Pre-releases
+        and drafts are ignored. The GitHub “ping” when you save the webhook is answered without
+        starting a run.
       </p>
 
       <h2>A cron</h2>

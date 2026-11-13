@@ -18,7 +18,10 @@ const TOOLS: [string, string][] = [
     'create_automation',
     'From the seven setup answers and channel ids. The playbook follows in about a minute.',
   ],
-  ['update_automation', 'Schedule, channels, posting mode, stories per run, or pause and enable.'],
+  [
+    'update_automation',
+    'Schedule, channels, posting mode (including planned), stories per run, research mode, or pause and enable.',
+  ],
   ['get_playbook', 'The playbook as text.'],
   [
     'update_playbook',
@@ -91,8 +94,9 @@ npx -y mcp-remote https://dispatchlet.com/mcp --header "Authorization: Bearer dl
         dynamic registration and client metadata documents both supported.
       </p>
       <p>
-        The server is stateless and uses Streamable HTTP. It holds nothing of yours: each request
-        carries your token to the API, and revoking the token in settings disconnects the assistant.
+        The server is stateless and uses Streamable HTTP. With a pasted token nothing is stored; an
+        OAuth connection keeps its API token in the grant. Either way, revoking the token in
+        settings disconnects the assistant.
       </p>
 
       <h2>Tools</h2>
@@ -132,10 +136,10 @@ Assistant: [approve_post] [approve_post] [Buffer MCP: list_posts]
 
       <h2>Limits</h2>
       <p>
-        The tools call the same API with the same limits: 60 requests a minute per token, one run at
-        a time per automation, and your run allowance. A dry run costs a dry run; a real run costs a
-        run. <code>get_run</code> with <code>wait_seconds</code> polls every three seconds and
-        returns early when the run finishes.
+        The tools call the same API with the same limits: 60 requests a minute per token and 1,000
+        an hour per account, one run at a time per automation, and your run allowance. A dry run
+        costs a dry run; a real run costs a run. <code>get_run</code> with <code>wait_seconds</code>{' '}
+        polls every three seconds and returns early when the run finishes.
       </p>
     </LegalPage>
   )

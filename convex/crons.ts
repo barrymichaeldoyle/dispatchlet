@@ -15,7 +15,7 @@ crons.daily(
 )
 crons.daily('purge webhook deliveries', { hourUTC: 3, minuteUTC: 20 }, internal.webhooks.purge, {})
 crons.interval('close abandoned runs', { minutes: 10 }, internal.runs.sweepAbandoned, {})
-// Emails the owner when one of the jobs above, or the run scheduler, has gone quiet (alerts.health).
+// Emails the owner when one of the jobs above, or the run scheduler, has gone quiet (alerts.checkHealth).
 crons.interval('check health', { hours: 6 }, internal.alerts.checkHealth, {})
 
 export default crons

@@ -329,8 +329,8 @@ function Home() {
               <summary>Which channels does it support?</summary>
               <p>
                 <BrandText>
-                  X, LinkedIn, Threads, Bluesky and Mastodon, through your Buffer account. Channels
-                  that need an image with every post, like Instagram, are not supported yet.
+                  X, LinkedIn, Threads, Bluesky and Mastodon, through your Buffer account. Other
+                  networks, such as Facebook, Instagram and TikTok, are not supported yet.
                 </BrandText>
               </p>
             </details>
@@ -343,7 +343,7 @@ function Home() {
                 </BrandText>
               </p>
               <p>
-                The app emails you about your runs, and you can turn off the approval emails in
+                The app emails you about your runs, and you choose which run emails you get in
                 settings. The <a href="/privacy">privacy policy</a> lists everything that is
                 collected and who handles it.
               </p>

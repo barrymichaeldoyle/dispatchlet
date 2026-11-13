@@ -14,7 +14,11 @@ export const Route = createFileRoute('/docs_/api')({
 
 const ERRORS: [string, string, string][] = [
   ['401', 'unauthorized', 'No token, or a revoked one.'],
-  ['403', 'forbidden', 'A read token on a route that writes.'],
+  [
+    '403',
+    'forbidden',
+    'A read token on a route that writes, an account not let in yet, or Buffer needs reconnecting.',
+  ],
   ['404', 'not_found', 'No such route, or an id that is not yours.'],
   [
     '405',
@@ -29,16 +33,20 @@ const ERRORS: [string, string, string][] = [
   [
     '409',
     'conflict',
-    'A run is already going for that automation, or you are at a limit on how many you may have.',
+    'A run is already going, the automation is paused or not ready, or you are at a limit on how many you may have.',
   ],
-  ['402', 'allowance', 'No free runs left. Add your own Anthropic key in settings.'],
+  [
+    '402',
+    'allowance',
+    'No free runs, dry runs or playbook generations left. Add your own Anthropic key in settings.',
+  ],
   [
     '429',
     'rate_limited',
     '60 requests a minute per token, 1,000 an hour per account. `Retry-After` says how long.',
   ],
   ['502', 'buffer', 'Buffer refused the call; the message is passed through.'],
-  ['503', 'unavailable', 'Something on our side. Try again.'],
+  ['500', 'unavailable', 'Something on our side. Try again.'],
 ]
 
 function ApiDocs() {
@@ -66,9 +74,9 @@ function ApiDocs() {
       <h2>Conventions</h2>
       <p>
         Ids are strings. Times are Unix milliseconds in fields ending <code>At</code>. Every
-        response carries <code>X-RateLimit-Limit</code>, <code>-Remaining</code> and{' '}
-        <code>-Reset</code> (Unix seconds). An error comes back with a code and a message, and a{' '}
-        <code>field</code> or <code>line</code> when one applies:
+        response to an accepted token carries <code>X-RateLimit-Limit</code>,{' '}
+        <code>-Remaining</code> and <code>-Reset</code> (Unix seconds). An error comes back with a
+        code and a message, and a <code>field</code> or <code>line</code> when one applies:
       </p>
       <pre
         tabIndex={0}

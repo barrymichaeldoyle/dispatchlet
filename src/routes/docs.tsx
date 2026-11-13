@@ -103,8 +103,11 @@ LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source articl
         <strong>Drafts</strong> wait in Buffer until you approve them, from the run page, the home
         page or from a link in the email after each run. <strong>Queue</strong> adds posts to the
         channel’s next free slots. <strong>Spread</strong> schedules them from ten minutes after the
-        run, two hours apart. If a channel is at Buffer’s daily posting limit, its posts are skipped
-        and the log says so.
+        run, two hours apart. <strong>Planned</strong>, on weekly automations, schedules one story a
+        posting day at a time you choose, for the seven days after the run. If a channel is at
+        Buffer’s daily posting limit, its posts are skipped and the log says so. If Buffer is busy
+        or stops answering partway through, the rest of the run’s posts wait and are sent once it is
+        back.
       </p>
 
       <h2>Channels and limits</h2>
@@ -125,8 +128,9 @@ LinkedIn: Three short paragraphs. Up to 1200 characters. Link: the source articl
         free runs.
       </p>
       <p>
-        Three failed runs in a row pause an automation and send you an email. You can choose to be
-        emailed after every run, only when drafts are waiting, only on problems, or never.
+        Three failed runs in a row stop an automation until you turn it back on, and send you an
+        email. You can choose to be emailed after every run, only when drafts are waiting, only on
+        problems, or never.
       </p>
 
       <h2>Sharing a run</h2>

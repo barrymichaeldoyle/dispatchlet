@@ -107,7 +107,7 @@ export function digestMessage(
   const htmlPosts = posts.map((p) => {
     const body = `<strong>${escapeHtml(p.channelName)}</strong>, ${escapeHtml(p.status)}.<br>${escapeHtml(p.text).replaceAll('\n', '<br>')}`
     return p.approveToken
-      ? `${body}<br><a href="${site}/approve?token=${p.approveToken}" style="${LINK}">Approve and add to the queue</a>`
+      ? `${body}<br><a href="${site}/approve?token=${p.approveToken}" style="${LINK}">Approve and schedule</a>`
       : body
   })
   return {
@@ -122,7 +122,7 @@ export function digestMessage(
         `<a href="${runUrl}" style="${LINK}">See the run</a>`,
         'Barry',
       ],
-      `You get this after each run that creates posts. Read the ${PRIVACY}.`,
+      `You get this after runs that create posts; choose which in settings. Read the ${PRIVACY}.`,
     ),
     headers: {},
   }

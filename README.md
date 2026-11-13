@@ -181,7 +181,12 @@ your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 A few things name Dispatchlet's own deployments and need yours instead: the
 Content Security Policy in `src/lib/security-headers.ts` and `public/_headers`
 (Convex deployments, PostHog's EU host and Sentry), the Sentry DSN in
-`src/server.ts`, and the test deployments in `convex/e2e.ts`.
+`src/server.ts` and `src/integrations/sentry/errors.ts`, the PostHog key in
+`.env.production`, and the test deployments in `convex/e2e.ts`.
+
+Smaller limits can be tuned with more Convex variables (`API_RATE_PER_MINUTE`,
+`AUTOMATIONS_PER_USER`, `BUFFER_BACKGROUND_CALLS_PER_USER` and others); grep
+`process.env` in `convex/` for the full list and their defaults.
 
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright tests.
@@ -199,15 +204,14 @@ it even if the variable is set there. Never set it on production.
 
 `pnpm install` installs the Husky Git hooks automatically. Every commit runs
 `pnpm precommit`, which checks staged JavaScript/TypeScript files with oxlint,
-checks formatting on staged supported files with oxfmt, runs `pnpm audit`
-(including development and optional dependencies, at low severity and above),
-and runs the full unit test suite. Lint and formatting checks do not rewrite
-files; fix failures and stage the changes before retrying.
+checks formatting on staged supported files with oxfmt, typechecks, and runs the
+full unit test suite. Lint and formatting checks do not rewrite files; fix
+failures and stage the changes before retrying. Any failed check blocks the
+commit.
 
-Any failed check blocks the commit. The audit requires access to the package
-registry; a failed audit request also blocks the commit. A clean audit means
-no known dependency vulnerabilities were reported at the time of the check.
-Typechecking, Knip and browser tests remain in CI through the existing checks.
+CI runs `pnpm check` (which adds Knip and fails on lint warnings) and the
+browser tests on every push. `pnpm audit` runs weekly in its own workflow,
+since advisories arrive on their own schedule rather than with commits.
 
 ## Landing page
 
@@ -239,14 +243,14 @@ Set `CONVEX_DEPLOY_KEY` as a **build secret**, using a production deploy key
 for the Dispatchlet Convex project. Build variables pin `NODE_VERSION=26` (as in
 `.nvmrc`) and
 `PNPM_VERSION=11.17.0`; the pnpm version also matches `package.json`.
-For analytics, also set `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST` as build
-variables with the project's valid token and ingestion host.
+The PostHog key and host are public and committed in `.env.production`, which
+the build reads; no build variables are needed for analytics.
 
 `pnpm build:deploy` uses Convex's deploy command to run the Vite build with the
 production deployment URL injected as `VITE_CONVEX_URL`, then deploys the
 Convex functions and schema. Only after that succeeds does Cloudflare run the
-Worker deploy command. Do not set `VITE_CONVEX_SITE_URL` to a development
-deployment in production; it is derived from the injected URL by default.
+Worker deploy command. The `.convex.site` URL is derived from the injected
+`VITE_CONVEX_URL`.
 
 `pnpm build` remains a frontend-only build for local checks.
 `pnpm deploy` performs the combined production build, Convex deployment and

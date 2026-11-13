@@ -129,7 +129,7 @@ http.route({
       200,
       'Approve this draft and add it to your Buffer queue?',
       (nonce) =>
-        `<blockquote>${escapeHtml(post.text)}</blockquote><form id="approve" method="post" action="?token=${encodeURIComponent(token)}"><button type="submit">Approve and add to the queue</button></form><script nonce="${nonce}">document.getElementById('approve').addEventListener('submit',function(){var b=this.querySelector('button');b.disabled=true;b.textContent='Approving'})</script>`,
+        `<blockquote>${escapeHtml(post.text)}</blockquote><form id="approve" method="post" action="?token=${encodeURIComponent(token)}"><button type="submit">Approve and schedule</button></form><script nonce="${nonce}">document.getElementById('approve').addEventListener('submit',function(){var b=this.querySelector('button');b.disabled=true;b.textContent='Approving'})</script>`,
     )
   }),
 })

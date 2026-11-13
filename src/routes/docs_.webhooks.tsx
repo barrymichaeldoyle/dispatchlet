@@ -89,7 +89,10 @@ export function verify(secret, headers, rawBody) {
         like; the body is already JSON. <strong>A spreadsheet of what went out:</strong> subscribe
         to <code>post.sent</code> only and append a row per delivery.
       </p>
-      <p>Webhook URLs must be https and public. Deliveries never contain tokens or keys.</p>
+      <p>
+        Webhook URLs must be https on port 443 or 8443, on a public host, with no user name or
+        password in them. Deliveries never contain tokens or keys.
+      </p>
     </LegalPage>
   )
 }

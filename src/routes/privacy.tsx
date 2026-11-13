@@ -13,7 +13,7 @@ export const Route = createFileRoute('/privacy')({
 
 function Privacy() {
   return (
-    <LegalPage title="Privacy policy" updated="11 Nov 2026">
+    <LegalPage title="Privacy policy" updated="13 Nov 2026">
       <p>
         Dispatchlet is run by Barry Michael Doyle, an individual based in South Africa. This policy
         covers dispatchlet.com and the Dispatchlet app. Sign-up for the app opened on 10 November
@@ -32,7 +32,8 @@ function Privacy() {
         <li>
           Error reports, if something on the site or in the app breaks: the error message, where in
           the code it happened, the page address and your browser type. They never include your
-          email address or anything you typed, and they follow the same Do Not Track rule.
+          email address or anything you typed. Errors in your browser follow the same Do Not Track
+          rule. Errors on the server are reported without the contents of your request.
         </li>
       </ul>
       <p>
@@ -71,6 +72,10 @@ function Privacy() {
           Your Anthropic API key, if you add one. It is encrypted, used only for your runs, and
           deleted when you remove it.
         </li>
+        <li>
+          Your conversations with an automation’s assistant, and the playbook changes it proposed.
+        </li>
+        <li>Feedback you send, with the automation or run it was about.</li>
         <li>Your time zone and email settings.</li>
         <li>
           If you turn on browser notifications, the address your browser gives for sending them and
@@ -110,15 +115,17 @@ function Privacy() {
       </p>
       <p>
         The app uses your data only to run your playbooks and show you the results. Its emails are
-        about your runs: posts waiting for your approval, a lost Buffer connection, free runs used
-        up, or a playbook paused after failed runs. You can turn off the approval emails in
-        settings.
+        about your runs and your account: a summary after a run that creates posts (with approve
+        links for drafts), a failed run, a playbook paused after failed runs, a lost Buffer
+        connection, free runs used up, or a webhook switched off. You choose which run emails you
+        get in settings. Emails about your account’s access and limits are always sent.
       </p>
       <p>
-        To research and write, the app sends your playbook, the stories it found and the stories it
-        has already covered to Anthropic’s Claude models. Claude searches the web and reads pages
-        from Anthropic’s servers, so the sites it visits do not see your details. Posts are marked
-        as AI-assisted in Buffer where the network supports it.
+        To research and write, the app sends your setup answers, your playbook, the stories it
+        found, the stories it has already covered, your recent posts and how they did, and anything
+        you write to an automation’s assistant to Anthropic’s Claude models. Claude searches the web
+        and reads pages from Anthropic’s servers, so the sites it visits do not see your details.
+        Posts are marked as AI-assisted in Buffer where the network supports it.
       </p>
       <p>Your data is never sold, never used for advertising, and never used to train AI models.</p>
       <p>
@@ -158,11 +165,12 @@ function Privacy() {
       </p>
       <p>
         App data is kept while you have an account. Disconnecting Buffer deletes the tokens and
-        channels and pauses your playbooks, but keeps their history so you can reconnect. Deleting
-        your account in settings deletes everything: your account, playbooks, runs, posts, tokens,
-        webhooks, run URLs and notification settings, and ends any assistant connections. It also
-        revokes Dispatchlet’s access at Buffer. Posts already in Buffer stay there, under your
-        control.
+        channels. Your playbooks and their history are kept, but their runs are skipped until you
+        reconnect. Deleting your account in settings deletes everything: your account, playbooks,
+        runs, posts, tokens, webhooks, run URLs and notification settings, and ends any assistant
+        connections. It also asks Buffer to revoke Dispatchlet’s access. Hourly totals of AI spend
+        are kept without anything that links them to you. Posts already in Buffer stay there, under
+        your control.
       </p>
 
       <h2>Your rights</h2>

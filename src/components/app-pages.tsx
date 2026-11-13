@@ -1331,7 +1331,11 @@ const PREFS: [string, string, string][] = [
     'Only when something goes wrong',
     'A failed run, a paused automation, lost Buffer access.',
   ],
-  ['never', 'Never', 'You check the run log yourself.'],
+  [
+    'never',
+    'Never',
+    'You check the run log yourself. Account emails, like lost Buffer access, still come.',
+  ],
 ]
 
 function EmailPrefs() {
@@ -1377,7 +1381,7 @@ function EmailPrefs() {
             <span>Email</span>
             <span className="app-muted">
               {usage.emailPrefs === 'never'
-                ? 'Nothing is sent while “When” is Never.'
+                ? 'No run emails while “When” is Never.'
                 : usage.emailPrefs === 'problems'
                   ? 'Only when something goes wrong; drafts are not emailed.'
                   : 'With approve links for drafts.'}
@@ -1521,9 +1525,8 @@ function AnthropicKey({
         </p>
       ) : (
         <p>
-          Every account gets {runsLeft} more free {runsLeft === 1 ? 'run' : 'runs'} and{' '}
-          {dryRunsLeft} dry {dryRunsLeft === 1 ? 'run' : 'runs'} on Dispatchlet’s key. Add your own
-          key from{' '}
+          You have {runsLeft} free {runsLeft === 1 ? 'run' : 'runs'} and {dryRunsLeft} dry{' '}
+          {dryRunsLeft === 1 ? 'run' : 'runs'} left on Dispatchlet’s key. Add your own key from{' '}
           <a href="https://platform.claude.com/" target="_blank" rel="noreferrer">
             platform.claude.com
           </a>{' '}

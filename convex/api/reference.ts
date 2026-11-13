@@ -113,8 +113,8 @@ export const Hint = {
   type: 'object',
   required: ['title'],
   properties: {
-    title: { type: 'string', maxLength: 200 },
-    url: { type: 'string', format: 'uri' },
+    title: { type: 'string', minLength: 1, maxLength: 200 },
+    url: { type: 'string', format: 'uri', maxLength: 500, description: 'http or https only' },
     notes: { type: 'string', maxLength: 1000 },
   },
   description: 'A story the run must cover. Dedupe still applies.',
@@ -564,7 +564,7 @@ export const ROUTES: RouteRef[] = [
     query: {
       status: {
         type: 'string',
-        description: 'draft, queued, scheduled, sent, failed, held, rejected or dry',
+        description: 'draft, queued, scheduled, sent, failed, held, rejected, dry or deleted',
       },
       automation: { type: 'string', description: 'Only this automation' },
       since: { type: 'integer', description: 'Created after this time (ms)' },
@@ -644,7 +644,11 @@ export const ROUTES: RouteRef[] = [
       type: 'object',
       required: ['url', 'events'],
       properties: {
-        url: { type: 'string', format: 'uri', description: 'https only, public host' },
+        url: {
+          type: 'string',
+          format: 'uri',
+          description: 'https on port 443 or 8443, public host, no credentials',
+        },
         events: {
           type: 'array',
           items: { type: 'string', enum: Object.keys(WEBHOOK_EVENT_DOCS) },
@@ -734,9 +738,9 @@ export const ROUTES: RouteRef[] = [
     body: {
       type: 'object',
       properties: {
-        title: { type: 'string' },
-        url: { type: 'string' },
-        notes: { type: 'string' },
+        title: { type: 'string', minLength: 1, maxLength: 200 },
+        url: { type: 'string', format: 'uri', maxLength: 500, description: 'http or https only' },
+        notes: { type: 'string', maxLength: 1000 },
         dry: { type: 'boolean' },
       },
     },

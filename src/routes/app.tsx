@@ -4,9 +4,9 @@ import { AppGate } from '../components/app-gate'
 import appOnlyCss from '../app.css?url'
 
 /**
- * The app. Not linked from the site, not in the sitemap and not indexed. Until the public
- * launch, anyone can sign in with Buffer, but only allowlisted accounts get past the gate to the
- * pages under it; there is no date that opens it automatically.
+ * The app, reached from the site's sign-in links; not in the sitemap and not indexed. With
+ * SIGNUP_OPEN unset, anyone can sign in with Buffer but only allowlisted accounts get past the
+ * gate to the pages under it.
  */
 export const Route = createFileRoute('/app')({
   ssr: false,
