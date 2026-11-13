@@ -2292,7 +2292,7 @@ html:has(.landing-header) {
   text-decoration-color: var(--color-danger);
 }
 .hero-slip span {
-  color: var(--color-danger);
+  color: var(--color-muted);
   font-weight: 500;
 }
 .hero-slip[data-slip='0'] {
@@ -2327,7 +2327,16 @@ html:has(.landing-header) {
     display: none;
   }
 }
-/* The rail, from the first channel's centre to the last. */
+/* The stem down from the run, then the rail from the first channel's centre to the last. */
+.hero-fan-inner::after {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 10%;
+  width: 1px;
+  height: 20px;
+  background: var(--color-rule);
+}
 .hero-fan-inner::before {
   content: '';
   position: absolute;
@@ -2356,6 +2365,15 @@ html:has(.landing-header) {
   background: var(--color-card);
   color: var(--color-muted);
 }
+.hero-fan-channel[data-posted] {
+  color: var(--color-ink);
+}
+/* Channels this run didn't post to: there, but quiet. */
+.hero-fan-channel:not([data-posted]) {
+  border-style: dashed;
+  background: transparent;
+  opacity: 0.55;
+}
 .hero-fan-channel::before {
   content: '';
   position: absolute;
@@ -2375,10 +2393,10 @@ html:has(.landing-header) {
   .hero-fan-pulse {
     animation: hero-sweep 6s cubic-bezier(0.45, 0, 0.55, 1) 1s infinite;
   }
-  /* Each channel lights as the pulse passes it: the pulse crosses the rail in the first 60%. */
-  .hero-fan-channel {
+  /* Each channel the run posted to lights as the pulse reaches it. */
+  .hero-fan-channel[data-posted] {
     animation: hero-arrive 6s ease-out infinite;
-    animation-delay: calc(1s + var(--i) * 0.9s);
+    animation-delay: calc(1s + var(--at));
   }
 }
 @keyframes hero-deal {
@@ -2395,15 +2413,16 @@ html:has(.landing-header) {
     opacity: 0;
   }
   4% {
+    left: 10%;
     opacity: 1;
   }
-  60% {
-    left: 90%;
+  30% {
+    left: 30%;
     opacity: 1;
   }
-  66%,
+  36%,
   100% {
-    left: 90%;
+    left: 30%;
     opacity: 0;
   }
 }
@@ -2413,7 +2432,7 @@ html:has(.landing-header) {
   100% {
     border-color: var(--color-rule);
     background: var(--color-card);
-    color: var(--color-muted);
+    color: var(--color-ink);
   }
   4% {
     border-color: var(--color-pine);

@@ -19,3 +19,7 @@ playwright-report
 
 buffer-commit
 .playwright-mcp
+
+# Local agent tooling hooks (absolute paths to one machine)
+.codex
+.github/hooks
