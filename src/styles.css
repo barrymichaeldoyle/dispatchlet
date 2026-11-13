@@ -2249,6 +2249,191 @@ html:has(.landing-header) {
   font-size: var(--type-small);
   line-height: 1.5;
 }
+/*
+ * The hero's ambient layer, drawn from the run itself: the stories it skipped sit struck through
+ * behind the post it wrote, and the run fans out to every channel. Lines carry a slow dispatch and
+ * each channel lights in turn as a post reaches it. All of it sits behind the figure's content.
+ */
+.landing-proof {
+  position: relative;
+  isolation: isolate;
+}
+.hero-field {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  user-select: none;
+}
+.hero-field-grid {
+  position: absolute;
+  inset: -48px -24px -230px -72px;
+  background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--color-pine) 38%, transparent) 1px,
+      transparent 1.5px
+    )
+    0 0 / 18px 18px;
+  mask-image: radial-gradient(ellipse 60% 55% at 55% 45%, #000 20%, transparent 75%);
+}
+.hero-slip {
+  position: absolute;
+  display: grid;
+  gap: 3px;
+  width: 210px;
+  padding: 10px 12px 11px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+  box-shadow: 0 8px 24px -12px rgb(0 0 0 / 0.18);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.85;
+}
+.hero-slip s {
+  color: var(--color-ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
+  text-decoration-thickness: 1.5px;
+  opacity: 0.6;
+}
+.hero-slip-source {
+  font-size: 11px;
+}
+.hero-slip-status {
+  color: var(--color-danger);
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.hero-slip[data-slip='0'] {
+  top: -34px;
+  left: -58px;
+  rotate: -5deg;
+}
+.hero-slip[data-slip='1'] {
+  top: 196px;
+  left: -64px;
+  rotate: 4deg;
+}
+.hero-fan {
+  position: absolute;
+  top: calc(100% + 14px);
+  left: 0;
+  width: 100%;
+  height: 210px;
+}
+.hero-fan-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.hero-fan-lines path {
+  fill: none;
+  stroke: var(--color-pine);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-dasharray: 1 7;
+  opacity: 0.55;
+}
+.hero-fan-origin {
+  position: absolute;
+  top: 3px;
+  left: calc(14 / 360 * 100% - 5px);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-pine);
+  box-shadow: 0 0 0 4px var(--color-tint);
+}
+.hero-fan-channel {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-card);
+  box-shadow: 0 10px 24px -14px rgb(0 0 0 / 0.3);
+  color: var(--color-ink);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero-fan-lines path {
+    animation: hero-dispatch 2.4s linear infinite;
+  }
+  .hero-fan-channel {
+    animation:
+      hero-float 7s ease-in-out infinite,
+      hero-arrive 8s ease-out infinite;
+  }
+  .hero-slip {
+    animation: hero-float 9s ease-in-out infinite;
+  }
+  .hero-slip[data-slip='1'] {
+    animation-delay: -4s;
+  }
+}
+@keyframes hero-dispatch {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+@keyframes hero-float {
+  50% {
+    translate: 0 -6px;
+  }
+}
+/* A post lands: the channel takes the brand colour for a moment, then settles back. */
+@keyframes hero-arrive {
+  0%,
+  100% {
+    border-color: var(--color-rule);
+    color: var(--color-ink);
+  }
+  4% {
+    border-color: var(--color-pine);
+    color: var(--color-pine);
+    box-shadow:
+      0 0 0 4px var(--color-tint),
+      0 10px 24px -14px rgb(0 0 0 / 0.3);
+  }
+  20% {
+    border-color: var(--color-rule);
+    color: var(--color-ink);
+  }
+}
+/* Narrower columns: the second slip tucks in, and on phones the fan gives the next section room. */
+@media (max-width: 900px) {
+  .hero-slip[data-slip='0'],
+  .hero-slip[data-slip='1'] {
+    left: -28px;
+  }
+}
+@media (max-width: 680px) {
+  .hero-fan,
+  .hero-slip[data-slip='1'] {
+    display: none;
+  }
+  .hero-slip[data-slip='0'] {
+    top: -30px;
+    left: auto;
+    right: 8px;
+    rotate: 3deg;
+  }
+  .hero-field-grid {
+    inset: -40px -20px -24px;
+  }
+}
+@media (forced-colors: active) {
+  .hero-field {
+    display: none;
+  }
+}
+
 /* Start first, the demo beside it: one row of actions under the copy. */
 .landing-actions {
   display: flex;

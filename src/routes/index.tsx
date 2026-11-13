@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState, useSyncExternalStore, type MouseEvent } from 'react'
 import { ExampleRun, type ExampleRunHandle } from '../components/example-run'
+import { HeroField } from '../components/hero-field'
 import { BrandText } from '../components/brand-text'
 import { BufferMark } from '../components/brand-icons'
 import { SiteFooter } from '../components/site-footer'
@@ -241,6 +242,7 @@ function Home() {
             </p>
           </div>
           <figure className="landing-proof flow-writing">
+            <HeroField />
             <PostPreview channel="X" length={HERO_POST.length}>
               {HERO_POST}
             </PostPreview>
