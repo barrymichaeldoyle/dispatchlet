@@ -5,7 +5,7 @@ import { Wordmark } from './wordmark'
 
 const CONTACT_EMAIL = 'barry@dispatchlet.com'
 /** The site's share card, the same one the landing page uses. */
-const OG_IMAGE = 'https://dispatchlet.com/og.png?v=2'
+const OG_IMAGE = 'https://dispatchlet.com/og.png?v=3'
 
 /** Head tags for a legal page, so both pages are described and indexed the same way. */
 export function legalHead(title: string, description: string, path: string) {

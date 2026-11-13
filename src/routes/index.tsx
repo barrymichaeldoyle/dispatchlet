@@ -16,7 +16,7 @@ const TITLE = 'Dispatchlet | An agent that writes your Buffer posts'
 const DESCRIPTION =
   'Dispatchlet finds new stories on your topic, skips what you’ve already posted, and writes your Buffer posts. Daily or weekly. First 10 runs free.'
 /** The share image, versioned so X and LinkedIn fetch it again when it is redrawn. */
-const OG_IMAGE = `${SITE_URL}og.png?v=2`
+const OG_IMAGE = `${SITE_URL}og.png?v=3`
 const SOURCE_URL = 'https://github.com/barrymichaeldoyle/dispatchlet'
 
 export const Route = createFileRoute('/')({
