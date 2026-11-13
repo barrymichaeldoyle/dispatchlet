@@ -1,5 +1,6 @@
 import { createRouter as createTanStackRouter } from '@tanstack/react-router'
 import { RouteError } from './components/route-error'
+import { watchForNewBuild } from './lib/build-version'
 import { reportError } from './integrations/posthog/track'
 import { routeTree } from './routeTree.gen'
 
@@ -15,6 +16,7 @@ export function getRouter() {
     defaultErrorComponent: RouteError,
   })
 
+  watchForNewBuild(router)
   return router
 }
 

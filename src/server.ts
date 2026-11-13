@@ -258,10 +258,17 @@ function providerFor(origin: string): OAuthProvider<Env> {
   return provider
 }
 
+declare const __BUILD_ID__: string | undefined
+
+/** The build this Worker is, so an open tab can tell it has been replaced (lib/build-version.ts). */
+const versionResponse = () =>
+  json(200, { build: typeof __BUILD_ID__ === 'string' ? __BUILD_ID__ : 'dev' })
+
 const worker = {
   async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
-    if (!CONVEX_SITE_URL) return startFetch(request)
     const url = new URL(request.url)
+    if (url.pathname === '/version' && request.method === 'GET') return versionResponse()
+    if (!CONVEX_SITE_URL) return startFetch(request)
     const origin = providerOrigin(url)
     if (origin && (await oauthLimited(request, env, url.pathname)))
       return new Response('Too many requests. Try again in a minute.', {

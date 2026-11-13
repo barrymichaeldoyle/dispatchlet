@@ -1,4 +1,6 @@
 import { Link } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { checkForNewBuild, reloadOntoNewBuild } from '../lib/build-version'
 
 /**
  * What a page shows when rendering it threw: a bad id in the address, a query that refused the
@@ -7,6 +9,12 @@ import { Link } from '@tanstack/react-router'
  * shell, so the sidebar and header stay up.
  */
 export function RouteError() {
+  // Behind a deploy, the reload is the fix, so it happens without asking (once per build).
+  useEffect(() => {
+    void checkForNewBuild(true).then((behind) => {
+      if (behind) reloadOntoNewBuild()
+    })
+  }, [])
   return (
     <div className="app-route-error">
       <h1>Something went wrong</h1>

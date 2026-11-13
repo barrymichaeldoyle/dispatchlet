@@ -4,6 +4,8 @@
  * page; errors before it loads are held. No breadcrumbs, no tracing, no replay, no personal data:
  * a report is the error, its stack, the page address without its query, and the browser type.
  */
+import { checkForNewBuild } from '../../lib/build-version'
+
 const DSN = 'https://86d51613502d5a11f3ec6aa7c48d4505@o299144.ingest.us.sentry.io/4512345285263360'
 
 type SentryBrowser = typeof import('./sdk')
@@ -84,6 +86,11 @@ export function initializeErrorReporting(): Promise<void> {
 
 export function reportToSentry(error: unknown) {
   if (!allowed() || isStaleBuildError(error)) return
-  if (sdk) sdk.captureException(error)
-  else if (pending.length < 10) pending.push(error)
+  // A tab behind a deploy that trips over data in a newer shape is not a bug in the live code;
+  // the error page reloads it onto the new build (components/route-error.tsx).
+  void checkForNewBuild(true).then((behind) => {
+    if (behind) return
+    if (sdk) sdk.captureException(error)
+    else if (pending.length < 10) pending.push(error)
+  })
 }

@@ -7,7 +7,15 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { cloudflare } from '@cloudflare/vite-plugin'
 
+/**
+ * One id per build, shared by the browser code and the Worker built in the same run, so an open
+ * tab can tell a deploy has replaced it (src/lib/build-version.ts, /version in src/server.ts).
+ */
+const BUILD_ID =
+  process.env.WORKERS_CI_COMMIT_SHA ?? process.env.GITHUB_SHA ?? Date.now().toString(36)
+
 const config = defineConfig({
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   resolve: { tsconfigPaths: true },
   optimizeDeps: { include: ['posthog-js/dist/module.slim', 'zod'] },
   plugins: [
