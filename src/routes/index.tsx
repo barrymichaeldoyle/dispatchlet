@@ -242,7 +242,6 @@ function Home() {
             </p>
           </div>
           <div className="landing-proof-column">
-            <div className="hero-field-grid" aria-hidden="true" />
             <figure className="landing-proof flow-writing">
               <HeroField />
               <PostPreview channel="X" length={HERO_POST.length}>
