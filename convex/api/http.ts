@@ -100,8 +100,13 @@ export class ApiError extends Error {
 export function fromAppError(error: unknown): ApiError {
   if (error instanceof ApiError) return error
   const message = error instanceof Error ? error.message : String(error)
-  // Convex wraps thrown errors; keep the part after its prefix.
-  const text = message.replace(/^.*Uncaught Error:\s*/s, '').split('\n')[0] ?? message
+  // A ConvexError carries its sentence as data; otherwise Convex wraps the message, so keep the
+  // part after its prefix.
+  const data = (error as { data?: unknown } | null)?.data
+  const text =
+    typeof data === 'string'
+      ? data
+      : (message.replace(/^.*Uncaught (?:Convex)?Error:\s*/s, '').split('\n')[0] ?? message)
   if (/not found/i.test(text)) return new ApiError(404, 'not_found', text)
   // A malformed id fails the function's `v.id()` validator; to the caller that is an unknown id.
   if (/Validator: v\.id\(|Expected ID for table/.test(message))

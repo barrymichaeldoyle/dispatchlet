@@ -172,6 +172,15 @@ describe('an error in words', () => {
     ).toBe('Not started.')
     expect(errorText('nope', 'Not started.')).toBe('Not started.')
   })
+  it('reads a ConvexError’s sentence from its data', () => {
+    const error = Object.assign(
+      new Error('[CONVEX M(runs:trigger)] [Request ID: 1] Server Error'),
+      {
+        data: 'No free runs left.',
+      },
+    )
+    expect(errorText(error, 'Not started.')).toBe('No free runs left.')
+  })
 })
 
 describe('a link from outside data', () => {

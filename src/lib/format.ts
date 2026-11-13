@@ -153,6 +153,9 @@ export function channelProblem(problem: string | null, service?: string): string
  * and in production replaces a plain Error's message with "Server Error": those show the fallback.
  */
 export function errorText(reason: unknown, fallback: string): string {
+  // A ConvexError carries its sentence as data, which production does not redact.
+  const data = (reason as { data?: unknown } | null)?.data
+  if (typeof data === 'string' && data.trim()) return data
   if (!(reason instanceof Error)) return fallback
   const message = reason.message
     .replace(/^.*Uncaught (?:Convex)?Error: /s, '')
