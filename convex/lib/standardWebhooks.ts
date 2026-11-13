@@ -167,6 +167,8 @@ export function webhookUrlProblem(raw: string): string | null {
   }
   if (url.protocol !== 'https:') return 'Webhook URLs must use https.'
   if (url.username || url.password) return 'Leave credentials out of the URL.'
+  // Only the usual https ports, so a webhook cannot be aimed at some other service on a host.
+  if (url.port && url.port !== '8443') return 'Webhook URLs must use port 443 or 8443.'
   const host = url.hostname
     .toLowerCase()
     .replace(/^\[|\]$/g, '')
