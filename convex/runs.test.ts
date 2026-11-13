@@ -1308,6 +1308,29 @@ describe('posts a run left behind', () => {
     expect(scheduled.some((f) => f.name === 'runs:sendHeld')).toBe(false)
   })
 
+  it('lets only one send claim a held post', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await storyFor(t, automationId, runId)
+    const postId = await t.run((ctx) =>
+      ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'held',
+        createdAt: Date.now(),
+      }),
+    )
+    expect(await t.mutation(internal.runs.claimHeld, { postId })).toBe(true)
+    expect(await t.mutation(internal.runs.claimHeld, { postId })).toBe(false)
+    expect((await t.run((ctx) => ctx.db.get(postId)))?.status).toBe('publishing')
+  })
+
   it('held posts are skipped when the automation was paused in the meantime', async () => {
     const t = convexTest(schema, modules)
     const { userId, automationId } = await seed(t)

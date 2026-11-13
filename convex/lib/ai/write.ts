@@ -332,17 +332,24 @@ export function checkPost(
     return { ok: false, post, reason: 'The post is for a story that was not in the run.' }
   if (!post.text.trim()) return { ok: false, post, reason: 'The post was empty.' }
   const parts = [post.text, ...(post.thread ?? [])]
-  const long = parts.find((p) => [...p].length > limit)
+  const long = parts.find((p) => measuredLength(p, channel.service) > limit)
   if (long)
     return {
       ok: false,
       post,
-      reason: `Too long for ${SERVICE_NAMES[channel.service]}: ${[...long].length} characters, the limit is ${limit}.`,
+      reason: `Too long for ${SERVICE_NAMES[channel.service]}: ${measuredLength(long, channel.service)} characters, the limit is ${limit}.`,
     }
   if (post.thread?.length && !(limits.threads && format?.thread))
     return { ok: false, post, reason: `Threads are not allowed on ${channel.name}.` }
-  if (post.linkAttachment && !limits.linkCard)
-    return { ok: true, post: { ...post, linkAttachment: null } }
+  // The only link a post may carry is its story's: anything else came from the model or a page it read.
+  const strayUrl = parts
+    .flatMap((p) => p.match(URL_PATTERN) ?? [])
+    .find((u) => u.replace(/[.,;:!?)]+$/, '') !== post.storyUrl)
+  if (strayUrl)
+    return { ok: false, post, reason: `It links to ${strayUrl}, which is not the story's link.` }
+  if (post.linkAttachment && !limits.linkCard) post = { ...post, linkAttachment: null }
+  if (post.linkAttachment && post.linkAttachment.url !== post.storyUrl)
+    post = { ...post, linkAttachment: { ...post.linkAttachment, url: post.storyUrl } }
   if (playbook.voice.hashtags === 'none' && /(^|\s)#\w/.test(parts.join(' ')))
     return { ok: false, post, reason: 'It used a hashtag and the playbook says none.' }
   // A credit that names an outlet must name the one whose link goes with the post.

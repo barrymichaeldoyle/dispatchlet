@@ -152,6 +152,30 @@ describe('when the playbook comes back', () => {
     expect(automation).toMatchObject({ status: 'failed', generationError: 'The model was busy.' })
     expect(await t.run((ctx) => ctx.db.query('playbookVersions').collect())).toHaveLength(0)
   })
+
+  it('keeps an active automation on and scheduled when writing it again fails', async () => {
+    const t = convexTest(schema, modules)
+    const { id } = await generating(t)
+    await t.mutation(internal.automations.storeGenerated, { automationId: id, playbook })
+    // Turned on, then "Write it again" while its next run is booked.
+    const fn = await t.run(async (ctx) => {
+      const fnId = await ctx.scheduler.runAfter(3_600_000, internal.runs.start, {
+        automationId: id,
+      })
+      await ctx.db.patch(id, { status: 'generating', scheduledFnId: fnId })
+      return fnId
+    })
+    await t.mutation(internal.automations.storeGenerated, {
+      automationId: id,
+      playbook: null,
+      error: 'The model was busy.',
+    })
+    const automation = await t.run((ctx) => ctx.db.get(id))
+    expect(automation?.status).toBe('active')
+    expect(automation?.scheduledFnId).toBeDefined()
+    expect(automation?.scheduledFnId).not.toBe(fn)
+    expect(automation?.nextRunAt).toBeTypeOf('number')
+  })
 })
 
 describe('checking a cadence before it is saved', () => {

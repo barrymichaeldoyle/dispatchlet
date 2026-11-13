@@ -78,6 +78,37 @@ describe('post limits', () => {
     )
     expect(result.ok && result.post.linkAttachment).toBeNull()
   })
+  it('counts a link on X as 23 characters, as X does', () => {
+    const url = `https://a.com/1/${'long-slug-'.repeat(10)}`
+    const post = { ...base, storyUrl: url, text: `${'x'.repeat(190)}\n\n${url}` }
+    expect(checkPost(post, x, playbook, new Set([url])).ok).toBe(true)
+  })
+  it('rejects any link but the story’s, and pins the card to the story', () => {
+    expect(
+      checkPost({ ...base, text: 'ok https://evil.example/x' }, x, playbook, urls),
+    ).toMatchObject({ ok: false, reason: expect.stringContaining('evil.example') })
+    expect(checkPost({ ...base, text: 'ok\n\nhttps://a.com/1' }, x, playbook, urls).ok).toBe(true)
+    const card = checkPost(
+      {
+        ...base,
+        channelId: 'c2',
+        linkAttachment: { url: 'https://evil.example', title: 't', description: 'd' },
+      },
+      li,
+      playbook,
+      urls,
+    )
+    expect(card.ok && card.post.linkAttachment?.url).toBe('https://a.com/1')
+  })
+  it('still checks hashtags when it drops a card', () => {
+    const result = checkPost(
+      { ...base, text: 'news #f1', linkAttachment: { url: 'u', title: 't', description: 'd' } },
+      x,
+      playbook,
+      urls,
+    )
+    expect(result.ok).toBe(false)
+  })
   it('tells the writer each channel’s limit and card support', () => {
     const text = writeUserMessage(playbook, [], [x, li])
     expect(text).toContain(

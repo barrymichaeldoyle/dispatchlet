@@ -1,3 +1,4 @@
+import { AuthenticationError } from '@anthropic-ai/sdk'
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
@@ -1174,7 +1175,7 @@ export const execute = internalAction({
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let published = 0
-      let held: { retryAt: number; from: number; share: boolean } | null = null
+      let held: { retryAt: number; share: boolean } | null = null
       for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
@@ -1246,6 +1247,15 @@ export const execute = internalAction({
           await say('publish', `${channel.name} skipped: at its daily posting limit in Buffer.`)
           continue
         }
+        // Buffer stopped taking posts earlier in this run: the rest wait, checked like any other.
+        if (held) {
+          await ctx.runMutation(internal.runs.savePost, {
+            ...base,
+            status: 'held',
+            reason: 'Waiting for Buffer to accept more posts.',
+          })
+          continue
+        }
         if (published === 0) await say('publish', 'Sending to Buffer.', 'publishing')
         if (!tagByOrg.has(row.organizationId))
           tagByOrg.set(row.organizationId, await ensureTag(ctx, user._id, row.organizationId))
@@ -1303,10 +1313,9 @@ export const execute = internalAction({
             })
             held = {
               retryAt,
-              from: drafts.indexOf(draft) + 1,
               share: error instanceof BufferBudgetError && error.reason === 'share',
             }
-            break
+            continue
           }
           const reason = error instanceof Error ? error.message : String(error)
           await ctx.runMutation(internal.runs.markSent, { postId, status: 'failed', reason })
@@ -1317,35 +1326,13 @@ export const execute = internalAction({
         }
       }
       if (held) {
-        for (const draft of drafts.slice(held.from)) {
-          const channel = targets.find((t) => t.channelId === draft.channelId)
-          const story = byUrl.get(draft.storyUrl) ?? byUrl.get(canonicalUrl(draft.storyUrl))
-          if (!channel || !story) continue
-          await ctx.runMutation(internal.runs.savePost, {
-            userId: user._id,
-            automationId: automation._id,
-            runId,
-            storyId: story._id,
-            channelId: channel.channelId,
-            service: channel.service,
-            text: draft.text,
-            thread: draft.thread ?? undefined,
-            linkAttachment: draft.linkAttachment ?? undefined,
-            plannedFor: plan
-              ? slotFor.get(story._id)
-              : dated
-                ? (datedAt.get(`${story._id}|${channel.channelId}`) ?? undefined)
-                : undefined,
-            status: 'held',
-            reason: 'Waiting for Buffer to accept more posts.',
-          })
-        }
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'done',
           note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting ${held.share ? 'for your account’s daily share of Buffer requests to free up' : 'because Buffer is busy'}, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
         })
-        await ctx.scheduler.runAt(held.retryAt + 30_000, internal.runs.sendHeld, { runId })
+        // Booked through bookHeldRetry so the sweeper sees the booking and does not send again.
+        await ctx.runMutation(internal.runs.bookHeldRetry, { runId, at: held.retryAt + 30_000 })
         return null
       }
       await ctx.runMutation(internal.runs.finish, {
@@ -1367,7 +1354,8 @@ export const execute = internalAction({
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      if (/401|invalid x-api-key|authentication/i.test(message) && user.anthropicKeyEnc)
+      // Only Anthropic's own 401 means the person's key is bad; Buffer's 401 says nothing about it.
+      if (error instanceof AuthenticationError && user.anthropicKeyEnc)
         await ctx.runMutation(internal.users.markKeyInvalid, { userId: user._id })
       const ours = serviceFailure(error)
       if (ours) {
@@ -1395,6 +1383,18 @@ export const bookHeldRetry = internalMutation({
     await ctx.db.patch(runId, { heldRetryAt: at })
     await ctx.scheduler.runAt(at, internal.runs.sendHeld, { runId })
     return null
+  },
+})
+
+/** Moves a held post to `publishing`, or returns false when something else already took it. */
+export const claimHeld = internalMutation({
+  args: { postId: v.id('posts') },
+  returns: v.boolean(),
+  handler: async (ctx, { postId }) => {
+    const post = await ctx.db.get(postId)
+    if (post?.status !== 'held') return false
+    await ctx.db.patch(postId, { status: 'publishing', publishingAt: Date.now() })
+    return true
   },
 })
 
@@ -1514,12 +1514,9 @@ export const sendHeld = internalAction({
             await ensureTag(ctx, automation.userId, row.organizationId),
           )
         // As in the main pass: the row says `publishing` before the call, so a send that dies
-        // half-way is failed by the sweeper rather than sent again.
-        await ctx.runMutation(internal.runs.markSent, {
-          postId: post._id,
-          status: 'publishing',
-          publishingAt: Date.now(),
-        })
+        // half-way is failed by the sweeper rather than sent again. The claim only wins while the
+        // post is still held, so two sendHelds that overlap never both send it.
+        if (!(await ctx.runMutation(internal.runs.claimHeld, { postId: post._id }))) continue
         const created = await createBufferPost(ctx, automation.userId, {
           channelId: post.channelId,
           service: post.service,

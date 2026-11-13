@@ -196,13 +196,21 @@ export async function createFor(
   }
 }
 
+/** Longer than any playbook generation can take: an action is stopped after ten minutes. */
+const GENERATION_STALE_AFTER = 15 * 60_000
+
 /** Asks for the playbook again, from the same answers. Keeps earlier versions. */
 export const regenerate = mutation({
   args: { id: v.id('automations') },
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const automation = await ownAutomation(ctx, id)
-    if (automation.status === 'generating') return null
+    // A generation whose action died never comes back; after a while it may be asked for again.
+    if (
+      automation.status === 'generating' &&
+      automation.updatedAt > Date.now() - GENERATION_STALE_AFTER
+    )
+      return null
     const user = await ctx.db.get(automation.userId)
     if (user) await claimGeneration(ctx, user)
     await ctx.db.patch(id, {
@@ -382,12 +390,17 @@ export const storeGenerated = internalMutation({
   handler: async (ctx, { automationId, playbook, error }) => {
     const automation = await ctx.db.get(automationId)
     if (!automation) return null
+    // An automation that was on before "Write it again" stays on, whatever the outcome. Its
+    // scheduled run may have come and gone while it was generating, so it is booked again.
+    const wasActive = automation.status === 'generating' && !!automation.scheduledFnId
     if (error || !playbook) {
+      const status = !automation.playbookVersionId ? 'failed' : wasActive ? 'active' : 'ready'
       await ctx.db.patch(automationId, {
-        status: automation.playbookVersionId ? 'ready' : 'failed',
+        status,
         generationError: error ?? 'No playbook came back.',
         updatedAt: Date.now(),
       })
+      if (status === 'active') await scheduleNext(ctx, { ...automation, status })
       return null
     }
     const checked = Playbook.parse(playbook)
@@ -400,7 +413,6 @@ export const storeGenerated = internalMutation({
       createdBy: 'ai',
       createdAt: Date.now(),
     })
-    const wasActive = automation.status === 'generating' && automation.scheduledFnId
     await ctx.db.patch(automationId, {
       status: wasActive ? 'active' : 'ready',
       name: checked.name,
@@ -409,6 +421,7 @@ export const storeGenerated = internalMutation({
       configurationRevision: (automation.configurationRevision ?? 0) + 1,
       updatedAt: Date.now(),
     })
+    if (wasActive) await scheduleNext(ctx, { ...automation, status: 'active' })
     const user = await ctx.db.get(automation.userId)
     if (user && !user.firstPlaybookAt) await ctx.db.patch(user._id, { firstPlaybookAt: Date.now() })
     // A new automation's first playbook goes straight into a dry run, so the first thing the
