@@ -72,14 +72,46 @@ function updateBrowserTheme() {
   }
 }
 
+let fade: ViewTransition | null = null
+
 export function setTheme(preference: ThemePreference): void {
-  if (preference === 'system') delete document.documentElement.dataset.theme
-  else document.documentElement.dataset.theme = preference
-  updateBrowserTheme()
+  const before = getTheme()
+  let saved = true
   try {
     localStorage.setItem(STORAGE_KEY, preference)
   } catch {
     // Switching still works when browser storage is unavailable.
+    saved = false
   }
+  const apply = () => {
+    if (preference === 'system') delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = preference
+    updateBrowserTheme()
+    window.dispatchEvent(new Event(CHANGE_EVENT))
+  }
+  // Without storage the radios read the choice from the page itself, so it must change now.
+  if (!saved || getTheme() === before || !canFade()) {
+    apply()
+    return
+  }
+  // The radios read the saved choice, so tell them now: React would otherwise put the clicked
+  // radio back until the transition's callback runs.
   window.dispatchEvent(new Event(CHANGE_EVENT))
+  const root = document.documentElement
+  root.classList.add('theme-fading')
+  const transition = document.startViewTransition(apply)
+  fade = transition
+  void transition.finished.finally(() => {
+    if (fade !== transition) return
+    fade = null
+    root.classList.remove('theme-fading')
+  })
+}
+
+function canFade(): boolean {
+  return (
+    typeof document.startViewTransition === 'function' &&
+    document.visibilityState === 'visible' &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
 }

@@ -32,6 +32,7 @@ export function ThemeToggle({ name, ref }: { name: string; ref?: Ref<HTMLDivElem
   )
 }
 
+/** Outlined until chosen; the chosen option fills in, so the choice reads without colour. */
 function ThemeIcon({ preference }: { preference: ThemePreference }) {
   return (
     <svg
@@ -40,21 +41,23 @@ function ThemeIcon({ preference }: { preference: ThemePreference }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
       {preference === 'light' ? (
         <>
-          <circle cx="12" cy="12" r="4" />
+          <circle className="theme-fill" cx="12" cy="12" r="4" />
           <path d="M12 2.5v2.2M12 19.3v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6" />
         </>
       ) : null}
-      {preference === 'dark' ? <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 7 7 0 1 0 20 14.5z" /> : null}
+      {preference === 'dark' ? (
+        <path className="theme-fill" d="M20 14.5A8.5 8.5 0 0 1 9.5 4 7 7 0 1 0 20 14.5z" />
+      ) : null}
       {preference === 'system' ? (
         <>
-          <rect x="3" y="4" width="18" height="12" rx="1.5" />
+          <rect className="theme-fill" x="3" y="4" width="18" height="12" rx="1.5" />
           <path d="M8 20h8M12 16v4" />
         </>
       ) : null}
