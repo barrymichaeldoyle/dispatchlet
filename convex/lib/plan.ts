@@ -64,7 +64,18 @@ export function describePlan(plan: PublicationPlan): string {
 export function planSlots(plan: PublicationPlan, zone: string, start: number): number[] {
   const [hh = 9, mm = 0] = plan.time.split(':').map(Number)
   const first = partsIn(zone, new Date(start))
-  const end = start + PLAN_HORIZON_MS
+  // A week of local days, not of hours: across a clock change, start + 7 × 24h falls an hour off
+  // and would leave out (or let in) the slot on the run's own weekday.
+  const end =
+    instantOf(
+      zone,
+      first.year,
+      first.month,
+      first.day + PLAN_HORIZON_DAYS,
+      first.hour,
+      first.minute,
+    ) +
+    (start % 60_000)
   const slots: number[] = []
   // Eight local dates cover any seven-day window, whatever the start time of day.
   for (let offset = 0; offset <= PLAN_HORIZON_DAYS; offset++) {

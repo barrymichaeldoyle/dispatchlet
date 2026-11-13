@@ -48,6 +48,23 @@ describe('planSlots', () => {
     expect(local(slots[6]!, 'Africa/Johannesburg')).toBe('Mon 23 Nov, 09:00')
   })
 
+  it('keeps the run’s own weekday a week on when the clocks go back during the week', () => {
+    // Monday 19 Oct 10:00 in London (BST); the clocks go back on Sunday 25 Oct.
+    const start = Date.parse('2026-10-19T09:00:00Z')
+    const slots = planSlots(everyDay, 'Europe/London', start)
+    expect(slots).toHaveLength(7)
+    expect(local(slots[0]!, 'Europe/London')).toBe('Tue 20 Oct, 09:00')
+    expect(local(slots[6]!, 'Europe/London')).toBe('Mon 26 Oct, 09:00')
+  })
+
+  it('stays seven slots when the clocks go forward during the week', () => {
+    // Monday 23 Mar 2026 10:00 in London (GMT); the clocks go forward on Sunday 29 Mar.
+    const start = Date.parse('2026-03-23T10:00:00Z')
+    const slots = planSlots(everyDay, 'Europe/London', start)
+    expect(slots).toHaveLength(7)
+    expect(local(slots[6]!, 'Europe/London')).toBe('Mon 30 Mar, 09:00')
+  })
+
   it('keeps only the chosen weekdays', () => {
     const start = Date.parse('2026-11-16T05:00:00Z')
     const slots = planSlots(
