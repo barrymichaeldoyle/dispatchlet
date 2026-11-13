@@ -1596,14 +1596,16 @@
   color: var(--color-muted);
 }
 
+/* The work sits centred in the space beside the sidebar, so a wide screen is not all empty on
+ * the right; on a laptop it fills that space anyway. */
 .app-frame .app-gate.is-app {
   min-height: 0;
   padding: 36px 48px 64px;
-  place-items: start start;
+  place-items: start center;
 }
 
 .app-frame .app-gate.is-app .app-gate-inner {
-  width: min(100%, 1040px);
+  width: min(100%, 1120px);
 }
 
 .app-frame .app-top {
