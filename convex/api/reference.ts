@@ -18,7 +18,8 @@ export type RouteRef = {
 
 const id = { type: 'string', description: 'A Dispatchlet id' }
 const ms = { type: 'integer', description: 'Unix milliseconds' }
-const nullable = (schema: Record<string, unknown>) => ({ ...schema, nullable: true })
+/** OpenAPI 3.1 has no `nullable`: a value that may be null is the schema or null. */
+const nullable = (schema: Record<string, unknown>) => ({ anyOf: [schema, { type: 'null' }] })
 
 export const Cadence = {
   type: 'object',
@@ -287,6 +288,7 @@ export const ErrorBody = {
             'unauthorized',
             'forbidden',
             'not_found',
+            'method_not_allowed',
             'invalid',
             'conflict',
             'allowance',
@@ -715,18 +717,20 @@ export const ROUTES: RouteRef[] = [
   },
   {
     method: 'DELETE',
-    path: '/hooks/{id}',
+    // One template for both hook routes: OpenAPI forbids /hooks/{id} beside /hooks/{token}.
+    path: '/hooks/{hook}',
     scope: 'write',
     summary: 'Delete an inbound hook',
+    description: '`hook` is the hook’s id, as listed by GET /hooks.',
     response: { type: 'object', properties: { deleted: { type: 'boolean' } } },
   },
   {
     method: 'POST',
-    path: '/hooks/{token}',
+    path: '/hooks/{hook}',
     scope: 'none',
     summary: 'Start a run from an inbound hook (no bearer token)',
     description:
-      'The token in the URL is the credential. Body: empty (run now), `{ "title", "url"?, "notes"?, "dry"? }`, or a GitHub release webhook (X-GitHub-Event: release). 10 a minute per hook.',
+      '`hook` is the hook’s token (dlh_…), which is the credential. Body: empty (run now), `{ "title", "url"?, "notes"?, "dry"? }`, or a GitHub release webhook (X-GitHub-Event: release). 10 a minute per hook.',
     body: {
       type: 'object',
       properties: {

@@ -17,6 +17,11 @@ const ERRORS: [string, string, string][] = [
   ['403', 'forbidden', 'A read token on a route that writes.'],
   ['404', 'not_found', 'No such route, or an id that is not yours.'],
   [
+    '405',
+    'method_not_allowed',
+    'The route exists but not with that method; `Allow` lists the ones it takes.',
+  ],
+  [
     '400',
     'invalid',
     'The body or query is wrong; `field` names which part, `line` for a playbook.',
@@ -96,7 +101,7 @@ function ApiDocs() {
       </p>
 
       <h2>Routes</h2>
-      {ROUTES.filter((r) => r.scope !== 'none' || r.path === '/hooks/{token}').map((r) => (
+      {ROUTES.filter((r) => r.scope !== 'none' || r.path === '/hooks/{hook}').map((r) => (
         <section key={`${r.method} ${r.path}`} className="docs-route">
           <h3>
             <code>

@@ -186,7 +186,10 @@ describe('the REST routes', () => {
   it('answer 404 for unknown routes and ids, 405 for a wrong method', async () => {
     const { call } = await account(convexTest(schema, modules))
     expect((await call('/nothing')).status).toBe(404)
-    expect((await call('/me', { method: 'DELETE' })).status).toBe(405)
+    const wrongMethod = await call('/me', { method: 'DELETE' })
+    expect(wrongMethod.status).toBe(405)
+    expect(wrongMethod.headers.get('Allow')).toBe('GET')
+    expect((await wrongMethod.json()).error.code).toBe('method_not_allowed')
     expect((await call('/automations/notanid')).status).toBe(404)
     expect((await call('/automations/k170000000000000000000000000')).status).toBe(404)
   })
@@ -652,6 +655,10 @@ describe('the OpenAPI document', () => {
       const op = doc.paths[r.path]?.[r.method.toLowerCase()]
       expect(op, `${r.method} ${r.path}`).toBeTruthy()
     }
+    // OpenAPI forbids two paths that differ only in a parameter's name.
+    const shapes = Object.keys(doc.paths).map((p) => p.replace(/\{\w+\}/g, '{}'))
+    expect(new Set(shapes).size).toBe(shapes.length)
+    expect(JSON.stringify(doc)).not.toContain('"nullable"')
     // Each reference path must match the matcher's idea of its shape.
     expect(matchPath('/automations/:id/runs', '/automations/abc/runs')).toEqual({ id: 'abc' })
     expect(matchPath('/automations/:id/runs', '/automations/abc')).toBeNull()

@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'unauthorized'
   | 'forbidden'
   | 'not_found'
+  | 'method_not_allowed'
   | 'invalid'
   | 'conflict'
   | 'allowance'
@@ -53,7 +54,13 @@ export function errorResponse(
   status: number,
   code: ErrorCode,
   message: string,
-  opts: { rate?: RateHeaders; field?: string; line?: number; retryAfter?: number } = {},
+  opts: {
+    rate?: RateHeaders
+    field?: string
+    line?: number
+    retryAfter?: number
+    headers?: Record<string, string>
+  } = {},
 ): Response {
   const error: Record<string, unknown> = { code, message }
   if (opts.field) error.field = opts.field
@@ -63,7 +70,13 @@ export function errorResponse(
     { error },
     {
       rate: opts.rate,
-      headers: opts.retryAfter ? { 'Retry-After': String(opts.retryAfter) } : undefined,
+      headers:
+        opts.retryAfter || opts.headers
+          ? {
+              ...opts.headers,
+              ...(opts.retryAfter ? { 'Retry-After': String(opts.retryAfter) } : {}),
+            }
+          : undefined,
     },
   )
 }
@@ -93,7 +106,7 @@ export function fromAppError(error: unknown): ApiError {
   // A malformed id fails the function's `v.id()` validator; to the caller that is an unknown id.
   if (/Validator: v\.id\(|Expected ID for table/.test(message))
     return new ApiError(404, 'not_found', 'No such id.')
-  if (/already going|already being|is paused/i.test(text))
+  if (/already going|already being|is paused|not ready/i.test(text))
     return new ApiError(409, 'conflict', text)
   // A cap on how many you may have is a conflict to resolve, not a rate limit to wait out.
   if (/is the limit/i.test(text)) return new ApiError(409, 'conflict', text)
@@ -107,11 +120,7 @@ export function fromAppError(error: unknown): ApiError {
     return new ApiError(409, 'conflict', text)
   if (/Too long for|needs some text|Only a draft|Only stories that/i.test(text))
     return new ApiError(400, 'invalid', text)
-  if (
-    /not ready|Pick at least|Between 1 and 3|one short sentence|not a time zone|not one of/i.test(
-      text,
-    )
-  )
+  if (/Pick at least|Between 1 and 3|one short sentence|not a time zone|not one of/i.test(text))
     return new ApiError(400, 'invalid', text)
   if (/ArgumentValidationError|Validator error|does not match validator/i.test(message))
     return new ApiError(400, 'invalid', 'The request body does not match the schema.')

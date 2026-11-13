@@ -160,6 +160,21 @@ async function tokenStillWorks(token: string): Promise<boolean> {
   return ok
 }
 
+/** Owners of pasted tokens checked in the last minute, so each MCP request does not cost a /me. */
+const owners = new Map<string, { owner: { userId: string; write: boolean }; at: number }>()
+
+async function pastedTokenOwner(token: string) {
+  const hit = owners.get(token)
+  if (hit && Date.now() - hit.at < CHECK_FOR_MS) return hit.owner
+  const owner = await apiTokenOwner(API_BASE, token)
+  // Only a token that worked is remembered; a refusal is asked again next time.
+  if (owner) {
+    owners.set(token, { owner, at: Date.now() })
+    if (owners.size > 500) owners.delete(owners.keys().next().value!)
+  }
+  return owner
+}
+
 /**
  * A grant whose API token was revoked in settings, or whose account was deleted, is useless; on
  * its next use it is revoked here and the client is told to sign in again, instead of every
@@ -213,7 +228,7 @@ function providerFor(origin: string): OAuthProvider<Env> {
     // A pasted Dispatchlet token keeps working on /mcp: checked with the API, then used as is.
     resolveExternalToken: async ({ token }: { token: string }) => {
       if (!/^dl_[A-Za-z0-9_-]{43}$/.test(token)) return null
-      const owner = await apiTokenOwner(API_BASE, token)
+      const owner = await pastedTokenOwner(token)
       if (!owner) return null
       return {
         props: { apiToken: token, userId: owner.userId } satisfies GrantProps,

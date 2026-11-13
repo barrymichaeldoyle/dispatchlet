@@ -255,7 +255,7 @@ route('GET', '/automations/:id/runs', 'read', async (ctx, caller, { id }, req) =
     userId: caller.userId,
     automationId: idOf(id!, 'automations'),
     limit: Number.isFinite(limit) ? limit : 20,
-    before: before ? Number(before) : undefined,
+    before: before && Number.isFinite(Number(before)) ? Number(before) : undefined,
   })
   return jsonResponse(200, { runs }, { rate: caller.rate })
 })
@@ -459,22 +459,22 @@ async function dispatch(ctx: ActionCtx, req: Request): Promise<Response> {
   if (hook && req.method === 'POST') return await inboundHook(ctx, hook.token!, req)
 
   let matched: { route: Route; params: Params } | null = null
-  let pathKnown = false
+  const allowed: string[] = []
   for (const r of routes) {
     const params = matchPath(r.pattern, path)
     if (!params) continue
-    pathKnown = true
+    allowed.push(r.method)
     if (r.method === req.method) {
       matched = { route: r, params }
       break
     }
   }
   if (!matched)
-    return errorResponse(
-      pathKnown ? 405 : 404,
-      'not_found',
-      pathKnown ? 'That method is not allowed here.' : 'No such route. See /api/v1/openapi.json.',
-    )
+    return allowed.length
+      ? errorResponse(405, 'method_not_allowed', 'That method is not allowed here.', {
+          headers: { Allow: [...new Set(allowed)].join(', ') },
+        })
+      : errorResponse(404, 'not_found', 'No such route. See /api/v1/openapi.json.')
   const caller = await authenticate(ctx, req)
   if (caller instanceof Response) return caller
   if (matched.route.scope === 'write') {
