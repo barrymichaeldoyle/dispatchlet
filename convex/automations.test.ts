@@ -123,7 +123,7 @@ async function generating(t: ReturnType<typeof convexTest>) {
 }
 
 describe('when the playbook comes back', () => {
-  it('stores the first version, marks the automation ready, and starts its dry run', async () => {
+  it('stores the first version, marks the automation ready, and leaves the first run to the person', async () => {
     const t = convexTest(schema, modules)
     const { userId, id } = await generating(t)
     await t.mutation(internal.automations.storeGenerated, { automationId: id, playbook })
@@ -137,7 +137,8 @@ describe('when the playbook comes back', () => {
     expect(version?.text).toContain('# F1 news')
     expect((await t.run((ctx) => ctx.db.get(userId)))?.firstPlaybookAt).toBeTypeOf('number')
     const names = (await scheduled(t)).map((f) => f.name)
-    expect(names).toContain('runs:firstDryRun')
+    // The person chooses a dry run or a real run; nothing starts by itself.
+    expect(names.filter((n) => n.startsWith('runs:'))).toEqual([])
   })
 
   it('reports a failed generation and keeps the automation', async () => {

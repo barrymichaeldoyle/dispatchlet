@@ -233,8 +233,8 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <p className="app-working">
             <span className="flow-spinner" aria-hidden="true" />
             <span>
-              Reading your sources and writing the playbook. It takes about a minute, and a first
-              dry run starts here on its own when it is done.
+              Reading your sources and writing the playbook. It takes about a minute. Then choose a
+              dry run to see what it would post, or start with a real run.
             </span>
           </p>
         ) : live ? (
@@ -286,8 +286,33 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
               </button>
             </div>
           </div>
+        ) : a.status === 'ready' && runs?.length === 0 ? (
+          <div className="app-next">
+            <p>
+              <strong>The playbook is ready.</strong> Try a dry run to see what it would post
+              without sending anything, or trust the playbook and start with a real run.
+            </p>
+            <div className="app-gate-actions">
+              <button
+                type="button"
+                className="app-gate-primary"
+                disabled={busy !== null || noDryRuns}
+                onClick={() => run(true)}
+              >
+                <BusyLabel busy={busy === 'dry'} idle="Dry run first" working="Starting" />
+              </button>
+              <button
+                type="button"
+                className="app-gate-secondary"
+                disabled={busy !== null || noRuns}
+                onClick={() => run(false)}
+              >
+                <BusyLabel busy={busy === 'now'} idle="Start with a real run" working="Starting" />
+              </button>
+            </div>
+          </div>
         ) : a.status === 'ready' ? (
-          <p className="app-muted">Try a dry run, then turn it on.</p>
+          <p className="app-muted">Try a dry run, or turn it on.</p>
         ) : null}
       </div>
       {a.failingSources.map((f) => (

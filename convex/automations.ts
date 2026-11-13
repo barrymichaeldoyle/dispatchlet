@@ -428,9 +428,6 @@ export const storeGenerated = internalMutation({
     if (wasActive) await scheduleNext(ctx, { ...automation, status: 'active' })
     const user = await ctx.db.get(automation.userId)
     if (user && !user.firstPlaybookAt) await ctx.db.patch(user._id, { firstPlaybookAt: Date.now() })
-    // A new automation's first playbook goes straight into a dry run, so the first thing the
-    // person sees is it researching, not a button to press.
-    if (!latest) await ctx.scheduler.runAfter(0, internal.runs.firstDryRun, { automationId })
     return null
   },
 })

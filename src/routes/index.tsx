@@ -228,7 +228,7 @@ function Home() {
             </p>
             <p className="landing-commit-line">
               <BrandText>
-                Starts with a dry run, so nothing reaches Buffer until you’ve seen it. Built on
+                Try a dry run first, so nothing reaches Buffer until you’ve seen it. Built on
                 Buffer’s public API.
               </BrandText>{' '}
               <a href={SOURCE_URL}>Read the source</a>
@@ -268,11 +268,10 @@ function Home() {
               <summary>Can I review posts before they go out?</summary>
               <p>
                 <BrandText>
-                  Yes. By default every post is saved as a draft in Buffer for you to approve, and
-                  your first run is a dry run that shows what it would post without sending
-                  anything. Switch to automatic scheduling when you trust it. You set the sources,
-                  voice and rules, and can see what the agent researched and why it kept or skipped
-                  a story.
+                  Yes. By default every post is saved as a draft in Buffer for you to approve, and a
+                  dry run shows what it would post without sending anything. Switch to automatic
+                  scheduling when you trust it. You set the sources, voice and rules, and can see
+                  what the agent researched and why it kept or skipped a story.
                 </BrandText>
               </p>
             </details>
@@ -454,7 +453,8 @@ function Home() {
         <section className="landing-closing" aria-labelledby="closing-title">
           <h2 id="closing-title">Try it on your own topic.</h2>
           <p>
-            Answer a few questions, check the dry run, then decide. Your first 10 runs are free.
+            Answer a few questions, try a dry run or go straight to a real one. Your first 10 runs
+            are free.
           </p>
           <div className="landing-closing-actions">
             <a href="/app?signin" className="landing-closing-start">

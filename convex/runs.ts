@@ -125,28 +125,6 @@ export function postModeFor(mode: PostingMode, plannedFor: number | undefined): 
 
 type Kind = 'scheduled' | 'now' | 'dry'
 
-/**
- * The dry run a new automation starts by itself once its first playbook is written. Only when it
- * has never run and the account has a dry run left; otherwise nothing happens.
- */
-export const firstDryRun = internalMutation({
-  args: { automationId: v.id('automations') },
-  returns: v.null(),
-  handler: async (ctx, { automationId }) => {
-    const automation = await ctx.db.get(automationId)
-    if (!automation || automation.deletedAt || !automation.playbookVersionId) return null
-    const ran = await ctx.db
-      .query('runs')
-      .withIndex('by_automation_startedAt', (q) => q.eq('automationId', automationId))
-      .first()
-    if (ran) return null
-    const user = await ctx.db.get(automation.userId)
-    if (!user || allowanceFor(user).dryRunsLeft === 0) return null
-    await beginRun(ctx, automation, 'dry', { startedBy: 'first' })
-    return null
-  },
-})
-
 /** How long an unfinished run is taken to be going; after this the sweeper closes it. */
 export const RUN_IN_FLIGHT_MS = 15 * 60_000
 
@@ -254,6 +232,7 @@ const STARTED_FROM: Record<StartedBy, string> = {
   api: ' from the API',
   hook: ' from a hook',
   mcp: ' from an assistant',
+  // Runs from when a new automation started its own dry run, before the person chose.
   first: ' on its own, to show what the playbook finds',
 }
 

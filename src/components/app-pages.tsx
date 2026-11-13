@@ -753,8 +753,8 @@ function EmptyHome({ firstName, viewer }: { firstName: string | undefined; viewe
         </li>
         <li>
           <StepArt kind="repeat" />
-          <h2>Dry run, then enable</h2>
-          <p>See what it would post before it posts.</p>
+          <h2>Dry run or go live</h2>
+          <p>See what it would post first, or start for real.</p>
         </li>
       </ol>
       <div className="app-gate-actions">

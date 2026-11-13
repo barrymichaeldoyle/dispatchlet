@@ -42,8 +42,8 @@ the window, in the commits after it.
    stories to post. Dispatchlet turns the answers into a playbook: sources,
    what counts as news, what to skip, tone, formats and a schedule. Edit it as
    a form or as text.
-3. A dry run starts on its own, so you see what it would post before anything
-   reaches Buffer. Enable it when you like what you see.
+3. Choose a dry run to see what it would post before anything reaches Buffer,
+   or start with a real run. Enable it when you like what you see.
 4. On schedule, it opens the playbook's sources, searches the web, drops
    anything it has already covered or is not sure about, writes a post per
    channel within that channel's limit (and asks once for a shorter version
