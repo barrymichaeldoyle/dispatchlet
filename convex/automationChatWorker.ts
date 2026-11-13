@@ -27,7 +27,6 @@ export const respond = internalAction({
         effort: 'medium',
         maxTokens: CHAT_LIMITS.maxTokens,
         retryMalformed: false,
-        captureInvalidOutput: true,
       })
       await ctx.runMutation(internal.automationChat.finish, {
         turnId,
