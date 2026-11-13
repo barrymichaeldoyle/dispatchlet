@@ -9,7 +9,12 @@ export const HookBody = z.object({
   hint: z
     .object({
       title: z.string().trim().min(1).max(200),
-      url: z.string().url().max(500).optional(),
+      url: z
+        .string()
+        .url()
+        .max(500)
+        .refine((u) => /^https?:\/\//i.test(u), 'Only http and https links.')
+        .optional(),
       notes: z.string().trim().max(1000).optional(),
     })
     .optional(),

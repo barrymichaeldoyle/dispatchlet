@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  webHref,
   errorText,
   bufferChannelUrl,
   channelHint,
@@ -170,5 +171,15 @@ describe('an error in words', () => {
       ),
     ).toBe('Not started.')
     expect(errorText('nope', 'Not started.')).toBe('Not started.')
+  })
+})
+
+describe('a link from outside data', () => {
+  it('keeps only http and https', () => {
+    expect(webHref('https://a.com/x')).toBe('https://a.com/x')
+    expect(webHref('http://a.com')).toBe('http://a.com')
+    expect(webHref('javascript:alert(1)')).toBeUndefined()
+    expect(webHref('data:text/html,hi')).toBeUndefined()
+    expect(webHref(null)).toBeUndefined()
   })
 })

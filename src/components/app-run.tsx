@@ -20,6 +20,7 @@ import {
   relativeWhen,
   relativeWhenInline,
   usd,
+  webHref,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
@@ -515,7 +516,7 @@ function RunView({
                     <span className="app-story-decision">
                       {s.review ? 'Skipped by you' : (DECISION_WORDS[s.decision] ?? s.decision)}
                     </span>
-                    <a href={s.url} target="_blank" rel="noreferrer">
+                    <a href={webHref(s.url)} target="_blank" rel="noreferrer">
                       {s.title}
                     </a>
                     <span className="app-muted">
@@ -638,7 +639,7 @@ function RunView({
                     ) : null}
                     {p.externalLink ? (
                       <a
-                        href={p.externalLink}
+                        href={webHref(p.externalLink)}
                         target="_blank"
                         rel="noreferrer"
                         className="app-link"

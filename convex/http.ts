@@ -80,16 +80,15 @@ function sameSecret(a: string, b: string): boolean {
 
 /**
  * PostHog's error tracking webhook (new or reopened issue). The request body is ignored: the
- * email is the same every time and only links to PostHog. With `ALERTS_SECRET` set, the call must
- * carry it in `X-Alerts-Secret`; without it anyone can ring the bell, so the 10-minute dedupe in
- * `claimErrorAlert` is all that stops a flood.
+ * email is the same every time and only links to PostHog. The call must carry `ALERTS_SECRET` in
+ * `X-Alerts-Secret`; with no secret set the endpoint is closed rather than open to anyone.
  */
 http.route({
   path: '/alerts/errors',
   method: 'POST',
   handler: httpAction(async (ctx, req) => {
     const secret = process.env.ALERTS_SECRET
-    if (secret && !sameSecret(req.headers.get('x-alerts-secret') ?? '', secret))
+    if (!secret || !sameSecret(req.headers.get('x-alerts-secret') ?? '', secret))
       return new Response(null, { status: 401 })
     if (await ctx.runMutation(internal.alerts.claimErrorAlert, {})) {
       await ctx.scheduler.runAfter(0, internal.email.sendErrorAlert, {})

@@ -27,6 +27,16 @@ describe('the test sign-in', () => {
     expect(isE2eUser(E2E_EMAIL)).toBe(false)
   })
 
+  it('is off on any deployment not named as a test one, so a new production stays closed', () => {
+    vi.stubEnv('E2E_AUTH_SECRET', SECRET)
+    vi.stubEnv('CONVEX_CLOUD_URL', 'https://brand-new-prod-123.convex.cloud')
+    expect(e2eEnabled()).toBe(false)
+    vi.stubEnv('CONVEX_CLOUD_URL', 'https://polite-marlin-194.convex.cloud.evil.example')
+    expect(e2eEnabled()).toBe(false)
+    vi.stubEnv('CONVEX_CLOUD_URL', 'http://127.0.0.1:3210')
+    expect(e2eEnabled()).toBe(true)
+  })
+
   it('lets only the test user past the allowlist, and only while it is on', async () => {
     vi.stubEnv('E2E_AUTH_SECRET', SECRET)
     vi.stubEnv('CONVEX_CLOUD_URL', 'https://polite-marlin-194.convex.cloud')

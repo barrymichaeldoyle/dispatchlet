@@ -29,9 +29,10 @@ describe('pages served from the Convex origin', () => {
 })
 
 describe('POST /alerts/errors', () => {
-  it('is open when no secret is set', async () => {
+  it('is closed when no secret is set', async () => {
     const t = convexTest(schema, modules)
-    expect((await t.fetch('/alerts/errors', { method: 'POST' })).status).toBe(202)
+    expect((await t.fetch('/alerts/errors', { method: 'POST' })).status).toBe(401)
+    expect(await t.run((ctx) => ctx.db.query('alertsSent').collect())).toHaveLength(0)
   })
 
   it('needs the shared secret when one is set', async () => {

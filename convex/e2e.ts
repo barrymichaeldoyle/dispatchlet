@@ -15,12 +15,19 @@ import { renderPlaybook, type Playbook } from './lib/playbook'
  */
 
 export const E2E_EMAIL = 'e2e@dispatchlet.test'
-const PRODUCTION = 'amiable-mosquito-364'
+/**
+ * The deployments the test sign-in may run on: the dev deployment and a local backend. A list of
+ * where it may run, not where it may not, so a renamed or new production deployment stays closed.
+ */
+const TEST_DEPLOYMENTS = [
+  /^https:\/\/polite-marlin-194\.convex\.cloud\/?$/,
+  /^http:\/\/(127\.0\.0\.1|localhost):\d+\/?$/,
+]
 
 export function e2eEnabled(): boolean {
   const secret = process.env.E2E_AUTH_SECRET ?? ''
   const url = process.env.CONVEX_CLOUD_URL ?? ''
-  return secret.length >= 32 && !url.includes(PRODUCTION)
+  return secret.length >= 32 && TEST_DEPLOYMENTS.some((d) => d.test(url))
 }
 
 /** Whether this is the test user on a deployment where the test sign-in is on. */

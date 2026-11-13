@@ -86,6 +86,11 @@ export function zoneName(timeZone: string): string {
   return `${timeZone.split('/').at(-1)!.replaceAll('_', ' ')} time`
 }
 
+/** A link from outside data (a model, a page it read, Buffer), kept only when it is http or https. */
+export function webHref(url: string | null | undefined): string | undefined {
+  return url && /^https?:\/\//i.test(url.trim()) ? url : undefined
+}
+
 export function usd(amount: number): string {
   return amount < 0.01 && amount > 0 ? 'under $0.01' : `$${amount.toFixed(2)}`
 }

@@ -222,7 +222,12 @@ route('POST', '/automations/:id/rules', 'write', async (ctx, caller, { id }, req
 
 const Hint = z.object({
   title: z.string().trim().min(1).max(200),
-  url: z.string().url().max(500).optional(),
+  url: z
+    .string()
+    .url()
+    .max(500)
+    .refine((u) => /^https?:\/\//i.test(u), 'Only http and https links.')
+    .optional(),
   notes: z.string().trim().max(1000).optional(),
 })
 

@@ -6,7 +6,10 @@ import schema from './schema'
 
 const modules = import.meta.glob('./**/*.*s')
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+})
 
 describe('error alerts', () => {
   it('sends at most one email every 10 minutes', async () => {
@@ -31,9 +34,11 @@ describe('error alerts', () => {
   })
 
   it('the endpoint accepts any body and never echoes it into the email', async () => {
+    vi.stubEnv('ALERTS_SECRET', 's3cret')
     const t = convexTest(schema, modules)
     const response = await t.fetch('/alerts/errors', {
       method: 'POST',
+      headers: { 'X-Alerts-Secret': 's3cret' },
       body: JSON.stringify({ name: '<script>phish</script>' }),
     })
     expect(response.status).toBe(202)
