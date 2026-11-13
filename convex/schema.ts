@@ -426,6 +426,7 @@ export default defineSchema({
     /** A planned batch's publication slot for this post's story, kept while it waits or is held. */
     plannedFor: v.optional(v.number()),
     sentAt: v.optional(v.number()),
+    /** The nonce behind the draft's approve link (lib/crypto approveLinkToken), not the link itself. */
     approveToken: v.optional(v.string()),
     /** Buffer's metrics for a sent post, fetched daily from a day after it went out. */
     metrics: v.optional(
@@ -443,7 +444,6 @@ export default defineSchema({
     .index('by_run', ['runId'])
     .index('by_user_createdAt', ['userId', 'createdAt'])
     .index('by_createdAt', ['createdAt'])
-    .index('by_approveToken', ['approveToken'])
     .index('by_bufferPostId', ['bufferPostId'])
     .index('by_status_createdAt', ['status', 'createdAt'])
     .index('by_automation_plannedFor', ['automationId', 'plannedFor'])

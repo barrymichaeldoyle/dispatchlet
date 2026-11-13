@@ -48,3 +48,62 @@ export async function decryptSecret(stored: string): Promise<string> {
   )
   return new TextDecoder().decode(plaintext)
 }
+
+let cachedLinkKey: Promise<CryptoKey> | null = null
+
+/** An HMAC key for approve links, derived from TOKEN_ENC_KEY so it needs no secret of its own. */
+function linkKey(): Promise<CryptoKey> {
+  if (!cachedLinkKey) {
+    const raw = process.env.TOKEN_ENC_KEY
+    if (!raw) throw new Error('TOKEN_ENC_KEY is not set')
+    cachedLinkKey = crypto.subtle
+      .importKey('raw', fromBase64(raw), 'HKDF', false, ['deriveKey'])
+      .then((base) =>
+        crypto.subtle.deriveKey(
+          {
+            name: 'HKDF',
+            hash: 'SHA-256',
+            salt: new Uint8Array(0),
+            info: new TextEncoder().encode('dispatchlet approve link'),
+          },
+          base,
+          { name: 'HMAC', hash: 'SHA-256', length: 256 },
+          false,
+          ['sign'],
+        ),
+      )
+  }
+  return cachedLinkKey
+}
+
+/**
+ * The token in a post's approve link: its id and an HMAC of the id and a stored nonce. The
+ * database keeps only the nonce, so a copy of it cannot approve anything without the key.
+ */
+export async function approveLinkToken(postId: string, nonce: string): Promise<string> {
+  const mac = await crypto.subtle.sign(
+    'HMAC',
+    await linkKey(),
+    new TextEncoder().encode(`${postId}:${nonce}`),
+  )
+  const sig = toBase64(new Uint8Array(mac))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '')
+  return `${postId}.${sig}`
+}
+
+/** The post id an approve link names, before it is checked; null when it is not one of ours. */
+export function approveLinkPostId(token: string): string | null {
+  const [id, sig, extra] = token.split('.')
+  return id && sig && extra === undefined ? id : null
+}
+
+/** Compares two strings in time that does not depend on where they differ. */
+export function sameString(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given)
+  const b = new TextEncoder().encode(expected)
+  let diff = a.length ^ b.length
+  for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i]!
+  return diff === 0
+}

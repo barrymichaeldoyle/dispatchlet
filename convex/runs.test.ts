@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api, internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import schema from './schema'
+import { approveLinkToken } from './lib/crypto'
 
 const modules = import.meta.glob('./**/*.*s')
 
@@ -896,7 +897,12 @@ describe('the approve link in the digest email', () => {
         createdAt: 0,
       })
     })
-    const res = await t.fetch('/approve?token=tok-1')
+    vi.stubEnv('TOKEN_ENC_KEY', btoa('n'.repeat(32)))
+    const link = await approveLinkToken(postId, 'tok-1')
+    // The stored nonce is not a link: only the signed token opens it.
+    expect((await t.fetch('/approve?token=tok-1')).status).toBe(404)
+    expect((await t.fetch(`/approve?token=${postId}.forged`)).status).toBe(404)
+    const res = await t.fetch(`/approve?token=${encodeURIComponent(link)}`)
     expect(res.status).toBe(200)
     const html = await res.text()
     expect(html).toContain('Approve and add to the queue')
@@ -1143,9 +1149,12 @@ describe('editorial feedback', () => {
     await expect(user.action(api.runs.approve, { postId })).rejects.toThrow(
       'This story was skipped',
     )
+    vi.stubEnv('TOKEN_ENC_KEY', btoa('n'.repeat(32)))
     await t.run((ctx) => ctx.db.patch(postId, { approveToken: 'skipped-story-token' }))
     expect(
-      await t.action(internal.approvals.approveByToken, { token: 'skipped-story-token' }),
+      await t.action(internal.approvals.approveByToken, {
+        token: await approveLinkToken(postId, 'skipped-story-token'),
+      }),
     ).toMatchObject({ ok: false, message: expect.stringContaining('This story was skipped') })
     await user.mutation(api.runs.undoSkipStory, { storyId })
     expect((await user.query(api.automations.dashboard, {}))?.drafts).toHaveLength(1)
@@ -1419,7 +1428,7 @@ describe('an old approve link', () => {
     const { userId, automationId } = await seed(t)
     const runId = await run(t, userId, automationId, 'now')
     const storyId = await storyFor(t, automationId, runId)
-    await t.run((ctx) =>
+    const postId = await t.run((ctx) =>
       ctx.db.insert('posts', {
         userId,
         automationId,
@@ -1434,7 +1443,9 @@ describe('an old approve link', () => {
         createdAt: Date.now() - 31 * 86_400_000,
       }),
     )
-    const res = await t.fetch('/approve?token=tok-old', { method: 'POST' })
+    vi.stubEnv('TOKEN_ENC_KEY', btoa('n'.repeat(32)))
+    const link = await approveLinkToken(postId, 'tok-old')
+    const res = await t.fetch(`/approve?token=${encodeURIComponent(link)}`, { method: 'POST' })
     expect(res.status).toBe(410)
     expect(await res.text()).toContain('expired')
   })

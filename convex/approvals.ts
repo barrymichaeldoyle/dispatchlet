@@ -12,6 +12,7 @@ import { approveBufferPost, BufferPostError, editBufferPostText } from './buffer
 import { measuredLength, SERVICE_LIMITS } from './lib/ai/write'
 import type { Service } from './lib/ai/setup'
 import { PLAN_LEAD_MS } from './lib/plan'
+import { approveLinkPostId, approveLinkToken, sameString } from './lib/crypto'
 import { emitPostEvent } from './runs'
 
 /** What the digest email needs: the person, the run's closing line, and each post. */
@@ -39,20 +40,23 @@ export const digestFor = internalQuery({
         automationId: run.automationId,
         note: run.steps.at(-1)?.note ?? 'The run finished.',
       },
-      posts: posts
-        .filter((p) => p.bufferPostId)
-        .map((p) => ({
-          channelName: names.get(p.channelId) ?? serviceLabel(p.service),
-          text: p.text,
-          status:
-            p.status === 'draft'
-              ? 'saved as a draft'
-              : p.status === 'scheduled'
-                ? 'scheduled'
-                : 'in the queue',
-          approveToken: p.approveToken ?? null,
-          externalLink: p.externalLink ?? null,
-        })),
+      posts: await Promise.all(
+        posts
+          .filter((p) => p.bufferPostId)
+          .map(async (p) => ({
+            channelName: names.get(p.channelId) ?? serviceLabel(p.service),
+            text: p.text,
+            status:
+              p.status === 'draft'
+                ? 'saved as a draft'
+                : p.status === 'scheduled'
+                  ? 'scheduled'
+                  : 'in the queue',
+            // The link's token, not the stored nonce, which never leaves the database.
+            approveToken: p.approveToken ? await approveLinkToken(p._id, p.approveToken) : null,
+            externalLink: p.externalLink ?? null,
+          })),
+      ),
     }
   },
 })
@@ -64,13 +68,17 @@ export const automationName = internalQuery({
     (await ctx.db.get(automationId))?.name ?? 'Your automation',
 })
 
+/** The draft an approve link points at, once its HMAC checks out against the stored nonce. */
 export const postByToken = internalQuery({
   args: { token: v.string() },
-  handler: async (ctx, { token }) =>
-    await ctx.db
-      .query('posts')
-      .withIndex('by_approveToken', (q) => q.eq('approveToken', token))
-      .first(),
+  handler: async (ctx, { token }) => {
+    const raw = approveLinkPostId(token)
+    const postId = raw ? ctx.db.normalizeId('posts', raw) : null
+    const post = postId ? await ctx.db.get(postId) : null
+    if (!post?.approveToken) return null
+    const expected = await approveLinkToken(post._id, post.approveToken)
+    return sameString(token, expected) ? post : null
+  },
 })
 
 export const postById = internalQuery({
