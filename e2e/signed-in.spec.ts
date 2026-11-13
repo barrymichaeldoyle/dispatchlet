@@ -306,3 +306,21 @@ for (const colorScheme of ['light', 'dark'] as const) {
     ).toEqual([])
   })
 }
+
+test('setup keeps the examples behind a link, and one fills in the answers', async ({ page }) => {
+  await openSignedIn(page, '/app/new')
+  // The person's own idea comes first: no example buttons until they ask for them.
+  await expect(page.locator('.setup-template')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Need ideas? See some examples' }).click()
+  const ideas = page.getByRole('dialog', { name: 'Ideas to start from' })
+  await expect(ideas).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(ideas).not.toBeVisible()
+  await page.getByRole('button', { name: 'Need ideas? See some examples' }).click()
+  const first = ideas.locator('.setup-template').first()
+  const name = (await first.locator('strong').textContent())!
+  await first.click()
+  await expect(ideas).not.toBeVisible()
+  await expect(page.getByText('Where should it post?')).toBeVisible()
+  expect(name.length).toBeGreaterThan(0)
+})

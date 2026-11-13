@@ -30,9 +30,10 @@ function Docs() {
       <p>
         An automation starts from seven questions: what to research, which channels, anything to
         avoid, preferred sources, when to run, how many stories a run, and whether posts arrive as
-        drafts or go into your queue. Six examples fill the answers in with one click. The answers
-        that are settings (schedule, channels, story count, posting mode) are kept on the automation
-        and can be changed on its Schedule tab.
+        drafts or go into your queue. If you want a starting point, “Need ideas?” opens six examples
+        that fill the answers in with one click. The answers that are settings (schedule, channels,
+        story count, posting mode) are kept on the automation and can be changed on its Schedule
+        tab.
       </p>
 
       <h2>The playbook</h2>

@@ -163,6 +163,7 @@ export function NewAutomation() {
   ]
   // Answers the person has given themselves. An example fills in the rest, never these.
   const [touched, setTouched] = useState<ReadonlySet<keyof Answers>>(new Set())
+  const [ideasOpen, setIdeasOpen] = useState(false)
   const set = <K extends keyof Answers>(key: K, value: Answers[K]) => {
     setA((prev) => ({ ...prev, [key]: value }))
     if (key !== 'research') setTouched((prev) => new Set(prev).add(key))
@@ -190,40 +191,39 @@ export function NewAutomation() {
             autoFocus
             onChange={(value) => set('research', value)}
           />
-          <p className="setup-hint">Or start from an example and change what you like.</p>
-          <div className="setup-templates">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className="setup-template"
-                onClick={() => {
-                  const w = t.answers
-                  const example: Omit<Answers, 'channelIds'> = {
-                    research: w.research,
-                    avoid: w.avoid,
-                    sources: w.sources.join(', '),
-                    onlyTheseSources: w.onlyTheseSources,
-                    preset: w.cadence.preset,
-                    time: w.cadence.time,
-                    weekday: (w.cadence.weekday ?? 'mon') as Answers['weekday'],
-                    maxStories: w.maxStories,
-                    postingMode: w.postingMode,
-                  }
-                  setA((prev) => {
-                    const next = { ...prev }
-                    for (const key of Object.keys(example) as (keyof typeof example)[])
-                      if (!touched.has(key)) Object.assign(next, { [key]: example[key] })
-                    return next
-                  })
-                  setIndex(1)
-                }}
-              >
-                <strong>{t.name}</strong>
-                <span>{t.line}</span>
-              </button>
-            ))}
-          </div>
+          {/* The examples wait behind a link, so they don't crowd out the person's own idea. */}
+          <p className="setup-hint">
+            <button type="button" className="app-link" onClick={() => setIdeasOpen(true)}>
+              Need ideas? See some examples
+            </button>
+          </p>
+          {ideasOpen ? (
+            <IdeasDialog
+              onClose={() => setIdeasOpen(false)}
+              onPick={(t) => {
+                const w = t.answers
+                const example: Omit<Answers, 'channelIds'> = {
+                  research: w.research,
+                  avoid: w.avoid,
+                  sources: w.sources.join(', '),
+                  onlyTheseSources: w.onlyTheseSources,
+                  preset: w.cadence.preset,
+                  time: w.cadence.time,
+                  weekday: (w.cadence.weekday ?? 'mon') as Answers['weekday'],
+                  maxStories: w.maxStories,
+                  postingMode: w.postingMode,
+                }
+                setA((prev) => {
+                  const next = { ...prev }
+                  for (const key of Object.keys(example) as (keyof typeof example)[])
+                    if (!touched.has(key)) Object.assign(next, { [key]: example[key] })
+                  return next
+                })
+                setIdeasOpen(false)
+                setIndex(1)
+              }}
+            />
+          ) : null}
         </>
       ),
     },
@@ -594,5 +594,49 @@ export function NewAutomation() {
         </dl>
       </form>
     </>
+  )
+}
+
+type Template = (typeof TEMPLATES)[number]
+
+/** The example automations, in a dialog: one click fills in the answers, which stay editable. */
+function IdeasDialog({ onClose, onPick }: { onClose: () => void; onPick: (t: Template) => void }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const element = dialog.current!
+    element.showModal()
+    return () => element.close()
+  }, [])
+  return (
+    <dialog
+      ref={dialog}
+      className="app-leave-dialog setup-ideas"
+      aria-labelledby={titleId}
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
+      onClick={(event) => {
+        // A click on the backdrop lands on the dialog itself.
+        if (event.target === event.currentTarget) onClose()
+      }}
+    >
+      <h2 id={titleId}>Ideas to start from</h2>
+      <p>Pick one to fill in the answers. You can change any of them after.</p>
+      <div className="setup-templates">
+        {TEMPLATES.map((t) => (
+          <button key={t.id} type="button" className="setup-template" onClick={() => onPick(t)}>
+            <strong>{t.name}</strong>
+            <span>{t.line}</span>
+          </button>
+        ))}
+      </div>
+      <div className="app-gate-actions">
+        <button type="button" className="app-gate-secondary" autoFocus onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </dialog>
   )
 }
