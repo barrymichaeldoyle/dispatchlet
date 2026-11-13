@@ -50,7 +50,7 @@ function Consent() {
   const createToken = useMutation(api.tokens.createForOAuth)
   const revokeToken = useMutation(api.tokens.revoke)
   const [write, setWrite] = useState(askedWrite)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'approve' | 'deny' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   if (!handle)
@@ -85,7 +85,7 @@ function Consent() {
     )
 
   const decide = async (decision: 'approve' | 'deny') => {
-    setBusy(true)
+    setBusy(decision)
     setError(null)
     // The token is made before the provider finishes the grant. If anything after that fails the
     // token would be live with no grant behind it, so it is revoked on the way out.
@@ -104,7 +104,7 @@ function Consent() {
     } catch (reason) {
       if (made) await revokeToken({ id: made._id }).catch(() => undefined)
       setError(errorText(reason, 'That did not work. Start again from the app.'))
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -151,18 +151,18 @@ function Consent() {
         <button
           type="button"
           className="app-gate-primary"
-          disabled={busy}
+          disabled={busy !== null}
           onClick={() => void decide('approve')}
         >
-          <BusyLabel busy={busy} idle="Allow" working="Connecting" />
+          <BusyLabel busy={busy === 'approve'} idle="Allow" working="Connecting" />
         </button>
         <button
           type="button"
           className="app-gate-secondary"
-          disabled={busy}
+          disabled={busy !== null}
           onClick={() => void decide('deny')}
         >
-          Deny
+          <BusyLabel busy={busy === 'deny'} idle="Deny" working="Denying" />
         </button>
       </div>
       {error ? (

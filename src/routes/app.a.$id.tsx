@@ -14,7 +14,7 @@ export const Route = createFileRoute('/app/a/$id')({
   head: () => ({ meta: [{ title: 'Automation | Dispatchlet' }] }),
   component: () => {
     const { id } = Route.useParams()
-    return <AutomationPage id={id as Id<'automations'>} />
+    return <AutomationPage key={id} id={id as Id<'automations'>} />
   },
   // A malformed id fails the query's argument check while rendering; the sidebar stays up.
   errorComponent: () => <MissingItem what="automation" />,

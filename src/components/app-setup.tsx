@@ -1,3 +1,4 @@
+import { PageSkeleton } from './page-skeleton'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAction, useMutation, useQuery } from 'convex/react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
@@ -499,7 +500,7 @@ export function NewAutomation() {
       })
   }
 
-  if (connection === undefined) return null
+  if (connection === undefined) return <PageSkeleton />
   return (
     <>
       <p className="app-crumbs">

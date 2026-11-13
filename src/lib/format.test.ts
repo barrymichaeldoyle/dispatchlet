@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  errorText,
   bufferChannelUrl,
   channelHint,
   whenInSentence,
@@ -149,5 +150,25 @@ describe('whenInSentence', () => {
     expect(whenInSentence(Date.UTC(2026, 10, 12, 23, 30), 'Africa/Johannesburg', now)).toBe(
       'tomorrow at 01:30',
     )
+  })
+})
+
+describe('an error in words', () => {
+  it('keeps the app’s own message and drops Convex’s wrapping', () => {
+    expect(
+      errorText(
+        new Error('[CONVEX M(runs:trigger)] Uncaught Error: No free runs left.\n    at x (y.js:1)'),
+        'f',
+      ),
+    ).toBe('No free runs left.')
+  })
+  it('shows the fallback for a redacted production error', () => {
+    expect(
+      errorText(
+        new Error('[CONVEX M(runs:trigger)] [Request ID: 3f2a] Server Error'),
+        'Not started.',
+      ),
+    ).toBe('Not started.')
+    expect(errorText('nope', 'Not started.')).toBe('Not started.')
   })
 })

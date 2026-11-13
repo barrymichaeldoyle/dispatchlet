@@ -406,7 +406,9 @@ function AppShell({
                       <span className="app-side-name">{a.name}</span>
                       <span className="app-side-state">
                         <span className="app-side-dot" aria-hidden="true" />
-                        {SIDE_STATES[a.status] ?? a.status}
+                        {a.status === 'failed' && !a.version
+                          ? 'no playbook'
+                          : (SIDE_STATES[a.status] ?? a.status)}
                       </span>
                     </Link>
                   </li>

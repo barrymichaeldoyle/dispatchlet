@@ -35,8 +35,8 @@ type Tab = (typeof TABS)[number]
 
 const STATUS_WORDS: Record<string, string> = {
   generating: 'writing the playbook',
-  ready: 'not enabled yet',
-  active: 'enabled',
+  ready: 'off',
+  active: 'on',
   paused: 'paused',
   failed: 'paused after 3 failed runs',
 }
@@ -109,7 +109,10 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
   // Out of free runs, the server would only refuse; the line under the title says why.
   const noRuns = allowance?.runsLeft === 0
   const noDryRuns = allowance?.dryRunsLeft === 0
-  const status = STATUS_WORDS[a.status] ?? a.status
+  const status =
+    a.status === 'failed' && !a.version
+      ? 'the playbook could not be written'
+      : (STATUS_WORDS[a.status] ?? a.status)
   // The run going now, and the first dry run's result, drive the "what next" line under the title.
   const live = runs?.find((r) => !r.finishedAt && now - r.startedAt < 15 * 60_000)
   const latest = runs?.[0]
@@ -169,7 +172,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
                 disabled={busy !== null}
                 onClick={() => act('enable', () => setStatus({ id, status: 'active' }))}
               >
-                {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Enable'}
+                {a.status === 'paused' || a.status === 'failed' ? 'Resume' : 'Turn on'}
               </button>
             )}
             <button
@@ -278,7 +281,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             </div>
           </div>
         ) : a.status === 'ready' ? (
-          <p className="app-muted">Try a dry run, then enable it.</p>
+          <p className="app-muted">Try a dry run, then turn it on.</p>
         ) : null}
       </div>
       {a.generationError ? (
@@ -305,7 +308,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             ? `${perf.totals
                 .slice(0, 3)
                 .map(metricLabel)
-                .join(', ')} across the ${perf.withMetrics} posts with metrics so far.`
+                .join(
+                  ', ',
+                )} across the ${perf.withMetrics} ${perf.withMetrics === 1 ? 'post' : 'posts'} with metrics so far.`
             : ''}
           {perf.best ? (
             <>
@@ -469,7 +474,13 @@ type Loaded = NonNullable<ReturnType<typeof useQuery<typeof api.automations.get>
 function ScheduleEditor({ a }: { a: Loaded }) {
   const connection = useQuery(api.buffer.myConnection)
   const usage = useQuery(api.users.usage)
-  const update = useMutation(api.automations.updateConfig)
+  // Shown at once, so a second click or keystroke builds on the first rather than the old value.
+  const update = useMutation(api.automations.updateConfig).withOptimisticUpdate(
+    (store, { id, ...changes }) => {
+      const current = store.getQuery(api.automations.get, { id })
+      if (current) store.setQuery(api.automations.get, { id }, { ...current, ...changes })
+    },
+  )
   const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle')
   const [message, setMessage] = useState('')
   const save = (changes: Omit<Parameters<typeof update>[0], 'id'>) => {
@@ -584,7 +595,8 @@ function ScheduleEditor({ a }: { a: Loaded }) {
                 <input
                   type="checkbox"
                   checked={a.channelIds.includes(c.channelId)}
-                  disabled={!c.usable}
+                  // A channel that broke while chosen can still be unticked.
+                  disabled={!c.usable && !a.channelIds.includes(c.channelId)}
                   onChange={(e) =>
                     save({
                       channelIds: e.target.checked
@@ -756,12 +768,78 @@ function ScheduleEditor({ a }: { a: Loaded }) {
 }
 
 /** One line per entry, for the form's list fields. */
-const list = (value: string[]) => value.join('\n')
-const fromList = (value: string) =>
+const fromList = (value: string, separator = '\n') =>
   value
-    .split('\n')
+    .split(separator)
     .map((s) => s.trim())
     .filter(Boolean)
+
+/**
+ * A text box over a list. It keeps what is typed as typed, so a space, a new line or a comma at
+ * the end survives until the next letter; only the parsed list goes up. It takes the list again
+ * when that changes from outside (a text edit, an undo, a fresh version).
+ */
+function ListInput({
+  value,
+  onChange,
+  separator = '\n',
+  multiline = true,
+  ...rest
+}: {
+  value: string[]
+  onChange: (next: string[]) => void
+  separator?: '\n' | ','
+  multiline?: boolean
+  rows?: number
+} & Record<`data-${string}` | `aria-${string}`, unknown>) {
+  const joined = value.join(separator === ',' ? ', ' : '\n')
+  const [raw, setRaw] = useState(joined)
+  if (fromList(raw, separator).join('\u0000') !== value.join('\u0000') && raw !== joined)
+    setRaw(joined)
+  const props = {
+    ...rest,
+    value: raw,
+    onChange: (e: { target: { value: string } }) => {
+      setRaw(e.target.value)
+      onChange(fromList(e.target.value, separator))
+    },
+  }
+  return multiline ? <textarea {...props} /> : <input {...props} />
+}
+
+/** What a typed source becomes: a web address when it looks like one, a publisher's name if not. */
+function sourceFrom(typed: string): { url: string | null; label: string } {
+  if (!/^(https?:\/\/|[a-z0-9-]+\.[a-z])/i.test(typed)) return { url: null, label: typed }
+  return {
+    url: typed.includes('://') ? typed : `https://${typed}`,
+    label: typed.replace(/^https?:\/\//, '').split('/')[0]!,
+  }
+}
+
+/** The source box shows what was typed; `https://` is added to the stored address, not the box. */
+function SourceInput({
+  source,
+  onChange,
+  ...rest
+}: {
+  source: { url: string | null; label: string }
+  onChange: (next: { url: string | null; label: string }) => void
+} & Record<`data-${string}` | `aria-${string}`, unknown>) {
+  const shown = source.url ?? source.label
+  const [raw, setRaw] = useState(shown)
+  const parsed = sourceFrom(raw)
+  if ((parsed.url !== source.url || parsed.label !== source.label) && raw !== shown) setRaw(shown)
+  return (
+    <input
+      {...rest}
+      value={raw}
+      onChange={(e) => {
+        setRaw(e.target.value)
+        onChange(sourceFrom(e.target.value))
+      }}
+    />
+  )
+}
 
 /** Native disclosures keep each editing task independent and keyboard accessible. */
 function PlaybookSection({
@@ -1147,30 +1225,14 @@ function PlaybookEditor({
                 >
                   <label>
                     <span>Website or publisher</span>
-                    <input
+                    <SourceInput
                       {...fieldProps(`sources.${i}.url`)}
-                      value={s.url ?? s.label}
+                      source={s}
                       aria-label="Source"
-                      onChange={(e) =>
+                      onChange={(next) =>
                         fromForm({
                           ...form,
-                          sources: form.sources.map((x, j) =>
-                            j === i
-                              ? {
-                                  ...x,
-                                  ...(/^(https?:\/\/|[a-z0-9-]+\.[a-z])/i.test(e.target.value)
-                                    ? {
-                                        url: e.target.value.includes('://')
-                                          ? e.target.value
-                                          : `https://${e.target.value}`,
-                                        label: e.target.value
-                                          .replace(/^https?:\/\//, '')
-                                          .split('/')[0]!,
-                                      }
-                                    : { url: null, label: e.target.value }),
-                                }
-                              : x,
-                          ),
+                          sources: form.sources.map((x, j) => (j === i ? { ...x, ...next } : x)),
                         })
                       }
                     />
@@ -1238,11 +1300,11 @@ function PlaybookEditor({
             </fieldset>
             <label>
               <span>Searches, one a line</span>
-              <textarea
+              <ListInput
                 rows={3}
                 {...fieldProps(`searchQueries`)}
-                value={list(form.searchQueries)}
-                onChange={(e) => fromForm({ ...form, searchQueries: fromList(e.target.value) })}
+                value={form.searchQueries}
+                onChange={(searchQueries) => fromForm({ ...form, searchQueries })}
               />
               {fieldError(`searchQueries`)}
             </label>
@@ -1268,21 +1330,21 @@ function PlaybookEditor({
             </label>
             <label>
               <span>Post about, one rule a line</span>
-              <textarea
+              <ListInput
                 rows={3}
                 {...fieldProps(`include`)}
-                value={list(form.include)}
-                onChange={(e) => fromForm({ ...form, include: fromList(e.target.value) })}
+                value={form.include}
+                onChange={(include) => fromForm({ ...form, include })}
               />
               {fieldError(`include`)}
             </label>
             <label>
               <span>Skip, one rule a line</span>
-              <textarea
+              <ListInput
                 rows={3}
                 {...fieldProps(`exclude`)}
-                value={list(form.exclude)}
-                onChange={(e) => fromForm({ ...form, exclude: fromList(e.target.value) })}
+                value={form.exclude}
+                onChange={(exclude) => fromForm({ ...form, exclude })}
               />
               {fieldError(`exclude`)}
             </label>
@@ -1316,20 +1378,13 @@ function PlaybookEditor({
             </label>
             <label>
               <span>Avoid saying, separated by commas</span>
-              <input
+              <ListInput
+                multiline={false}
+                separator=","
                 {...fieldProps(`voice.avoidSaying`)}
-                value={form.voice.avoidSaying.join(', ')}
-                onChange={(e) =>
-                  fromForm({
-                    ...form,
-                    voice: {
-                      ...form.voice,
-                      avoidSaying: e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    },
-                  })
+                value={form.voice.avoidSaying}
+                onChange={(avoidSaying) =>
+                  fromForm({ ...form, voice: { ...form.voice, avoidSaying } })
                 }
               />
               {fieldError(`voice.avoidSaying`)}

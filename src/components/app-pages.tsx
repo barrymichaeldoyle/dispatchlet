@@ -92,8 +92,8 @@ export function ConnectionBanner() {
 
 const STATUS_WORDS: Record<string, string> = {
   generating: 'writing the playbook',
-  ready: 'not enabled yet',
-  active: 'enabled',
+  ready: 'off',
+  active: 'on',
   paused: 'paused',
   failed: 'paused after failures',
 }
@@ -107,6 +107,7 @@ export function AppHome() {
   const viewer = useQuery(api.users.viewer)
   const data = useQuery(api.automations.dashboard)
   const now = useNow()
+  const [showAllDrafts, setShowAllDrafts] = useState(false)
   if (!viewer || data === undefined) return <PageSkeleton />
   const firstName = viewer.name?.trim().split(/\s+/)[0]
   // `?preview-empty` shows the first-visit screen on an account that has automations, for design work.
@@ -195,10 +196,15 @@ export function AppHome() {
         <section className="app-section is-plain" id="approvals">
           <h2>Awaiting approval</h2>
           <ul className="app-drafts">
-            {drafts.slice(0, 6).map((d) => (
+            {(showAllDrafts ? drafts : drafts.slice(0, 6)).map((d) => (
               <DraftCard key={d._id} draft={d} />
             ))}
           </ul>
+          {drafts.length > 6 && !showAllDrafts ? (
+            <button type="button" className="app-link" onClick={() => setShowAllDrafts(true)}>
+              Show all {drafts.length}
+            </button>
+          ) : null}
         </section>
       ) : null}
       {upcoming ? (
@@ -252,11 +258,18 @@ function homeStatus({
   tone: 'ok' | 'warn' | 'idle'
   text: string
 } {
-  const failing = data.automations.filter((a) => a.status === 'failed')
+  // A failed automation with no playbook never ran: its playbook could not be written.
+  const unwritten = data.automations.filter((a) => a.status === 'failed' && !a.canRun)
+  const failing = data.automations.filter((a) => a.status === 'failed' && a.canRun)
   if (failing.length === 1)
     return { tone: 'warn', text: `${failing[0]!.name} stopped after failed runs. Take a look.` }
   if (failing.length > 1)
     return { tone: 'warn', text: `${failing.length} automations stopped after failed runs.` }
+  if (unwritten.length)
+    return {
+      tone: 'warn',
+      text: `The playbook for ${unwritten[0]!.name} could not be written. Open it to try again.`,
+    }
   if (viewer.keyInvalid)
     return { tone: 'warn', text: 'Anthropic turned down your key. Update it in settings.' }
   if (!viewer.ownKey && viewer.runsLeft === 0)
@@ -640,7 +653,11 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
         ) : (
           <>
             <span className="app-muted">Status</span>
-            <strong>{STATUS_WORDS[a.status] ?? a.status}</strong>
+            <strong>
+              {a.status === 'failed' && !a.canRun
+                ? 'playbook not written'
+                : (STATUS_WORDS[a.status] ?? a.status)}
+            </strong>
           </>
         )}
       </div>
@@ -655,7 +672,11 @@ function RowActions({ a }: { a: Dashboard['automations'][number] }) {
   const navigate = useNavigate()
   const [busy, setBusy] = useState<'run' | 'status' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The same query the page already holds, so this costs nothing extra.
+  const viewer = useQuery(api.users.viewer)
   if (!a.canRun) return null
+  // Out of free runs, the server would only refuse: the status line above says why.
+  const noRuns = Boolean(viewer && !viewer.ownKey && viewer.runsLeft === 0)
   const act = (name: 'run' | 'status', work: () => Promise<unknown>) => {
     setBusy(name)
     setError(null)
@@ -669,7 +690,8 @@ function RowActions({ a }: { a: Dashboard['automations'][number] }) {
       <button
         type="button"
         className="app-link"
-        disabled={busy !== null || a.running}
+        disabled={busy !== null || a.running || noRuns}
+        title={noRuns ? 'No free runs left. Add your own Anthropic key in settings.' : undefined}
         onClick={() =>
           act('run', () =>
             trigger({ automationId: a._id, dry: false }).then((runId) =>
@@ -1035,6 +1057,7 @@ function BufferConnection() {
   const disconnect = useAction(api.buffer.disconnect)
   const [syncing, setSyncing] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (connection === undefined) return null
   const canPost = connection?.scope.includes('posts:write') ?? false
@@ -1086,20 +1109,44 @@ function BufferConnection() {
               <BusyLabel busy={syncing} idle="Sync channels" working="Syncing channels" />
             </button>
           )}
-          <button
-            type="button"
-            className="app-gate-secondary"
-            disabled={disconnecting}
-            onClick={() => {
-              setDisconnecting(true)
-              setError(null)
-              disconnect()
-                .catch((reason: unknown) => setError(message(reason, 'Disconnect failed.')))
-                .finally(() => setDisconnecting(false))
-            }}
-          >
-            <BusyLabel busy={disconnecting} idle="Disconnect Buffer" working="Disconnecting" />
-          </button>
+          {confirmDisconnect ? (
+            <span className="app-confirm">
+              <span className="app-muted">Nothing reaches Buffer until you connect it again.</span>
+              <button
+                type="button"
+                className="app-gate-secondary"
+                disabled={disconnecting}
+                onClick={() => {
+                  setDisconnecting(true)
+                  setError(null)
+                  disconnect()
+                    .catch((reason: unknown) => setError(message(reason, 'Disconnect failed.')))
+                    .finally(() => {
+                      setDisconnecting(false)
+                      setConfirmDisconnect(false)
+                    })
+                }}
+              >
+                <BusyLabel busy={disconnecting} idle="Disconnect" working="Disconnecting" />
+              </button>
+              <button
+                type="button"
+                className="app-link"
+                disabled={disconnecting}
+                onClick={() => setConfirmDisconnect(false)}
+              >
+                Keep it
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="app-gate-secondary"
+              onClick={() => setConfirmDisconnect(true)}
+            >
+              Disconnect Buffer
+            </button>
+          )}
         </div>
       ) : null}
       {error ? (
@@ -1405,7 +1452,7 @@ function PushChoice() {
                   userAgent: navigator.userAgent.slice(0, 200),
                 })
                 setHere(true)
-                setNote('On. A test is not sent; the next run that needs you will.')
+                setNote('On. Send a test to check, or the next run that needs you will.')
               } else {
                 const endpoint = await unsubscribeFromPush()
                 if (endpoint) await unsubscribe({ endpoint })
@@ -1519,7 +1566,7 @@ function AnthropicKey({
           </button>
         ) : null}
         <span className="app-muted" role="status">
-          {state === 'saved' ? 'Saved. It is stored encrypted.' : ''}
+          {state === 'saved' ? (ownKey ? 'Saved. It is stored encrypted.' : 'Key removed.') : ''}
         </span>
       </div>
       {error ? (

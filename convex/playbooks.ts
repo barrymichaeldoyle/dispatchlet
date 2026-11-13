@@ -4,6 +4,7 @@ import { internalAction, internalQuery } from './_generated/server'
 import { anthropicClient, callStructured, modelFor, STRUCTURED_MAX_TOKENS } from './lib/ai/client'
 import { GENERATE_SYSTEM, generateUserMessage, Playbook } from './lib/ai/generate'
 import type { SetupAnswers } from './lib/ai/setup'
+import { serviceFailure } from './runs'
 import { keyFor } from './users'
 
 export const forGeneration = internalQuery({
@@ -48,15 +49,18 @@ export const generate = internalAction({
       await ctx.runMutation(internal.automations.storeGenerated, {
         automationId,
         playbook: output,
-        error: output
-          ? undefined
-          : (record.refusal ?? 'The playbook could not be written. Try again.'),
+        error: output ? undefined : (record.refusal ?? 'No playbook came back. Try again.'),
       })
     } catch (error) {
+      // The person sees a sentence; the SDK's own message goes to the log.
+      // oxlint-disable-next-line no-console -- the Convex log is where this is read
+      console.error('Playbook generation failed', error)
       await ctx.runMutation(internal.automations.storeGenerated, {
         automationId,
         playbook: null,
-        error: error instanceof Error ? error.message : String(error),
+        error:
+          serviceFailure(error)?.replace('this run', 'this playbook').replace('the run', 'it') ??
+          'Something went wrong on Dispatchlet’s side. Try again.',
       })
     }
     return null

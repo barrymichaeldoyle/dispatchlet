@@ -19,6 +19,7 @@ import {
   timeIn,
   relativeWhen,
   relativeWhenInline,
+  usd,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
 import { DraftEditor } from './app-pages'
@@ -186,10 +187,13 @@ const REVIEW_REASONS = [
 function StoryReview({
   story,
   hasBufferPosts,
+  dry,
   published,
 }: {
   story: RunData['stories'][number]
   hasBufferPosts: boolean
+  /** A dry run sent nothing, so there are no drafts to hide: skipping only records the reason. */
+  dry: boolean
   /** Its post already went out or is booked: skipping teaches future runs, it doesn't un-post. */
   published: boolean
 }) {
@@ -337,7 +341,9 @@ function StoryReview({
         </label>
       ) : null}
       <p className="app-muted">
-        Hides this story’s drafts from your approval list.{' '}
+        {dry
+          ? 'Records why, so you can teach future runs. '
+          : 'Hides this story’s drafts from your approval list. '}
         {hasBufferPosts ? 'Posts already in Buffer stay there.' : ''} You can choose a playbook
         change after saving.
       </p>
@@ -425,6 +431,7 @@ function RunView({
         {run.usage.webSearches
           ? ` ${run.usage.webSearches} searches, ${run.usage.webFetches} pages opened.`
           : ''}
+        {run.finishedAt && run.costUsd > 0 ? ` Cost ${usd(run.costUsd)}.` : ''}
       </p>
       {!shared && id ? (
         <div className="app-share">
@@ -528,6 +535,7 @@ function RunView({
                       hasBufferPosts={run.posts.some(
                         (p) => p.storyId === s._id && Boolean(p.bufferPostId),
                       )}
+                      dry={run.kind === 'dry'}
                       published={run.posts.some(
                         (p) =>
                           p.storyId === s._id &&
@@ -607,7 +615,7 @@ function RunView({
                         Edit
                       </button>
                     ) : null}
-                    {p.status === 'draft' && !story?.review && !shared ? (
+                    {p.status === 'draft' && !story?.review && !shared && editing !== p._id ? (
                       <button
                         type="button"
                         className="app-gate-primary"
@@ -660,9 +668,6 @@ function RunView({
             })}
           </ul>
         </section>
-      ) : null}
-      {run.error && run.status === 'failed' ? (
-        <p className="app-connection-error">{run.error}</p>
       ) : null}
     </>
   )

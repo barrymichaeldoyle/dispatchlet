@@ -1349,7 +1349,7 @@ export const execute = internalAction({
               timezone: automation.timezone,
             })
           : dry
-            ? `Dry run finished. ${keep.length} ${keep.length === 1 ? 'story' : 'stories'} and the posts it would send are below. Nothing went to Buffer.`
+            ? `Dry run finished: ${keep.length} ${keep.length === 1 ? 'story' : 'stories'} found, with the posts it would send. Nothing went to Buffer.`
             : `Done. ${published} ${published === 1 ? 'post' : 'posts'} in Buffer.`,
       })
     } catch (error) {
@@ -1746,10 +1746,12 @@ export async function runView(
       steps: run.steps,
       usage: run.usage,
       costUsd: run.costUsd,
-      error: run.error ?? null,
+      // A shared run is public: the raw error and the hint (which can be a hook's private text)
+      // stay with the owner.
+      error: isShared ? null : (run.error ?? null),
       shareToken: run.shareToken ?? null,
       startedBy: run.startedBy ?? 'schedule',
-      hint: run.hint ?? null,
+      hint: isShared ? null : (run.hint ?? null),
       stories: stories.map((s) => ({
         _id: s._id,
         title: s.title,

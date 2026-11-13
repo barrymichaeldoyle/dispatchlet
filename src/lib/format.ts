@@ -143,8 +143,22 @@ export function channelProblem(problem: string | null, service?: string): string
   return 'Needs attention in Buffer.'
 }
 
+/**
+ * A thrown error in words fit to show. Convex prefixes messages with the function and request id,
+ * and in production replaces a plain Error's message with "Server Error": those show the fallback.
+ */
 export function errorText(reason: unknown, fallback: string): string {
-  return reason instanceof Error ? reason.message.replace(/^.*Uncaught Error: /s, '') : fallback
+  if (!(reason instanceof Error)) return fallback
+  const message = reason.message
+    .replace(/^.*Uncaught (?:Convex)?Error: /s, '')
+    .split(/\n\s+at /)[0]!
+    .trim()
+  if (
+    !message ||
+    /^(\[CONVEX [^\]]*\]\s*)?(\[Request ID: [^\]]*\]\s*)?Server Error$/i.test(message)
+  )
+    return fallback
+  return message
 }
 
 /**
