@@ -782,6 +782,29 @@ describe('fair to the person when Dispatchlet is the one at fault', () => {
     const a = await t.run((ctx) => ctx.db.get(automationId))
     expect(a?.consecutiveFailures ?? 0).toBe(0)
   })
+
+  it('keeps the free run spent when the stopped run had already sent posts', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { freeRunsUsed: 1 })
+      return await ctx.db.insert('runs', {
+        userId,
+        automationId,
+        kind: 'now',
+        status: 'publishing',
+        startedAt: Date.now() - 20 * 60_000,
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+        freeRun: true,
+        posted: 2,
+      })
+    })
+    await t.action(internal.runs.sweepAbandoned, {})
+    expect((await t.run((ctx) => ctx.db.get(runId)))?.steps.at(-1)?.note).not.toMatch(/free runs/)
+    expect((await t.run((ctx) => ctx.db.get(userId)))?.freeRunsUsed).toBe(1)
+  })
 })
 
 describe('a fair share of the Buffer budget', () => {
@@ -1039,6 +1062,26 @@ describe('double clicks', () => {
     expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('busy')
     await t.mutation(internal.approvals.releaseApproval, { postId })
     expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
+  })
+
+  it('refuse an edit while the draft is being approved, so Buffer does not take it back to drafts', async () => {
+    const t = convexTest(schema, modules)
+    const { postId } = await draftAndStory(t)
+    const post = await t.run((ctx) => ctx.db.get(postId))
+    const fetch = vi.fn()
+    vi.stubGlobal('fetch', fetch)
+    expect(await t.mutation(internal.approvals.claimApproval, { postId })).toBe('claimed')
+    await expect(
+      t.action(internal.approvals.editForUser, {
+        userId: post!.userId,
+        postId,
+        text: 'Changed.',
+        from: 'app',
+      }),
+    ).rejects.toThrow(/being approved/)
+    expect(fetch).not.toHaveBeenCalled()
+    expect((await t.run((ctx) => ctx.db.get(postId)))?.text).toBe('x')
+    vi.unstubAllGlobals()
   })
 
   it('save a story to Buffer Ideas once', async () => {

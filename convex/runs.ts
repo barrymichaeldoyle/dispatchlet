@@ -681,11 +681,52 @@ async function record(ctx: ActionCtx, runId: Id<'runs'>, purpose: string, r: Cal
   await ctx.runMutation(internal.ai.recordCall, { runId, purpose, ...r })
 }
 
+/**
+ * How long a run's AI calls have, from the start of the action. Convex stops an action at ten
+ * minutes; the SDK retries timeouts, so without a deadline one slow research call could use all of
+ * it and leave posts stuck in `publishing`. The rest is for saving and sending to Buffer.
+ */
+const RUN_AI_DEADLINE_MS = 8 * 60_000
+
+/** The reply came back but could not be read: thrown so serviceFailure treats it as the AI's fault. */
+const UNREADABLE = 'Failed to parse structured output: the AI reply could not be read.'
+
+/** One post per story and channel, the first the writer gave; returns how many were dropped. */
+export function onePerStoryAndChannel<T extends { storyUrl: string; channelId: string }>(
+  posts: T[],
+): { posts: T[]; dropped: number } {
+  const seen = new Set<string>()
+  const kept = posts.filter((p) => {
+    const key = `${canonicalUrl(p.storyUrl)}|${p.channelId}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  return { posts: kept, dropped: posts.length - kept.length }
+}
+
+/**
+ * A send to Buffer that got no clear answer: a timeout, a dropped connection or a 5xx. Buffer may
+ * or may not have the post, so it is not sent again, and the rest of the run waits.
+ */
+export function bufferDidNotAnswer(error: unknown): boolean {
+  if (error instanceof BufferApiError) return error.status >= 500
+  if (error instanceof BufferPostError || error instanceof BufferBudgetError) return false
+  const name = error instanceof Error ? error.name : ''
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    name === 'TimeoutError' ||
+    name === 'AbortError' ||
+    /fetch failed|network|ECONNRESET|ETIMEDOUT|timed out|aborted/i.test(message)
+  )
+}
+
 /** The run: research, dedupe, write, publish. Each step is logged as it finishes. */
 export const execute = internalAction({
   args: { runId: v.id('runs') },
   returns: v.null(),
   handler: async (ctx, { runId }) => {
+    const deadline = Date.now() + RUN_AI_DEADLINE_MS
     const loaded = await ctx.runQuery(internal.runs.load, { runId })
     if (!loaded) return null
     const { run, automation, playbook, user, channels, covered, spentTodayUsd, proven } = loaded
@@ -694,6 +735,8 @@ export const execute = internalAction({
       ctx.runMutation(internal.runs.logStep, { runId, step, note, status })
     const fail = (note: string) =>
       ctx.runMutation(internal.runs.finish, { runId, status: 'failed', note, error: note })
+    // Posts Buffer took. A run that sent any keeps its free run, whatever goes wrong after.
+    let published = 0
     try {
       if (
         !allowanceFor(user).ownKey &&
@@ -820,8 +863,10 @@ export const execute = internalAction({
         }),
         schema: ResearchResult,
         tools: researchTools(domains, undefined, brief.maxCandidates),
+        deadline,
       })
       await record(ctx, runId, 'research', research.record)
+      if (research.unreadable) throw new Error(UNREADABLE)
       // Searches and page opens that failed, by the tool's own error code, so the log says why.
       for (const e of research.toolErrors)
         await say(
@@ -1024,8 +1069,10 @@ export const execute = internalAction({
             plan ? { timezone: automation.timezone, at: tentative } : undefined,
           ),
           schema: WriteResult,
+          deadline,
         })
         await record(ctx, runId, 'write', written.record)
+        if (written.unreadable) throw new Error(UNREADABLE)
         if (written.output) {
           writtenPosts.push(...written.output.posts)
           continue
@@ -1048,7 +1095,14 @@ export const execute = internalAction({
 
       // The system adds the link on channels without a card, then posts that miss their limit get
       // up to two narrower asks that say how much to cut.
-      let drafts: PostDraft[] = writtenPosts.map((d) => {
+      // Two posts for the same story on the same channel would both be sent: the first is kept.
+      const unique = onePerStoryAndChannel(writtenPosts)
+      if (unique.dropped)
+        await say(
+          'write',
+          `${unique.dropped} ${unique.dropped === 1 ? 'post repeated' : 'posts repeated'} a story on the same channel and ${unique.dropped === 1 ? 'was' : 'were'} left out.`,
+        )
+      let drafts: PostDraft[] = unique.posts.map((d) => {
         const channel = targets.find((t) => t.channelId === d.channelId)
         return channel ? withLink(d, channel) : d
       })
@@ -1088,6 +1142,7 @@ export const execute = internalAction({
           system: WRITE_SYSTEM,
           user: repairUserMessage(failed),
           schema: WriteResult,
+          deadline,
         })
         await record(ctx, runId, 'repair', repaired.record)
         // Nothing usable came back: asking again with the same input would only spend more.
@@ -1095,7 +1150,8 @@ export const execute = internalAction({
           await say('write', 'The rewrite came back empty, so those posts are left out.')
           break
         }
-        for (const fix of repaired.output.posts) {
+        // A rewrite replaces its draft; a second rewrite of the same post is ignored.
+        for (const fix of onePerStoryAndChannel(repaired.output.posts).posts) {
           const channel = targets.find((t) => t.channelId === fix.channelId)
           const index = drafts.findIndex(
             (d) => d.channelId === fix.channelId && d.storyUrl === fix.storyUrl,
@@ -1174,8 +1230,7 @@ export const execute = internalAction({
       }
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
-      let published = 0
-      let held: { retryAt: number; share: boolean } | null = null
+      let held: { retryAt: number; why: 'busy' | 'share' | 'silent' } | null = null
       for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
@@ -1313,8 +1368,19 @@ export const execute = internalAction({
             })
             held = {
               retryAt,
-              share: error instanceof BufferBudgetError && error.reason === 'share',
+              why:
+                error instanceof BufferBudgetError && error.reason === 'share' ? 'share' : 'busy',
             }
+            continue
+          }
+          // No clear answer: Buffer may have the post, so it is failed rather than sent twice, and
+          // the rest wait like a rate-limited run instead of being lost with the run.
+          if (bufferDidNotAnswer(error)) {
+            const reason =
+              'Buffer did not answer while this post was being sent. Check Buffer before sending it again.'
+            await ctx.runMutation(internal.runs.markSent, { postId, status: 'failed', reason })
+            await say('publish', `${channel.name}: ${reason}`)
+            held = { retryAt: Date.now() + 15 * 60_000, why: 'silent' }
             continue
           }
           const reason = error instanceof Error ? error.message : String(error)
@@ -1329,7 +1395,7 @@ export const execute = internalAction({
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'done',
-          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting ${held.share ? 'for your account’s daily share of Buffer requests to free up' : 'because Buffer is busy'}, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
+          note: `${published} ${published === 1 ? 'post' : 'posts'} in Buffer. The rest are waiting ${held.why === 'share' ? 'for your account’s daily share of Buffer requests to free up' : held.why === 'silent' ? 'because Buffer stopped answering' : 'because Buffer is busy'}, and will be sent at ${new Date(held.retryAt).toLocaleTimeString('en-GB', { timeZone: automation.timezone, hour: '2-digit', minute: '2-digit' })}.`,
         })
         // Booked through bookHeldRetry so the sweeper sees the booking and does not send again.
         await ctx.runMutation(internal.runs.bookHeldRetry, { runId, at: held.retryAt + 30_000 })
@@ -1361,11 +1427,12 @@ export const execute = internalAction({
       if (ours) {
         // Dispatchlet's side (the AI, Buffer or the network): the person keeps their free run and
         // the automation keeps its standing.
-        if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
+        const refund = run.freeRun && published === 0
+        if (refund) await ctx.runMutation(internal.runs.refundFreeRun, { runId })
         await ctx.runMutation(internal.runs.finish, {
           runId,
           status: 'failed',
-          note: `${ours}${run.freeRun ? ' This run did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
+          note: `${ours}${refund ? ' This run did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
           error: message,
           counts: false,
         })
@@ -1560,7 +1627,11 @@ export const sendHeld = internalAction({
         await ctx.runMutation(internal.runs.markSent, {
           postId: post._id,
           status: 'failed',
-          reason: error instanceof Error ? error.message : String(error),
+          reason: bufferDidNotAnswer(error)
+            ? 'Buffer did not answer while this post was being sent. Check Buffer before sending it again.'
+            : error instanceof Error
+              ? error.message
+              : String(error),
         })
       }
     }
@@ -2090,7 +2161,11 @@ export const abandonedRuns = internalQuery({
         q.eq('finishedAt', undefined).lt('startedAt', now - ABANDONED_AFTER),
       )
       .collect()
-    return rows.map((run) => ({ _id: run._id, freeRun: Boolean(run.freeRun) }))
+    return rows.map((run) => ({
+      _id: run._id,
+      freeRun: Boolean(run.freeRun),
+      posted: run.posted ?? 0,
+    }))
   },
 })
 
@@ -2138,11 +2213,13 @@ export const sweepAbandoned = internalAction({
   handler: async (ctx): Promise<number> => {
     const runs = await ctx.runQuery(internal.runs.abandonedRuns, { now: Date.now() })
     for (const run of runs) {
-      if (run.freeRun) await ctx.runMutation(internal.runs.refundFreeRun, { runId: run._id })
+      // A run that got posts into Buffer was used, even though it did not finish.
+      const refund = run.freeRun && !run.posted
+      if (refund) await ctx.runMutation(internal.runs.refundFreeRun, { runId: run._id })
       await ctx.runMutation(internal.runs.finish, {
         runId: run._id,
         status: 'failed',
-        note: `This run stopped before it finished, on Dispatchlet’s side.${run.freeRun ? ' It did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
+        note: `This run stopped before it finished, on Dispatchlet’s side.${refund ? ' It did not use one of your free runs.' : ''} It does not count toward pausing this automation.`,
         error: 'abandoned',
         counts: false,
       })

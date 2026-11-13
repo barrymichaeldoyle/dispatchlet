@@ -1,7 +1,7 @@
-import Anthropic, { APIError } from '@anthropic-ai/sdk'
+import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
-import { costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
+import { addUsage, costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
 
 /**
  * The one place a model is chosen. In the 31 Oct benchmark (benchmark.ts, 14 fixtures, judged
@@ -33,8 +33,13 @@ export function anthropicClient(apiKey = process.env.ANTHROPIC_API_KEY): Anthrop
   // Busy and rate-limit replies (429, 529) are retried with backoff, which rides out a spike of
   // runs starting at once; a run that still fails gives its free run back (runs.serviceFailure).
   // A whole run has ten minutes (Convex's action limit), so one hung call may not take most of it.
-  return new Anthropic({ apiKey, maxRetries: 2, timeout: 3 * 60_000 })
+  return new Anthropic({ apiKey, maxRetries: 2, timeout: CALL_TIMEOUT_MS })
 }
+
+const CALL_TIMEOUT_MS = 3 * 60_000
+
+/** Not worth starting a call with less time than this left before the deadline. */
+const MIN_CALL_MS = 20_000
 
 /** What every call records, whatever it was for. */
 export type CallRecord = {
@@ -57,8 +62,11 @@ export type StructuredCall<T extends z.ZodType> = {
   maxTokens: number
   /** Interactive chat bounds spend by avoiding a second billable call after malformed output. */
   retryMalformed?: boolean
-  /** Preserve the usage receipt when a chat response's JSON fails local validation. */
-  captureInvalidOutput?: boolean
+  /**
+   * When the caller must have its answer by (epoch ms). Retries and timeouts all fit inside it, so
+   * a run's calls cannot outlast the action they are made from.
+   */
+  deadline?: number
   tools?: Anthropic.Beta.BetaToolUnion[]
 }
 
@@ -118,31 +126,45 @@ export function usageFrom(usage: Anthropic.Beta.BetaUsage): Usage {
   }
 }
 
-async function parse<T extends z.ZodType>(client: Anthropic, call: StructuredCall<T>) {
+async function parse<T extends z.ZodType>(
+  client: Anthropic,
+  call: StructuredCall<T>,
+  format: ReturnType<typeof zodOutputFormat<T>>,
+) {
   const request = {
     model: call.model,
     max_tokens: call.maxTokens,
     betas: ['server-side-fallback-2026-07-01'],
     fallbacks: 'default' as const,
-    output_config: { effort: call.effort, format: zodOutputFormat(call.schema) },
+    output_config: { effort: call.effort, format },
     system: [
       { type: 'text' as const, text: call.system, cache_control: { type: 'ephemeral' as const } },
     ],
     messages: [{ role: 'user' as const, content: call.user }],
     ...(call.tools ? { tools: call.tools } : {}),
   }
-  if (!call.captureInvalidOutput) return client.beta.messages.parse(request)
-  const message = await client.beta.messages.create(request)
+  let options: Anthropic.RequestOptions | undefined
+  if (call.deadline !== undefined) {
+    const left = call.deadline - Date.now()
+    // The message is one serviceFailure reads as a service that did not answer.
+    if (left < MIN_CALL_MS) throw new Error('The AI call timed out: the run ran out of time.')
+    // The timeout is per attempt; the signal stops retries and backoff at the deadline too.
+    options = { timeout: Math.min(left, CALL_TIMEOUT_MS), signal: AbortSignal.timeout(left) }
+  }
+  // Created and parsed here rather than with messages.parse, which throws on bad JSON and so loses
+  // the usage of a reply that still cost money.
+  const message = await client.beta.messages.create(request, options)
   let parsed_output: z.infer<T> | null = null
   if (message.stop_reason !== 'refusal') {
     try {
-      const text = message.content
-        .filter((block) => block.type === 'text')
-        .map((block) => block.text)
-        .join('')
-      parsed_output = call.schema.parse(JSON.parse(text))
+      parsed_output = format.parse(
+        message.content
+          .filter((block) => block.type === 'text')
+          .map((block) => block.text)
+          .join(''),
+      )
     } catch {
-      // Invalid output still cost money. Return its usage so completion records the receipt.
+      // Left null: the caller sees an unreadable reply, with its usage.
     }
   }
   return { ...message, parsed_output }
@@ -154,33 +176,49 @@ export const STRUCTURED_MAX_TOKENS = 16_000
 /**
  * One model call that must come back as JSON matching `schema`. The system prompt is cached, so
  * the per-run text goes in `user`. A safety refusal retries on the server's default fallback model
- * before it is reported as a refusal. A reply the SDK cannot parse (a broken string in the JSON,
- * seen once on Haiku) gets one more try; an API error does not.
+ * before it is reported as a refusal. A reply that cannot be parsed (a broken string in the JSON,
+ * seen once on Haiku) gets one more try, unless it was cut off at max_tokens, where the same ask
+ * would only be cut off again. `unreadable` says the reply came back but could not be used; the
+ * record covers every attempt, so spend is counted even then. An API error throws.
  */
 export async function callStructured<T extends z.ZodType>(
   client: Anthropic,
   call: StructuredCall<T>,
-  attempt = 0,
-): Promise<{ output: z.infer<T> | null; record: CallRecord; toolErrors: ToolError[] }> {
+): Promise<{
+  output: z.infer<T> | null
+  record: CallRecord
+  toolErrors: ToolError[]
+  unreadable: boolean
+}> {
   const startedAt = Date.now()
-  let message: Awaited<ReturnType<typeof parse<T>>>
-  try {
-    message = await parse(client, call)
-  } catch (error) {
-    if (attempt === 0 && call.retryMalformed !== false && !(error instanceof APIError))
-      return callStructured(client, call, 1)
-    throw error
+  const format = zodOutputFormat(call.schema)
+  const first = await parse(client, call, format)
+  let message = first
+  let usage = usageFrom(first.usage)
+  let costUsd = costOf(first.model, usage)
+  const badReply = (m: typeof first) => m.parsed_output === null && m.stop_reason !== 'refusal'
+  if (badReply(first) && first.stop_reason !== 'max_tokens' && call.retryMalformed !== false) {
+    try {
+      message = await parse(client, call, format)
+      const again = usageFrom(message.usage)
+      usage = addUsage(usage, again)
+      costUsd += costOf(message.model, again)
+    } catch (error) {
+      // The first reply is still the answer, and its cost is still counted.
+      // oxlint-disable-next-line no-console -- the Convex log is where this is read
+      console.error('Retry of an unreadable reply failed', error)
+    }
   }
-  const usage = usageFrom(message.usage)
   const refused = message.stop_reason === 'refusal'
   return {
     toolErrors: toolErrorsIn(message.content),
     output: refused ? null : message.parsed_output,
+    unreadable: badReply(message),
     record: {
       model: message.model,
       stopReason: message.stop_reason,
       usage,
-      costUsd: costOf(message.model, usage),
+      costUsd: Math.round(costUsd * 10_000) / 10_000,
       durationMs: Date.now() - startedAt,
       refusal: refused ? (message.stop_details?.explanation ?? 'declined') : null,
     },

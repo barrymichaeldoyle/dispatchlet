@@ -336,6 +336,10 @@ export const editForUser = internalAction({
       throw new Error('Undo the story skip on the run page before editing this draft.')
     if (post.status !== 'draft' || !post.bufferPostId)
       throw new Error('Only a draft waiting in Buffer can be edited here.')
+    // Buffer's edit saves the post as a draft, so one landing mid-approval would pull an approved
+    // post back out of the queue while Dispatchlet shows it queued.
+    if (post.approvingAt && Date.now() - post.approvingAt < CLAIM_MS)
+      throw new Error('This draft is being approved. Wait a moment, then check it before editing.')
     const clean = text.replace(/\r\n/g, '\n').trim()
     if (!clean) throw new Error('A post needs some text.')
     const length = measuredLength(clean, post.service as Service)
