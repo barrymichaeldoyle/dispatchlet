@@ -1,6 +1,6 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
 import { serviceLabel } from './lib/playbook'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id, TableNames } from './_generated/dataModel'
 import {
@@ -96,10 +96,10 @@ export const setTimezone = mutation({
   returns: v.null(),
   handler: async (ctx, { timezone }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
-    if (!isTimeZone(timezone)) throw new Error('That is not a time zone.')
+    if (!userId) throw new ConvexError('Not signed in')
+    if (!isTimeZone(timezone)) throw new ConvexError('That is not a time zone.')
     const user = await ctx.db.get(userId)
-    if (!user) throw new Error('Not signed in')
+    if (!user) throw new ConvexError('Not signed in')
     // Automations made before the zone was known were given UTC (automations.createFor).
     const before = user.timezone ?? 'UTC'
     await ctx.db.patch(userId, { timezone })
@@ -133,10 +133,12 @@ export const setAnthropicKey = action({
   returns: v.null(),
   handler: async (ctx, { key }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const trimmed = key.trim()
     if (trimmed && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(trimmed))
-      throw new Error('That does not look like an Anthropic API key. They start with sk-ant-.')
+      throw new ConvexError(
+        'That does not look like an Anthropic API key. They start with sk-ant-.',
+      )
     await ctx.runMutation(internal.users.storeKey, {
       userId,
       anthropicKeyEnc: trimmed ? await encryptSecret(trimmed) : undefined,
@@ -366,7 +368,7 @@ export const deleteAccount = action({
   returns: v.object({ revoked: v.boolean() }),
   handler: async (ctx): Promise<{ revoked: boolean }> => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const connection: Doc<'bufferConnections'> | null = await ctx.runQuery(
       internal.buffer.connectionFor,
       { userId },
@@ -392,9 +394,9 @@ export const setEmailPrefs = mutation({
   returns: v.null(),
   handler: async (ctx, { prefs, emailEnabled }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     if (prefs !== undefined && !(EMAIL_PREFS as readonly string[]).includes(prefs))
-      throw new Error('That is not one of the choices.')
+      throw new ConvexError('That is not one of the choices.')
     await ctx.db.patch(userId, {
       ...(prefs !== undefined ? { emailPrefs: prefs } : {}),
       ...(emailEnabled !== undefined ? { emailEnabled } : {}),

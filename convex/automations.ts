@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v, type Infer } from 'convex/values'
+import { ConvexError, v, type Infer } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -41,7 +41,7 @@ async function claimGeneration(ctx: MutationCtx, user: Doc<'users'>): Promise<vo
   const day = new Date().toISOString().slice(0, 10)
   const used = user.generationDay === day ? (user.generationsToday ?? 0) : 0
   if (used >= generationsPerDay())
-    throw new Error(
+    throw new ConvexError(
       'No playbook generations left today. Try again tomorrow, or add your own Anthropic key.',
     )
   await ctx.db.patch(user._id, { generationDay: day, generationsToday: used + 1 })
@@ -53,7 +53,7 @@ export const MAX_STORIES_PER_RUN = 3
 
 export async function viewerId(ctx: QueryCtx | MutationCtx): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx)
-  if (!userId) throw new Error('Not signed in')
+  if (!userId) throw new ConvexError('Not signed in')
   return userId
 }
 
@@ -73,7 +73,7 @@ export async function automationOf(
 ): Promise<Doc<'automations'>> {
   const automation = await ctx.db.get(id)
   if (!automation || automation.userId !== userId || automation.deletedAt)
-    throw new Error('Automation not found')
+    throw new ConvexError('Automation not found')
   return automation
 }
 
@@ -155,7 +155,7 @@ export async function createFor(
 ): Promise<Id<'automations'>> {
   {
     const user = await ctx.db.get(userId)
-    if (!user) throw new Error('Not signed in')
+    if (!user) throw new ConvexError('Not signed in')
     const live = (
       await ctx.db
         .query('automations')
@@ -163,7 +163,7 @@ export async function createFor(
         .collect()
     ).filter((a) => !a.deletedAt)
     if (live.length >= automationCap())
-      throw new Error(`${automationCap()} automations is the limit. Delete one first.`)
+      throw new ConvexError(`${automationCap()} automations is the limit. Delete one first.`)
     await claimGeneration(ctx, user)
     const channels = await ctx.db
       .query('bufferChannels')
@@ -172,7 +172,7 @@ export async function createFor(
     const chosen = channels.filter(
       (c) => args.channelIds.includes(c.channelId) && isTextService(c.service),
     )
-    if (!chosen.length) throw new Error('Pick at least one channel')
+    if (!chosen.length) throw new ConvexError('Pick at least one channel')
     const setup = SetupAnswers.parse({
       ...args.setup,
       services: [...new Set(chosen.map((c) => c.service as Service))],
@@ -495,12 +495,12 @@ export async function validateConfigChanges(
   >,
 ): Promise<void> {
   if (changes.postingMode !== undefined && !POSTING_MODES.includes(changes.postingMode))
-    throw new Error('Choose draft, queue, spread or planned posting mode')
+    throw new ConvexError('Choose draft, queue, spread or planned posting mode')
   if (changes.researchMode !== undefined && !RESEARCH_MODES.includes(changes.researchMode))
-    throw new Error('Choose recent, archive or anniversary research')
+    throw new ConvexError('Choose recent, archive or anniversary research')
   if (changes.publicationPlan) {
     const problem = planProblem(changes.publicationPlan)
-    if (problem) throw new Error(problem)
+    if (problem) throw new ConvexError(problem)
   }
   // The rules depend on the combination, so check the configuration as it would be saved.
   const mode = changes.postingMode ?? current.postingMode
@@ -508,20 +508,20 @@ export async function validateConfigChanges(
   const plan = changes.publicationPlan ?? current.publicationPlan
   const cadence = changes.cadence ?? current.cadence
   if (changes.maxPostsPerRun !== undefined && !Number.isInteger(changes.maxPostsPerRun))
-    throw new Error('Give the story count as a whole number')
+    throw new ConvexError('Give the story count as a whole number')
   if (mode === 'planned') {
-    if (!plan) throw new Error('A planned batch needs posting days and a posting time.')
+    if (!plan) throw new ConvexError('A planned batch needs posting days and a posting time.')
     if (cadence.preset !== 'weekly')
-      throw new Error(
+      throw new ConvexError(
         'A planned batch covers seven days, so research must run weekly. Choose a weekly cadence too.',
       )
     const most = Math.min(MAX_PLANNED_STORIES, plan.weekdays.length)
     if (stories < 1 || stories > most)
-      throw new Error(
+      throw new ConvexError(
         `A planned batch takes 1 to ${most} ${most === 1 ? 'story' : 'stories'}: one for each posting day.`,
       )
   } else if (stories < 1 || stories > MAX_STORIES_PER_RUN) {
-    throw new Error(
+    throw new ConvexError(
       `Between 1 and ${MAX_STORIES_PER_RUN} stories a run. Larger batches need the planned posting mode.`,
     )
   }
@@ -538,11 +538,11 @@ export async function validateConfigChanges(
       new Set(changes.channelIds).size !== changes.channelIds.length ||
       changes.channelIds.some((c) => !known.has(c))
     )
-      throw new Error('Pick at least one channel, from your Buffer channels')
+      throw new ConvexError('Pick at least one channel, from your Buffer channels')
   }
   if (changes.cadence) {
     const problem = cadenceProblem(changes.cadence)
-    if (problem) throw new Error(problem)
+    if (problem) throw new ConvexError(problem)
   }
 }
 
@@ -587,10 +587,12 @@ export async function setStatusFor(
 ): Promise<null> {
   {
     const automation = await automationOf(ctx, userId, id)
-    if (!automation.playbookVersionId) throw new Error('The playbook is not ready yet')
+    if (!automation.playbookVersionId) throw new ConvexError('The playbook is not ready yet')
     const user = await ctx.db.get(automation.userId)
     if (status === 'active' && user && allowanceFor(user).runsLeft === 0)
-      throw new Error('No free runs left. Add your own Anthropic key in settings to keep going.')
+      throw new ConvexError(
+        'No free runs left. Add your own Anthropic key in settings to keep going.',
+      )
     await ctx.db.patch(id, { status, consecutiveFailures: 0, updatedAt: Date.now() })
     await scheduleNext(ctx, { ...automation, status })
     return null
@@ -844,9 +846,9 @@ export async function addExcludeRuleFor(
   {
     const automation = await automationOf(ctx, userId, id)
     const text = rule.trim().replace(/\s+/g, ' ')
-    if (text.length < 3 || text.length > 200) throw new Error('A rule is one short sentence.')
+    if (text.length < 3 || text.length > 200) throw new ConvexError('A rule is one short sentence.')
     const latest = await latestVersion(ctx, id)
-    if (!latest) throw new Error('The playbook is not ready yet')
+    if (!latest) throw new ConvexError('The playbook is not ready yet')
     const playbook = Playbook.parse(latest.playbook)
     const sentence = /[.!?]$/.test(text) ? text : `${text}.`
     if (playbook.exclude.some((e) => e.toLowerCase() === sentence.toLowerCase()))

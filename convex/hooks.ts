@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import {
   internalMutation,
@@ -55,12 +55,12 @@ async function createOf(
   await automationOf(ctx, userId, automationId)
   const clean = name.trim().replace(/\s+/g, ' ')
   if (clean.length < 1 || clean.length > 40)
-    throw new Error('Give the hook a name of up to 40 characters.')
+    throw new ConvexError('Give the hook a name of up to 40 characters.')
   const existing = await ctx.db
     .query('inboundHooks')
     .withIndex('by_user', (q) => q.eq('userId', userId))
     .collect()
-  if (existing.length >= 20) throw new Error('Twenty hooks is the limit. Delete one first.')
+  if (existing.length >= 20) throw new ConvexError('Twenty hooks is the limit. Delete one first.')
   const token = generateSecret(HOOK_PREFIX)
   const prefix = displayPrefix(token, HOOK_PREFIX)
   const _id = await ctx.db.insert('inboundHooks', {
@@ -77,7 +77,7 @@ async function createOf(
 
 async function removeOf(ctx: MutationCtx, userId: Id<'users'>, id: Id<'inboundHooks'>) {
   const hook = await ctx.db.get(id)
-  if (!hook || hook.userId !== userId) throw new Error('Hook not found')
+  if (!hook || hook.userId !== userId) throw new ConvexError('Hook not found')
   await ctx.db.delete(id)
   return null
 }
@@ -96,7 +96,7 @@ export const create = mutation({
   returns: v.object({ _id: v.id('inboundHooks'), token: v.string(), prefix: v.string() }),
   handler: async (ctx, { automationId, name }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await createOf(ctx, userId, automationId, name)
   },
 })
@@ -106,7 +106,7 @@ export const remove = mutation({
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await removeOf(ctx, userId, id)
   },
 })

@@ -1,6 +1,6 @@
 import { AuthenticationError } from '@anthropic-ai/sdk'
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -193,7 +193,7 @@ export const trigger = mutation({
   returns: v.id('runs'),
   handler: async (ctx, { automationId, dry }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await triggerFor(ctx, userId, { automationId, dry, startedBy: 'app' })
   },
 })
@@ -220,21 +220,23 @@ export async function triggerFor(
   {
     const automation = await ctx.db.get(automationId)
     if (!automation || automation.userId !== userId || automation.deletedAt)
-      throw new Error('Automation not found')
-    if (!automation.playbookVersionId) throw new Error('The playbook is not ready yet')
+      throw new ConvexError('Automation not found')
+    if (!automation.playbookVersionId) throw new ConvexError('The playbook is not ready yet')
     // The app's Run now works on a paused automation: a person pressed it. Callers outside the app
     // never run one Dispatchlet paused itself, and a hook never runs one the person paused.
     if (startedBy !== 'app') {
       if (automation.status === 'failed')
-        throw new Error('This automation is paused after failed runs. Look at it in the app first.')
+        throw new ConvexError(
+          'This automation is paused after failed runs. Look at it in the app first.',
+        )
       if (automation.status === 'paused' && startedBy === 'hook')
-        throw new Error('This automation is paused, so its hooks do not start runs.')
+        throw new ConvexError('This automation is paused, so its hooks do not start runs.')
     }
     if (await runInFlight(ctx, automationId))
-      throw new Error('A run is already going. Wait for it to finish.')
+      throw new ConvexError('A run is already going. Wait for it to finish.')
     const runId = await beginRun(ctx, automation, dry ? 'dry' : 'now', { hint, startedBy })
     if (!runId)
-      throw new Error(
+      throw new ConvexError(
         dry
           ? 'No dry runs left.'
           : 'No free runs left. Add your own Anthropic key in settings to keep going.',
@@ -287,7 +289,7 @@ async function beginRun(
       console.log(`Run not started for ${user._id}: the account is not on the allowlist.`)
       return null
     }
-    throw new Error('This account is not allowed into Dispatchlet yet, so it cannot run.')
+    throw new ConvexError('This account is not allowed into Dispatchlet yet, so it cannot run.')
   }
   const allowance = allowanceFor(user)
   const left = kind === 'dry' ? allowance.dryRunsLeft : allowance.runsLeft
@@ -866,7 +868,7 @@ export const execute = internalAction({
         deadline,
       })
       await record(ctx, runId, 'research', research.record)
-      if (research.unreadable) throw new Error(UNREADABLE)
+      if (research.unreadable) throw new ConvexError(UNREADABLE)
       // Searches and page opens that failed, by the tool's own error code, so the log says why.
       for (const e of research.toolErrors)
         await say(
@@ -1072,7 +1074,7 @@ export const execute = internalAction({
           deadline,
         })
         await record(ctx, runId, 'write', written.record)
-        if (written.unreadable) throw new Error(UNREADABLE)
+        if (written.unreadable) throw new ConvexError(UNREADABLE)
         if (written.output) {
           writtenPosts.push(...written.output.posts)
           continue
@@ -1722,7 +1724,7 @@ export const share = mutation({
   returns: v.string(),
   handler: async (ctx, { runId }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await shareFor(ctx, userId, runId)
   },
 })
@@ -1733,7 +1735,7 @@ export async function shareFor(
   runId: Id<'runs'>,
 ): Promise<string> {
   const run = await ctx.db.get(runId)
-  if (!run || run.userId !== userId) throw new Error('Run not found')
+  if (!run || run.userId !== userId) throw new ConvexError('Run not found')
   if (run.shareToken) return run.shareToken
   const token = crypto.randomUUID().replaceAll('-', '')
   await ctx.db.patch(runId, { shareToken: token })
@@ -1745,9 +1747,9 @@ export const unshare = mutation({
   returns: v.null(),
   handler: async (ctx, { runId }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const run = await ctx.db.get(runId)
-    if (!run || run.userId !== userId) throw new Error('Run not found')
+    if (!run || run.userId !== userId) throw new ConvexError('Run not found')
     await ctx.db.patch(runId, { shareToken: undefined })
     return null
   },
@@ -1869,15 +1871,15 @@ export const skipStory = mutation({
   args: { storyId: v.id('stories'), reason: v.string() },
   handler: async (ctx, { storyId, reason }) => {
     const story = await ctx.db.get(storyId)
-    if (!story) throw new Error('Story not found')
+    if (!story) throw new ConvexError('Story not found')
     await ownAutomation(ctx, story.automationId)
     const run = await ctx.db.get(story.runId)
-    if (!run?.finishedAt) throw new Error('Wait for this run to finish before reviewing it.')
+    if (!run?.finishedAt) throw new ConvexError('Wait for this run to finish before reviewing it.')
     if (!['kept', 'dry'].includes(story.decision))
-      throw new Error('Only a selected story can be skipped.')
+      throw new ConvexError('Only a selected story can be skipped.')
     const clean = reason.trim()
     if (clean.length < 3 || clean.length > 500)
-      throw new Error('Give a reason between 3 and 500 characters.')
+      throw new ConvexError('Give a reason between 3 and 500 characters.')
     if (story.review) return null
     const posts = await ctx.db
       .query('posts')
@@ -1885,7 +1887,7 @@ export const skipStory = mutation({
       .collect()
     const related = posts.filter((p) => p.storyId === storyId)
     if (related.some((p) => p.approvingAt && Date.now() - p.approvingAt < 10 * 60_000))
-      throw new Error('A post is being approved. Wait for it to finish, then try again.')
+      throw new ConvexError('A post is being approved. Wait for it to finish, then try again.')
     await ctx.db.patch(storyId, { review: { reason: clean, at: Date.now() } })
     for (const post of related) await ctx.db.patch(post._id, { reviewSkipped: true })
     return null
@@ -1897,7 +1899,7 @@ export const undoSkipStory = mutation({
   args: { storyId: v.id('stories') },
   handler: async (ctx, { storyId }) => {
     const story = await ctx.db.get(storyId)
-    if (!story) throw new Error('Story not found')
+    if (!story) throw new ConvexError('Story not found')
     await ownAutomation(ctx, story.automationId)
     await ctx.db.patch(storyId, { review: undefined })
     const posts = await ctx.db
@@ -1915,9 +1917,9 @@ export const applyStoryRule = mutation({
   args: { storyId: v.id('stories'), rule: v.string() },
   handler: async (ctx, { storyId, rule }) => {
     const story = await ctx.db.get(storyId)
-    if (!story) throw new Error('Story not found')
+    if (!story) throw new ConvexError('Story not found')
     const automation = await ownAutomation(ctx, story.automationId)
-    if (!story.review) throw new Error('Skip this story and give a reason first.')
+    if (!story.review) throw new ConvexError('Skip this story and give a reason first.')
     if (story.review.appliedVersion) return story.review.appliedVersion
     const version = await addExcludeRuleFor(ctx, automation.userId, automation._id, rule)
     await ctx.db.patch(storyId, {
@@ -1937,7 +1939,7 @@ export const editDraft = action({
   returns: v.string(),
   handler: async (ctx, { postId, text }): Promise<string> => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await ctx.runAction(internal.approvals.editForUser, {
       userId,
       postId,
@@ -1953,7 +1955,7 @@ export const approve = action({
   returns: v.string(),
   handler: async (ctx, { postId }): Promise<string> => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await ctx.runAction(internal.approvals.approveForUser, { userId, postId })
   },
 })
@@ -2095,19 +2097,20 @@ export const saveIdeaForUser = internalAction({
   returns: v.string(),
   handler: async (ctx, { userId, storyId }): Promise<string> => {
     const found = await ctx.runQuery(internal.runs.ideaContext, { userId, storyId })
-    if (!found) throw new Error('Story not found')
+    if (!found) throw new ConvexError('Story not found')
     const { story, organizationId, services, canWriteIdeas } = found
     if (story.ideaId) return story.ideaId
     if (!IDEA_DECISIONS.has(story.decision))
-      throw new Error(
+      throw new ConvexError(
         'Only stories that were skipped or picked on a dry run can be saved as ideas.',
       )
     if (!canWriteIdeas)
-      throw new Error('Reconnect Buffer in settings to let Dispatchlet save ideas.')
-    if (!organizationId) throw new Error('Sync your Buffer channels first.')
+      throw new ConvexError('Reconnect Buffer in settings to let Dispatchlet save ideas.')
+    if (!organizationId) throw new ConvexError('Sync your Buffer channels first.')
     const claim = await ctx.runMutation(internal.runs.claimIdea, { storyId })
     if (claim.kind === 'saved') return claim.ideaId
-    if (claim.kind === 'busy') throw new Error('This story is already being saved to Buffer Ideas.')
+    if (claim.kind === 'busy')
+      throw new ConvexError('This story is already being saved to Buffer Ideas.')
     try {
       const ideaId = await createBufferIdea(ctx, userId, organizationId, {
         title: story.title.slice(0, 200),
@@ -2129,7 +2132,7 @@ export const saveIdea = action({
   returns: v.string(),
   handler: async (ctx, { storyId }): Promise<string> => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await ctx.runAction(internal.runs.saveIdeaForUser, { userId, storyId })
   },
 })

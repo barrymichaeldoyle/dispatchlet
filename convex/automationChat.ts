@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -18,7 +18,7 @@ import { aiCallRecordValidator } from './schema'
 
 async function ownedConversation(ctx: QueryCtx | MutationCtx, id: Id<'automationConversations'>) {
   const conversation = await ctx.db.get(id)
-  if (!conversation) throw new Error('Conversation not found')
+  if (!conversation) throw new ConvexError('Conversation not found')
   const automation = await ownAutomation(ctx, conversation.automationId)
   return { conversation, automation }
 }
@@ -101,7 +101,7 @@ export const get = query({
   handler: async (ctx, { id }) => {
     const { conversation, automation } = await ownedConversation(ctx, id)
     const user = await ctx.db.get(automation.userId)
-    if (!user) throw new Error('Not signed in')
+    if (!user) throw new ConvexError('Not signed in')
     const day = new Date().toISOString().slice(0, 10)
     const daily = allowanceFor(user).ownKey
       ? CHAT_LIMITS.ownKeyTurnsPerDay
@@ -160,9 +160,9 @@ export const send = mutation({
     const { conversation, automation } = await ownedConversation(ctx, id)
     const text = message.trim()
     if (!text || text.length > CHAT_LIMITS.messageCharacters)
-      throw new Error('Send a message of 1–2,000 characters.')
+      throw new ConvexError('Send a message of 1–2,000 characters.')
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(requestId))
-      throw new Error('Use a request ID of 1–80 letters, numbers, underscores or hyphens.')
+      throw new ConvexError('Use a request ID of 1–80 letters, numbers, underscores or hyphens.')
     const existing = await ctx.db
       .query('automationChatTurns')
       .withIndex('by_conversation_request', (q) =>
@@ -171,30 +171,34 @@ export const send = mutation({
       .unique()
     if (existing) {
       if (existing.userText !== text)
-        throw new Error('This request ID was already used for a different message.')
+        throw new ConvexError('This request ID was already used for a different message.')
       return existing._id
     }
     const user = await ctx.db.get(automation.userId)
-    if (!user) throw new Error('Not signed in')
+    if (!user) throw new ConvexError('Not signed in')
     const now = Date.now()
     if (user.chatActiveTurnId) {
       const active = await ctx.db.get(user.chatActiveTurnId)
       if (active?.status === 'pending') {
         if (active.createdAt + CHAT_LIMITS.expiresAfterMs > now)
-          throw new Error('Wait for your current assistant reply before sending another message.')
+          throw new ConvexError(
+            'Wait for your current assistant reply before sending another message.',
+          )
         await expireTurn(ctx, active)
       }
     }
     if (user.chatLastTurnAt !== undefined && now - user.chatLastTurnAt < CHAT_LIMITS.cooldownMs)
-      throw new Error('Please wait a few seconds before sending another message.')
+      throw new ConvexError('Please wait a few seconds before sending another message.')
     if (conversation.turnCount >= CHAT_LIMITS.turnsPerConversation)
-      throw new Error('This conversation is full. Clear it to start a new conversation.')
+      throw new ConvexError('This conversation is full. Clear it to start a new conversation.')
     const day = new Date(now).toISOString().slice(0, 10)
     const used = user.chatDay === day ? (user.chatTurnsToday ?? 0) : 0
     const ownKey = allowanceFor(user).ownKey
     const daily = ownKey ? CHAT_LIMITS.ownKeyTurnsPerDay : CHAT_LIMITS.freeTurnsPerDay
     if (used >= daily)
-      throw new Error('Your assistant message allowance is used up for today. Try again tomorrow.')
+      throw new ConvexError(
+        'Your assistant message allowance is used up for today. Try again tomorrow.',
+      )
     const context = await automationEditContext(ctx, automation)
     const turns = await turnsFor(ctx, id)
     let draft: unknown = null
@@ -235,7 +239,7 @@ export const send = mutation({
         reserved + (budget?.chargedUsd ?? 0) > CHAT_LIMITS.sharedDailyCapUsd ||
         reserved + spent > globalDailyCapUsd()
       )
-        throw new Error(
+        throw new ConvexError(
           'The shared assistant budget is busy or used up. Try later or add your own Anthropic key in settings.',
         )
       if (!budget) {
@@ -298,7 +302,7 @@ export const claim = internalMutation({
     if (!user) return null
     // Do not switch from a reserved personal key to the shared key while waiting in the queue.
     if (!turn.budgetId && !user.anthropicKeyEnc)
-      throw new Error('The personal AI key was removed. Please send the message again.')
+      throw new ConvexError('The personal AI key was removed. Please send the message again.')
     await ctx.db.patch(turnId, { startedAt: Date.now() })
     return { prompt: turn.prompt, user, usesSharedKey: Boolean(turn.budgetId) }
   },

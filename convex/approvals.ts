@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { serviceLabel } from './lib/playbook'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
@@ -144,7 +144,7 @@ async function approve(
   },
   from: ApprovedFrom,
 ): Promise<string> {
-  if (!post.bufferPostId) throw new Error('This post never reached Buffer.')
+  if (!post.bufferPostId) throw new ConvexError('This post never reached Buffer.')
   if (post.status === 'deleted')
     return 'This post was deleted in Buffer, so there is nothing to approve.'
   if (post.status !== 'draft') return 'This post is already in the queue.'
@@ -184,7 +184,7 @@ async function approve(
   } catch (error) {
     await ctx.runMutation(internal.approvals.releaseApproval, { postId: post._id })
     if (error instanceof BufferPostError)
-      throw new Error(`Buffer did not move the post. ${error.message}`, { cause: error })
+      throw new ConvexError(`Buffer did not move the post. ${error.message}`)
     throw error
   }
 }
@@ -269,7 +269,7 @@ export const approveForUser = internalAction({
   returns: v.string(),
   handler: async (ctx, { userId, postId, from }): Promise<string> => {
     const post: Doc<'posts'> | null = await ctx.runQuery(internal.approvals.postById, { postId })
-    if (!post || post.userId !== userId) throw new Error('Post not found')
+    if (!post || post.userId !== userId) throw new ConvexError('Post not found')
     return await approve(ctx, post, from ?? 'app')
   },
 })
@@ -330,27 +330,31 @@ export const editForUser = internalAction({
   returns: v.string(),
   handler: async (ctx, { userId, postId, text, from }): Promise<string> => {
     const found = await ctx.runQuery(internal.approvals.draftForEdit, { userId, postId })
-    if (!found) throw new Error('Post not found')
+    if (!found) throw new ConvexError('Post not found')
     const { post, channelName, limit } = found
     if (post.reviewSkipped)
-      throw new Error('Undo the story skip on the run page before editing this draft.')
+      throw new ConvexError('Undo the story skip on the run page before editing this draft.')
     if (post.status !== 'draft' || !post.bufferPostId)
-      throw new Error('Only a draft waiting in Buffer can be edited here.')
+      throw new ConvexError('Only a draft waiting in Buffer can be edited here.')
     // Buffer's edit saves the post as a draft, so one landing mid-approval would pull an approved
     // post back out of the queue while Dispatchlet shows it queued.
     if (post.approvingAt && Date.now() - post.approvingAt < CLAIM_MS)
-      throw new Error('This draft is being approved. Wait a moment, then check it before editing.')
+      throw new ConvexError(
+        'This draft is being approved. Wait a moment, then check it before editing.',
+      )
     const clean = text.replace(/\r\n/g, '\n').trim()
-    if (!clean) throw new Error('A post needs some text.')
+    if (!clean) throw new ConvexError('A post needs some text.')
     const length = measuredLength(clean, post.service as Service)
     if (length > limit)
-      throw new Error(`Too long for ${channelName}: ${length} characters, the limit is ${limit}.`)
+      throw new ConvexError(
+        `Too long for ${channelName}: ${length} characters, the limit is ${limit}.`,
+      )
     if (clean === post.text) return 'Nothing changed.'
     try {
       await editBufferPostText(ctx, userId, post.bufferPostId, clean)
     } catch (error) {
       if (error instanceof BufferPostError)
-        throw new Error(`Buffer did not save the change. ${error.message}`, { cause: error })
+        throw new ConvexError(`Buffer did not save the change. ${error.message}`)
       throw error
     }
     await ctx.runMutation(internal.approvals.saveEditedText, {

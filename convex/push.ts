@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import { internalMutation, internalQuery, mutation, query } from './_generated/server'
 
@@ -19,7 +19,7 @@ export const subscribe = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const existing = await ctx.db
       .query('pushSubscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', args.endpoint))
@@ -36,7 +36,7 @@ export const unsubscribe = mutation({
   returns: v.null(),
   handler: async (ctx, { endpoint }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const existing = await ctx.db
       .query('pushSubscriptions')
       .withIndex('by_endpoint', (q) => q.eq('endpoint', endpoint))
@@ -52,7 +52,7 @@ export const sendTest = mutation({
   returns: v.null(),
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     await ctx.scheduler.runAfter(0, internal.pushSend.send, {
       userId,
       title: 'Dispatchlet push works',

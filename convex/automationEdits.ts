@@ -1,4 +1,4 @@
-import { v, type Infer } from 'convex/values'
+import { ConvexError, v, type Infer } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 import {
@@ -72,11 +72,11 @@ const capabilities = {
 
 async function snapshot(ctx: QueryCtx | MutationCtx, a: Doc<'automations'>): Promise<Snapshot> {
   if (!a.playbookVersionId || a.status === 'generating')
-    throw new Error('Wait until the playbook is ready before proposing changes.')
+    throw new ConvexError('Wait until the playbook is ready before proposing changes.')
   const version = await ctx.db.get(a.playbookVersionId)
-  if (!version) throw new Error('The playbook is not ready yet')
+  if (!version) throw new ConvexError('The playbook is not ready yet')
   if (!(POSTING_MODES as readonly string[]).includes(a.postingMode))
-    throw new Error('Unsupported posting mode')
+    throw new ConvexError('Unsupported posting mode')
   return {
     cadence: normalCadence(a.cadence),
     channelIds: a.channelIds,
@@ -91,7 +91,7 @@ async function snapshot(ctx: QueryCtx | MutationCtx, a: Doc<'automations'>): Pro
 
 function checkRevision(a: Doc<'automations'>, expected: number) {
   if (!Number.isInteger(expected) || expected !== (a.configurationRevision ?? 0))
-    throw new Error('This automation changed. Reload it and review a new proposal.')
+    throw new ConvexError('This automation changed. Reload it and review a new proposal.')
 }
 
 /** Convex may reorder object keys on storage; compare cadence values explicitly. */
@@ -180,9 +180,9 @@ export async function prepareAutomationEdit(
   await validateConfigChanges(ctx, a.userId, changes, a)
   let text = before.text
   if (playbookText !== undefined) {
-    if (playbookText.length > MAX_PLAYBOOK_CHARS) throw new Error('Playbook is too long.')
+    if (playbookText.length > MAX_PLAYBOOK_CHARS) throw new ConvexError('Playbook is too long.')
     const parsed = parsePlaybook(playbookText)
-    if (!parsed.ok) throw new Error(`Line ${parsed.line}: ${parsed.message}`)
+    if (!parsed.ok) throw new ConvexError(`Line ${parsed.line}: ${parsed.message}`)
     text = renderPlaybook(parsed.playbook)
   }
   const after: Snapshot = {
@@ -193,7 +193,7 @@ export async function prepareAutomationEdit(
     text,
   }
   const summary = summarize(before, after)
-  if (!summary.length) throw new Error('This proposal does not change anything.')
+  if (!summary.length) throw new ConvexError('This proposal does not change anything.')
   if (changes.channelIds) {
     const channels = await ctx.db
       .query('bufferChannels')
@@ -278,7 +278,7 @@ export const history = query({
 
 async function ownedEdit(ctx: QueryCtx | MutationCtx, id: Id<'automationEdits'>) {
   const edit = await ctx.db.get(id)
-  if (!edit) throw new Error('Change proposal not found')
+  if (!edit) throw new ConvexError('Change proposal not found')
   const automation = await ownAutomation(ctx, edit.automationId)
   return { edit, automation }
 }
@@ -296,16 +296,16 @@ export const apply = mutation({
     const { edit, automation: a } = await ownedEdit(ctx, id)
     // A retried submission returns its original receipt, even if later edits have happened.
     if (edit.status === 'applied') return edit.appliedRevision!
-    if (edit.status !== 'proposed') throw new Error('This proposal was discarded.')
+    if (edit.status !== 'proposed') throw new ConvexError('This proposal was discarded.')
     checkRevision(a, edit.baseRevision)
     const current = await snapshot(ctx, a)
     if (summarize(current, edit.before).length || current.timezone !== edit.before.timezone)
-      throw new Error('This automation changed. Reload it and review a new proposal.')
+      throw new ConvexError('This automation changed. Reload it and review a new proposal.')
     const changes = changedConfig(edit.before, edit.after)
     await validateConfigChanges(ctx, a.userId, changes, a)
     if (edit.before.text !== edit.after.text) {
       const saved = await savePlaybookFor(ctx, a.userId, a._id, edit.after.text)
-      if (!saved.ok) throw new Error(`Line ${saved.line}: ${saved.message}`)
+      if (!saved.ok) throw new ConvexError(`Line ${saved.line}: ${saved.message}`)
     }
     if (Object.keys(changes).length) await updateConfigFor(ctx, a.userId, a._id, changes)
     // Treat the atomic proposal as one revision even when it changed both halves.
@@ -326,7 +326,7 @@ export const discard = mutation({
   handler: async (ctx, { id }) => {
     const { edit } = await ownedEdit(ctx, id)
     if (edit.status === 'applied')
-      throw new Error('Applied changes must be undone with a proposal.')
+      throw new ConvexError('Applied changes must be undone with a proposal.')
     await ctx.db.patch(id, { status: 'discarded' })
     return null
   },
@@ -338,9 +338,11 @@ export const proposeUndo = mutation({
   returns: v.id('automationEdits'),
   handler: async (ctx, { id, baseRevision }) => {
     const { edit, automation: a } = await ownedEdit(ctx, id)
-    if (edit.status !== 'applied') throw new Error('Only applied changes can be undone.')
+    if (edit.status !== 'applied') throw new ConvexError('Only applied changes can be undone.')
     if (a.timezone !== edit.before.timezone)
-      throw new Error('The time zone changed. Create a new proposal in the current time zone.')
+      throw new ConvexError(
+        'The time zone changed. Create a new proposal in the current time zone.',
+      )
     // Asking twice (the panel was closed and opened again) returns the undo already waiting,
     // rather than a second proposal for the same change.
     const waiting = (

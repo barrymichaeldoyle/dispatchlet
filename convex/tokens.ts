@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import {
   internalMutation,
@@ -70,7 +70,7 @@ export async function createForUser(
 ): Promise<{ id: Id<'apiTokens'>; token: string; prefix: string }> {
   const name = args.name.trim().replace(/\s+/g, ' ')
   if (name.length < 1 || name.length > 40)
-    throw new Error('Give the token a name of up to 40 characters.')
+    throw new ConvexError('Give the token a name of up to 40 characters.')
   const token = generateSecret(TOKEN_PREFIX)
   const prefix = displayPrefix(token, TOKEN_PREFIX)
   const id = await ctx.db.insert('apiTokens', {
@@ -91,14 +91,14 @@ export const create = mutation({
   returns: v.object({ _id: v.id('apiTokens'), token: v.string(), prefix: v.string() }),
   handler: async (ctx, { name, scope }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const live = (
       await ctx.db
         .query('apiTokens')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
     ).filter((t) => !t.revokedAt && t.source !== 'oauth')
-    if (live.length >= 20) throw new Error('Twenty tokens is the limit. Revoke one first.')
+    if (live.length >= 20) throw new ConvexError('Twenty tokens is the limit. Revoke one first.')
     const made = await createForUser(ctx, userId, { name, scope, source: 'settings' })
     return { _id: made.id, token: made.token, prefix: made.prefix }
   },
@@ -116,7 +116,7 @@ export const createForOAuth = mutation({
   returns: v.object({ _id: v.id('apiTokens'), token: v.string() }),
   handler: async (ctx, { clientName, write }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const live = (
       await ctx.db
         .query('apiTokens')
@@ -146,9 +146,9 @@ export const revoke = mutation({
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const token = await ctx.db.get(id)
-    if (!token || token.userId !== userId) throw new Error('Token not found')
+    if (!token || token.userId !== userId) throw new ConvexError('Token not found')
     if (!token.revokedAt) await ctx.db.patch(id, { revokedAt: Date.now() })
     return null
   },

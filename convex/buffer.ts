@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -394,9 +394,9 @@ async function accessTokenFor(
 ): Promise<{ token: string; refreshed: boolean }> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const connection = await ctx.runQuery(internal.buffer.connectionFor, { userId })
-    if (!connection) throw new Error('No Buffer connection. Sign in with Buffer again.')
+    if (!connection) throw new ConvexError('No Buffer connection. Sign in with Buffer again.')
     if (connection.needsReauth)
-      throw new Error('Buffer access has ended. Sign in with Buffer again.')
+      throw new ConvexError('Buffer access has ended. Sign in with Buffer again.')
     if (!force && connection.expiresAt > Date.now()) {
       return { token: await decryptSecret(connection.accessTokenEnc), refreshed: false }
     }
@@ -405,7 +405,7 @@ async function accessTokenFor(
         connectionId: connection._id,
         needsReauth: true,
       })
-      throw new Error('Buffer did not issue a refresh token. Sign in with Buffer again.')
+      throw new ConvexError('Buffer did not issue a refresh token. Sign in with Buffer again.')
     }
     const claim = await ctx.runMutation(internal.buffer.claimRefresh, {
       connectionId: connection._id,
@@ -440,15 +440,15 @@ async function accessTokenFor(
       throw error
     }
   }
-  throw new Error('Timed out waiting for another Buffer token refresh')
+  throw new ConvexError('Timed out waiting for another Buffer token refresh')
 }
 
 /** The signed-in, allowlisted user, or an error. Buffer features are owner-only until launch. */
 async function allowlistedUser(ctx: ActionCtx): Promise<Id<'users'>> {
   const userId = await getAuthUserId(ctx)
-  if (!userId) throw new Error('Not signed in')
+  if (!userId) throw new ConvexError('Not signed in')
   const viewer = await ctx.runQuery(internal.buffer.viewerAccess, { userId })
-  if (!viewer.allowed) throw new Error('Not available yet')
+  if (!viewer.allowed) throw new ConvexError('Not available yet')
   return userId
 }
 
@@ -641,7 +641,7 @@ export const disconnect = action({
   returns: v.object({ revoked: v.boolean() }),
   handler: async (ctx): Promise<{ revoked: boolean }> => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const connection: Doc<'bufferConnections'> | null = await ctx.runQuery(
       internal.buffer.connectionFor,
       { userId },
@@ -794,7 +794,7 @@ export const addPostNote = internalAction({
         },
       )
       if (!createCollaborationNote.edge?.node.id)
-        throw new Error(createCollaborationNote.message ?? createCollaborationNote.__typename)
+        throw new ConvexError(createCollaborationNote.message ?? createCollaborationNote.__typename)
     } catch (error) {
       console.log(
         `Buffer note unavailable for ${postId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -1286,8 +1286,8 @@ export async function createBufferIdea(
   const id = createIdea.id ?? createIdea.idea?.id
   if (id) return id
   if (createIdea.__typename === 'LimitReachedError')
-    throw new Error(
+    throw new ConvexError(
       'Your Ideas board in Buffer is full on its current plan. Make room there first.',
     )
-  throw new Error(createIdea.message ?? 'Buffer did not save the idea. Try again.')
+  throw new ConvexError(createIdea.message ?? 'Buffer did not save the idea. Try again.')
 }

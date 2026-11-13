@@ -1,5 +1,5 @@
 import { getAuthUserId } from '@convex-dev/auth/server'
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import {
@@ -131,7 +131,7 @@ function deliveryOf(d: Doc<'webhookDeliveries'>) {
 
 async function own(ctx: QueryCtx | MutationCtx, userId: Id<'users'>, id: Id<'webhooks'>) {
   const w = await ctx.db.get(id)
-  if (!w || w.userId !== userId) throw new Error('Webhook not found')
+  if (!w || w.userId !== userId) throw new ConvexError('Webhook not found')
   return w
 }
 
@@ -151,14 +151,15 @@ async function createOf(
   args: { url: string; events: WebhookEvent[]; automationId?: Id<'automations'> },
 ) {
   const problem = webhookUrlProblem(args.url)
-  if (problem) throw new Error(problem)
-  if (!args.events.length) throw new Error('Pick at least one event')
+  if (problem) throw new ConvexError(problem)
+  if (!args.events.length) throw new ConvexError('Pick at least one event')
   if (args.automationId) await automationOf(ctx, userId, args.automationId)
   const existing = await ctx.db
     .query('webhooks')
     .withIndex('by_user', (q) => q.eq('userId', userId))
     .collect()
-  if (existing.length >= 20) throw new Error('Twenty webhooks is the limit. Delete one first.')
+  if (existing.length >= 20)
+    throw new ConvexError('Twenty webhooks is the limit. Delete one first.')
   const secret = generateWebhookSecret()
   const _id = await ctx.db.insert('webhooks', {
     userId,
@@ -245,7 +246,7 @@ export async function emit(
 async function testOf(ctx: MutationCtx, userId: Id<'users'>, id: Id<'webhooks'>) {
   const w = await own(ctx, userId, id)
   if (!(await take(ctx, `whsend:${id}`, 3_600_000, MANUAL_SENDS_PER_HOUR)).ok)
-    throw new Error('Too many test sends for this webhook. Try again in an hour.')
+    throw new ConvexError('Too many test sends for this webhook. Try again in an hour.')
   return await enqueue(ctx, w, 'ping', { at: Date.now() })
 }
 
@@ -269,7 +270,7 @@ export const create = mutation({
   returns: v.object({ webhook: webhookView, secret: v.string() }),
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await createOf(ctx, userId, args)
   },
 })
@@ -279,7 +280,7 @@ export const remove = mutation({
   returns: v.null(),
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await removeOf(ctx, userId, id)
   },
 })
@@ -289,7 +290,7 @@ export const setActive = mutation({
   returns: v.null(),
   handler: async (ctx, { id, active }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     await own(ctx, userId, id)
     await ctx.db.patch(id, { active, ...(active ? { failedInARow: 0 } : {}) })
     return null
@@ -301,7 +302,7 @@ export const sendTest = mutation({
   returns: v.id('webhookDeliveries'),
   handler: async (ctx, { id }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     return await testOf(ctx, userId, id)
   },
 })
@@ -320,12 +321,12 @@ export const retry = mutation({
   returns: v.null(),
   handler: async (ctx, { deliveryId }) => {
     const userId = await getAuthUserId(ctx)
-    if (!userId) throw new Error('Not signed in')
+    if (!userId) throw new ConvexError('Not signed in')
     const d = await ctx.db.get(deliveryId)
-    if (!d || d.userId !== userId) throw new Error('Delivery not found')
-    if (d.status !== 'failed') throw new Error('Only a failed delivery can be retried.')
+    if (!d || d.userId !== userId) throw new ConvexError('Delivery not found')
+    if (d.status !== 'failed') throw new ConvexError('Only a failed delivery can be retried.')
     if (!(await take(ctx, `whsend:${d.webhookId}`, 3_600_000, MANUAL_SENDS_PER_HOUR)).ok)
-      throw new Error('Too many retries for this webhook. Try again in an hour.')
+      throw new ConvexError('Too many retries for this webhook. Try again in an hour.')
     await ctx.db.patch(deliveryId, {
       status: 'pending',
       nextAttemptAt: Date.now(),

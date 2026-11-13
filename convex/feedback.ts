@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import type { Doc, Id } from './_generated/dataModel'
 import {
   internalMutation,
@@ -55,16 +55,16 @@ export const submit = mutation({
     const userId = await viewerId(ctx)
     const message = args.message.trim()
     if (!message || message.length > FEEDBACK_LIMITS.messageCharacters)
-      throw new Error('Write a message of 1–2,000 characters.')
+      throw new ConvexError('Write a message of 1–2,000 characters.')
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(args.requestId))
-      throw new Error('Use a request ID of 1–80 letters, numbers, underscores or hyphens.')
+      throw new ConvexError('Use a request ID of 1–80 letters, numbers, underscores or hyphens.')
     const existing = await ctx.db
       .query('feedback')
       .withIndex('by_user_request', (q) => q.eq('userId', userId).eq('requestId', args.requestId))
       .unique()
     if (existing) {
       if (existing.message !== message)
-        throw new Error('This request ID was already used for a different message.')
+        throw new ConvexError('This request ID was already used for a different message.')
       return receiptOf(existing, true)
     }
 
@@ -79,7 +79,7 @@ export const submit = mutation({
         run.userId !== userId ||
         (args.automationId && run.automationId !== args.automationId)
       )
-        throw new Error('That run is not yours to attach.')
+        throw new ConvexError('That run is not yours to attach.')
     }
     if (args.chatTurnId) {
       const turn = await ctx.db.get(args.chatTurnId)
@@ -90,7 +90,7 @@ export const submit = mutation({
         !conversation ||
         conversation.automationId !== args.automationId
       )
-        throw new Error('That assistant reply is not yours to attach.')
+        throw new ConvexError('That assistant reply is not yours to attach.')
     }
 
     const now = Date.now()
@@ -103,9 +103,9 @@ export const submit = mutation({
     const same = recent.find((row) => row.message === message && row.category === args.category)
     if (same) return receiptOf(same, true)
     if (recent[0] && now - recent[0].createdAt < FEEDBACK_LIMITS.cooldownMs)
-      throw new Error('Please wait a few seconds before sending more feedback.')
+      throw new ConvexError('Please wait a few seconds before sending more feedback.')
     if (recent.length >= FEEDBACK_LIMITS.perDay)
-      throw new Error(
+      throw new ConvexError(
         'You have sent a lot of feedback today, thank you. Please try again tomorrow.',
       )
 
@@ -177,7 +177,7 @@ export const setStatus = internalMutation({
   returns: v.null(),
   handler: async (ctx, { id, status: next, note }) => {
     const row = await ctx.db.get(id)
-    if (!row) throw new Error('Feedback not found')
+    if (!row) throw new ConvexError('Feedback not found')
     await ctx.db.patch(id, {
       status: next,
       ...(note !== undefined ? { note: note.slice(0, 2_000) } : {}),

@@ -1,4 +1,4 @@
-import { v } from 'convex/values'
+import { ConvexError, v } from 'convex/values'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import {
@@ -88,7 +88,8 @@ export const researchEval = internalAction({
   }),
   handler: async (ctx, args): Promise<EvalSummary> => {
     const fixture = FIXTURES.find((f) => f.id === args.fixtureId)
-    if (!fixture) throw new Error(`No fixture ${args.fixtureId}; there are 1 to ${FIXTURES.length}`)
+    if (!fixture)
+      throw new ConvexError(`No fixture ${args.fixtureId}; there are 1 to ${FIXTURES.length}`)
     const runId: Id<'runs'> = await ctx.runMutation(internal.ai.startRun, {
       kind: 'eval',
       fixtureId: fixture.id,
@@ -119,7 +120,7 @@ export const researchEval = internalAction({
           purpose: 'playbook',
           ...generated.record,
         })
-        if (!generated.output) throw new Error(generated.record.refusal ?? 'No playbook')
+        if (!generated.output) throw new ConvexError(generated.record.refusal ?? 'No playbook')
         playbook = generated.output
         await ctx.runMutation(internal.ai.finishRun, {
           runId,
@@ -269,7 +270,7 @@ export const recordCall = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId)
-    if (!run) throw new Error('Run not found')
+    if (!run) throw new ConvexError('Run not found')
     await ctx.db.insert('aiCalls', { ...args, userId: run.userId, createdAt: Date.now() })
     await addSpend(ctx, run.userId, args.costUsd)
     await ctx.db.patch(args.runId, {
@@ -311,7 +312,7 @@ export const finishRun = internalMutation({
   returns: v.null(),
   handler: async (ctx, { runId, status, note, result, error }) => {
     const run = await ctx.db.get(runId)
-    if (!run) throw new Error('Run not found')
+    if (!run) throw new ConvexError('Run not found')
     await ctx.db.patch(runId, {
       status,
       finishedAt: status === 'researching' ? undefined : Date.now(),
