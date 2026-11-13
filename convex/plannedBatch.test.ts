@@ -1,8 +1,9 @@
 import { convexTest, type TestConvex } from 'convex-test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { withStreaming } from './lib/ai/testStream'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
-import { planNote } from './runs'
+import { dryNote, planNote } from './runs'
 import { renderPlaybook, type Playbook } from './lib/playbook'
 import { planSlots, WEEKDAYS } from './lib/plan'
 import schema from './schema'
@@ -158,7 +159,7 @@ function stubServices(found: number | ReturnType<typeof candidates>, queues: Que
     }
     return Response.json({ data: {} })
   })
-  vi.stubGlobal('fetch', fetch)
+  vi.stubGlobal('fetch', withStreaming(fetch))
   return { writePrompts, created, researchSystems, researchPrompts, approved }
 }
 
@@ -679,5 +680,14 @@ describe('planNote', () => {
     ).toBe(
       'Done. 2 posts in Buffer, for Tue 17 Nov, 09:00. 1 story had no posting day left by the time it was written.',
     )
+  })
+})
+
+describe('dryNote', () => {
+  it('says what a dry run would send, and owns up when nothing passed the checks', () => {
+    expect(dryNote(2, 4)).toBe(
+      'Dry run finished. It would send 4 posts for 2 stories. Nothing went to Buffer.',
+    )
+    expect(dryNote(1, 0)).toMatch(/none of the posts passed the checks/)
   })
 })

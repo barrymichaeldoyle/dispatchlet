@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 import { addUsage, costOf, EMPTY_USAGE, isKnownModel, type ModelId, type Usage } from './pricing'
+import { toolInput, type ToolEvent } from '../runLog'
 
 /**
  * The one place a model is chosen. In the 31 Oct benchmark (benchmark.ts, 14 fixtures, judged
@@ -68,6 +69,11 @@ export type StructuredCall<T extends z.ZodType> = {
    */
   deadline?: number
   tools?: Anthropic.Beta.BetaToolUnion[]
+  /**
+   * Called as each web search or page open comes back, so a run's log fills while it researches
+   * instead of all at once at the end. Setting it streams the reply.
+   */
+  onTool?: (event: ToolEvent) => unknown
 }
 
 /** A web search or fetch the server ran that came back as an error, with what was asked. */
@@ -153,7 +159,9 @@ async function parse<T extends z.ZodType>(
   }
   // Created and parsed here rather than with messages.parse, which throws on bad JSON and so loses
   // the usage of a reply that still cost money.
-  const message = await client.beta.messages.create(request, options)
+  const message = call.onTool
+    ? await streamed(client, request, options, call.onTool)
+    : await client.beta.messages.create(request, options)
   let parsed_output: z.infer<T> | null = null
   if (message.stop_reason !== 'refusal') {
     try {
@@ -168,6 +176,52 @@ async function parse<T extends z.ZodType>(
     }
   }
   return { ...message, parsed_output }
+}
+
+/** Streams a reply, reporting each server tool's result as it lands, and returns the whole message. */
+async function streamed(
+  client: Anthropic,
+  request: Anthropic.Beta.MessageCreateParamsNonStreaming,
+  options: Anthropic.RequestOptions | undefined,
+  onTool: (event: ToolEvent) => unknown,
+): Promise<Anthropic.Beta.BetaMessage> {
+  const asked = new Map<string, { tool: ToolEvent['tool']; input: string }>()
+  const reported: Promise<unknown>[] = []
+  // Without the format's parse function, so a broken reply comes back for parse() to judge rather
+  // than the stream throwing and losing what the call cost.
+  const format = request.output_config?.format
+  const plain = format
+    ? {
+        ...request,
+        output_config: {
+          ...request.output_config,
+          format: { type: format.type, schema: format.schema },
+        },
+      }
+    : request
+  const stream = client.beta.messages.stream(plain, options)
+  stream.on('contentBlock', (block) => {
+    if (block.type === 'server_tool_use') {
+      if (block.name === 'web_search' || block.name === 'web_fetch')
+        asked.set(block.id, { tool: block.name, input: toolInput(block.name, block.input) })
+      return
+    }
+    if (block.type !== 'web_search_tool_result' && block.type !== 'web_fetch_tool_result') return
+    const call = asked.get(block.tool_use_id)
+    if (!call) return
+    const content = block.content as { error_code?: unknown } | unknown[]
+    const error =
+      !Array.isArray(content) && typeof content?.error_code === 'string' ? content.error_code : null
+    // A log line that fails to save must not take the research down with it.
+    reported.push(
+      Promise.resolve()
+        .then(() => onTool({ ...call, error }))
+        .catch(() => null),
+    )
+  })
+  const message = await stream.finalMessage()
+  await Promise.all(reported)
+  return message
 }
 
 /** Room for thinking plus the JSON on the research, playbook and write calls. Under 21,333, past which the SDK insists on streaming. */

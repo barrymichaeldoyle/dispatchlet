@@ -411,3 +411,27 @@ export function overBy(post: PostDraft, channel: TargetChannel, playbook: Playbo
     ...[post.text, ...(post.thread ?? [])].map((p) => measuredLength(p, channel.service) - limit),
   )
 }
+
+/**
+ * A post over its limit with its last sentences dropped until it fits, or null when even the
+ * first sentence is too long. The writer is told to drop a sentence rather than trim words, and
+ * it often overshoots again on a rewrite, so the server does that cut itself first. Thread posts
+ * are left to the writer.
+ */
+export function trimToFit(
+  post: PostDraft,
+  channel: TargetChannel,
+  playbook: Playbook,
+): PostDraft | null {
+  if (post.thread?.length) return null
+  const bare = withoutLink(post)
+  const limit = textLimitFor(channel, playbook)
+  const sentences = bare.text.trim().match(/[^.!?]+(?:[.!?]+["'’”)]*|$)\s*/g) ?? []
+  for (let keep = sentences.length - 1; keep >= 1; keep--) {
+    const text = sentences.slice(0, keep).join('').trim()
+    // A cut that keeps less than half the post has lost the story, not just a detail.
+    if (text.length < bare.text.length / 2) return null
+    if (measuredLength(text, channel.service) <= limit) return withLink({ ...bare, text }, channel)
+  }
+  return null
+}

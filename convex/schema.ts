@@ -212,6 +212,18 @@ export default defineSchema({
     scheduledFnId: v.optional(v.id('_scheduled_functions')),
     lastRunAt: v.optional(v.number()),
     consecutiveFailures: v.optional(v.number()),
+    /** Playbook sources whose page would not open, run after run, until one opens or is removed. */
+    sourceIssues: v.optional(
+      v.array(
+        v.object({
+          host: v.string(),
+          failures: v.number(),
+          lastAt: v.number(),
+          /** The person chose to keep it; not flagged again. */
+          dismissed: v.optional(v.boolean()),
+        }),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
@@ -347,6 +359,8 @@ export default defineSchema({
     found: v.optional(v.number()),
     kept: v.optional(v.number()),
     posted: v.optional(v.number()),
+    /** A dry run's posts that passed every check: what it would have sent. */
+    wouldSend: v.optional(v.number()),
     /** What research found, kept on eval runs. */
     result: v.optional(v.any()),
     error: v.optional(v.string()),

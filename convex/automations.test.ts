@@ -199,3 +199,57 @@ describe('checking a cadence before it is saved', () => {
     expect(normalCadence({ preset: 'daily', time: '08:00', weekday: 'mon' }).weekday).toBeNull()
   })
 })
+
+describe('a source that keeps failing', () => {
+  const withSources = {
+    ...playbook,
+    sources: [
+      { label: 'F1', note: '', priority: 'high', url: 'https://www.formula1.com/en/latest' },
+      { label: 'StatsF1', note: '', priority: 'high', url: 'https://www.statsf1.com/en/' },
+    ],
+  }
+
+  it('is flagged after two failed runs, cleared when it opens, and removed as a new version', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, id } = await generating(t)
+    const user = t.withIdentity({ subject: `${userId}|session` })
+    await t.mutation(internal.automations.storeGenerated, {
+      automationId: id,
+      playbook: withSources,
+    })
+    const note = (failed: string[], ok: string[] = []) =>
+      t.mutation(internal.automations.noteSourceHealth, { automationId: id, failed, ok })
+    await note(['statsf1.com'])
+    expect((await user.query(api.automations.get, { id }))?.failingSources).toEqual([])
+    await note(['statsf1.com'])
+    expect((await user.query(api.automations.get, { id }))?.failingSources).toEqual([
+      { host: 'statsf1.com', failures: 2 },
+    ])
+    await note([], ['statsf1.com'])
+    expect((await user.query(api.automations.get, { id }))?.failingSources).toEqual([])
+    await note(['statsf1.com'])
+    await note(['statsf1.com'])
+    expect(await user.mutation(api.automations.removeSource, { id, host: 'statsf1.com' })).toBe(2)
+    const after = await user.query(api.automations.get, { id })
+    expect(after?.failingSources).toEqual([])
+    expect(after?.playbook?.sources.map((s) => s.label)).toEqual(['F1'])
+  })
+
+  it('stops flagging a source the person chose to keep', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, id } = await generating(t)
+    const user = t.withIdentity({ subject: `${userId}|session` })
+    await t.mutation(internal.automations.storeGenerated, {
+      automationId: id,
+      playbook: withSources,
+    })
+    for (let i = 0; i < 3; i++)
+      await t.mutation(internal.automations.noteSourceHealth, {
+        automationId: id,
+        failed: ['statsf1.com'],
+        ok: [],
+      })
+    await user.mutation(api.automations.keepSource, { id, host: 'statsf1.com' })
+    expect((await user.query(api.automations.get, { id }))?.failingSources).toEqual([])
+  })
+})

@@ -119,6 +119,38 @@ export function briefFromSetup(answers: SetupAnswers): ResearchBrief {
   }
 }
 
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+const MONTH = MONTHS.join('|')
+const DAY_MONTH = new RegExp(String.raw`\b([0-3]?\d)(?:st|nd|rd|th)?(\s+)(${MONTH})\b`, 'g')
+const MONTH_DAY = new RegExp(String.raw`\b(${MONTH})([\s_]+)([0-3]?\d)(?:st|nd|rd|th)?\b`, 'g')
+
+/**
+ * Moves any day and month written into a playbook line ("10 November", "November 10",
+ * wiki/November_10) to the run's own date. Playbooks are reused every run, but the generator
+ * used to write the day it was made into on-this-day searches, so later runs kept searching it.
+ */
+export function redate(text: string, isoDate: string): string {
+  const day = String(Number(isoDate.slice(8, 10)))
+  const month = MONTHS[Number(isoDate.slice(5, 7)) - 1]
+  if (!month || day === 'NaN') return text
+  return text
+    .replace(DAY_MONTH, (_m, _d, gap: string) => `${day}${gap}${month}`)
+    .replace(MONTH_DAY, (_m, _mo, gap: string) => `${month}${gap}${day}`)
+}
+
 /** The brief a run uses once a playbook exists; the automation's own settings fill the rest. */
 export function briefFromPlaybook(
   playbook: Playbook,

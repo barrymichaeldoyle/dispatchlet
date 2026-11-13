@@ -39,6 +39,7 @@ import {
   allowedDomains,
   briefFromPlaybook,
   historicalProblem,
+  redate,
   researchSystemFor,
   researchTools,
   ResearchResult,
@@ -53,6 +54,7 @@ import {
   repairUserMessage,
   SERVICE_LIMITS,
   textLimitFor,
+  trimToFit,
   type PostDraft,
   type TargetChannel,
   withLink,
@@ -62,6 +64,7 @@ import {
   writeUserMessage,
 } from './lib/ai/write'
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
+import { hostOfUrl, SOURCE_FAILURES, toolNote, type ToolEvent } from './lib/runLog'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
 import {
   datedSlots,
@@ -489,6 +492,10 @@ export const savePost = internalMutation({
   handler: async (ctx, args) => {
     const approveToken = args.status === 'draft' ? crypto.randomUUID() : undefined
     const id = await ctx.db.insert('posts', { ...args, approveToken, createdAt: Date.now() })
+    if (args.status === 'dry') {
+      const run = await ctx.db.get(args.runId)
+      if (run) await ctx.db.patch(args.runId, { wouldSend: (run.wouldSend ?? 0) + 1 })
+    }
     if (args.bufferPostId) {
       const run = await ctx.db.get(args.runId)
       if (run) await ctx.db.patch(args.runId, { posted: (run.posted ?? 0) + 1 })
@@ -687,6 +694,13 @@ const WRITE_BATCH_STORIES = 3
 
 const storyCount = (n: number) => `${n} ${n === 1 ? 'story' : 'stories'}`
 
+/** The closing line of a dry run, honest about posts that failed their checks. */
+export function dryNote(stories: number, posts: number): string {
+  if (!posts)
+    return `Dry run finished. It kept ${storyCount(stories)}, but none of the posts passed the checks, so this run would send nothing. The reasons are below.`
+  return `Dry run finished. It would send ${posts} ${posts === 1 ? 'post' : 'posts'} for ${storyCount(stories)}. Nothing went to Buffer.`
+}
+
 /** The closing line of a planned batch: what is scheduled when, and any days left empty. */
 export function planNote(o: {
   dry: boolean
@@ -878,10 +892,16 @@ export const execute = internalAction({
       }
 
       const client = anthropicClient(await keyFor(user))
-      const brief = briefFromPlaybook(playbook, {
+      const toolEvents: ToolEvent[] = []
+      const baseBrief = briefFromPlaybook(playbook, {
         onlyTheseSources: automation.setup.onlyTheseSources,
         maxPostsPerRun: storyLimit,
       })
+      // An on-this-day playbook may carry the day it was written; search this run's day instead.
+      const onDay = researchMode === 'anniversary' ? (targetDates[0] ?? today) : null
+      const brief = onDay
+        ? { ...baseBrief, sources: baseBrief.sources.map((s) => redate(s, onDay)) }
+        : baseBrief
       const domains = allowedDomains(brief)
       const research = await callStructured(client, {
         model: modelFor('research'),
@@ -900,15 +920,35 @@ export const execute = internalAction({
         schema: ResearchResult,
         tools: researchTools(domains, undefined, brief.maxCandidates),
         deadline,
+        // Each search and page open goes in the log as it lands, so the run page fills as it works.
+        onTool: async (event) => {
+          toolEvents.push(event)
+          const note = toolNote(event)
+          if (note) await say(event.tool === 'web_search' ? 'search' : 'read', note)
+        },
       })
       await record(ctx, runId, 'research', research.record)
+      // Playbook sources that would not open, or opened again, so one that keeps failing is flagged.
+      const sourceHosts = new Set(
+        playbook.sources.map((s) => (s.url ? hostOfUrl(s.url) : null)).filter(Boolean),
+      )
+      const opened = (failed: boolean) => [
+        ...new Set(
+          toolEvents
+            .filter(
+              (e) =>
+                e.tool === 'web_fetch' && (failed ? SOURCE_FAILURES.has(e.error ?? '') : !e.error),
+            )
+            .map((e) => hostOfUrl(e.input))
+            .filter((h): h is string => h !== null && sourceHosts.has(h)),
+        ),
+      ]
+      await ctx.runMutation(internal.automations.noteSourceHealth, {
+        automationId: automation._id,
+        failed: opened(true),
+        ok: opened(false),
+      })
       if (research.unreadable) throw new ConvexError(UNREADABLE)
-      // Searches and page opens that failed, by the tool's own error code, so the log says why.
-      for (const e of research.toolErrors)
-        await say(
-          'research',
-          `A ${e.tool === 'web_fetch' ? 'page open' : 'search'} failed (${e.code}): ${e.input}`,
-        )
       if (!research.output) {
         await fail(
           research.record.refusal
@@ -927,7 +967,7 @@ export const execute = internalAction({
         'research',
         `Searched ${research.record.usage.webSearches} times and opened ${research.record.usage.webFetches} pages. Found ${found.length} ${found.length === 1 ? 'story' : 'stories'}.`,
       )
-      if (research.output.notes) await say('research', research.output.notes)
+      if (research.output.notes) await say('notes', research.output.notes)
 
       // Decide: duplicates first, then confidence, then the run's story limit.
       const decided: (Candidate & { decision: string; reason: string; dupOf?: Id<'stories'> })[] =
@@ -1160,6 +1200,25 @@ export const execute = internalAction({
               ]
         })
         if (!failed.length) break
+        // Too long by a sentence or two: drop the last sentences here, without another model call.
+        let trimmed = 0
+        for (const f of failed) {
+          if (f.over <= 0) continue
+          const index = drafts.findIndex(
+            (d) => d.channelId === f.channel.channelId && d.storyUrl === f.post.storyUrl,
+          )
+          const cut = index >= 0 ? trimToFit(drafts[index]!, f.channel, playbook) : null
+          if (!cut || !checkPost(cut, f.channel, playbook, storyUrls).ok) continue
+          drafts = drafts.map((d, i) => (i === index ? cut : d))
+          trimmed++
+        }
+        if (trimmed) {
+          await say(
+            'write',
+            `Shortened ${trimmed} ${trimmed === 1 ? 'post' : 'posts'} to fit by dropping the last sentence.`,
+          )
+          continue
+        }
         const n = failed.length
         const posts = `${n} ${n === 1 ? 'post' : 'posts'}`
         const tooLong = failed.filter((f) => f.over > 0).length
@@ -1168,8 +1227,8 @@ export const execute = internalAction({
           tooLong === n
             ? `${posts} missed the limit. Asking for a shorter version.`
             : tooLong === 0
-              ? `${posts} need a rewrite. ${failed[0]!.reason}`
-              : `${posts} need a rewrite, ${tooLong} for length.`,
+              ? `${posts} ${n === 1 ? 'needs' : 'need'} a rewrite. ${failed[0]!.reason}`
+              : `${posts} ${n === 1 ? 'needs' : 'need'} a rewrite, ${tooLong} for length.`,
         )
         const repaired = await callStructured(client, {
           model: modelFor('write'),
@@ -1267,6 +1326,8 @@ export const execute = internalAction({
       const tagByOrg = new Map<string, string | null>()
       let dueAt = Date.now() + SPREAD_FIRST_MS
       let held: { retryAt: number; why: 'busy' | 'share' | 'silent' } | null = null
+      // A dry run's posts that passed every check, so its last line says what it would really send.
+      let wouldSend = 0
       for (const draft of drafts) {
         const channel = targets.find((t) => t.channelId === draft.channelId)
         const row = channels.find((c) => c.channelId === draft.channelId)
@@ -1327,6 +1388,7 @@ export const execute = internalAction({
         }
         if (dry) {
           await ctx.runMutation(internal.runs.savePost, { ...base, status: 'dry' })
+          wouldSend++
           continue
         }
         if (atLimit.has(channel.channelId)) {
@@ -1386,7 +1448,7 @@ export const execute = internalAction({
           published++
           await say(
             'publish',
-            `${channel.name}: ${mode === 'draft' ? 'saved as a draft' : created.dueAt ? `scheduled for ${new Date(created.dueAt).toLocaleString('en-GB', { timeZone: automation.timezone, dateStyle: 'medium', timeStyle: 'short' })}` : 'added to the queue'}.`,
+            `${channel.name}: "${story.title}" ${mode === 'draft' ? 'saved as a draft' : created.dueAt ? `scheduled for ${new Date(created.dueAt).toLocaleString('en-GB', { timeZone: automation.timezone, dateStyle: 'medium', timeStyle: 'short' })}` : 'added to the queue'}.`,
           )
         } catch (error) {
           // Buffer's allowance is spent, or Buffer asked us to slow down: this post and the rest
@@ -1451,7 +1513,7 @@ export const execute = internalAction({
               timezone: automation.timezone,
             })
           : dry
-            ? `Dry run finished: ${keep.length} ${keep.length === 1 ? 'story' : 'stories'} found, with the posts it would send. Nothing went to Buffer.`
+            ? dryNote(keep.length, wouldSend)
             : `Done. ${published} ${published === 1 ? 'post' : 'posts'} in Buffer.`,
       })
     } catch (error) {
@@ -1723,6 +1785,8 @@ export async function listRunsFor(
       found: r.found ?? 0,
       kept: r.kept ?? 0,
       posted: r.posted ?? 0,
+      // Absent on dry runs from before it was counted: unknown, not zero.
+      wouldSend: r.wouldSend ?? null,
       costUsd: r.costUsd,
       last: r.steps.at(-1)?.note ?? '',
     }))

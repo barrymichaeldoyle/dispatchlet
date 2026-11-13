@@ -6,6 +6,7 @@ import {
   nameMatchesHost,
   overBy,
   provenPosts,
+  trimToFit,
   withLink,
   withoutLink,
   writeUserMessage,
@@ -308,5 +309,31 @@ describe('learning from posts that did well', () => {
     expect(text).toContain('Do not copy them')
     expect(text).toContain('- X, 12 interactions, 300 views: "Line one line two"')
     expect(writeUserMessage(playbook, [], [x])).not.toContain('did well')
+  })
+})
+
+const draftOf = (text: string) => ({
+  storyUrl: 'https://a.com/1',
+  channelId: 'c1',
+  text,
+  thread: null,
+  linkAttachment: null,
+})
+const sentence = (n: number) => `${'word '.repeat(n).trim()}.`
+
+describe('trimToFit', () => {
+  it('drops the last sentence until the post fits, then adds the link back', () => {
+    const long = `${sentence(20)} ${sentence(10)} ${sentence(10)}`
+    const cut = trimToFit(withLink(draftOf(long), x), x, playbook)
+    expect(cut?.text).toBe(`${sentence(20)} ${sentence(10)}\n\nhttps://a.com/1`)
+  })
+
+  it('gives up when the cut would lose most of the post, or one sentence is too long', () => {
+    expect(trimToFit(draftOf(`${sentence(10)} ${sentence(40)}`), x, playbook)).toBeNull()
+    expect(trimToFit(draftOf(sentence(60)), x, playbook)).toBeNull()
+  })
+
+  it('leaves threads to the writer', () => {
+    expect(trimToFit({ ...draftOf(sentence(60)), thread: ['more'] }, x, playbook)).toBeNull()
   })
 })

@@ -5,6 +5,7 @@ import {
   briefFromSetup,
   freshnessFor,
   lookbackHours,
+  redate,
   researchTools,
   researchUserMessage,
 } from './research'
@@ -98,5 +99,26 @@ describe('the research user message', () => {
     const text = researchUserMessage(briefFromSetup(f1), { ...context, covered })
     expect(text).toContain('- t99 (u99)')
     expect(text).not.toContain('- t100 (u100)')
+  })
+})
+
+describe('redate', () => {
+  it('moves a day written into a playbook line to the run date, in the same style', () => {
+    expect(redate('search: "F1 on this day 10 November"', '2026-11-13')).toBe(
+      'search: "F1 on this day 13 November"',
+    )
+    expect(redate('https://en.wikipedia.org/wiki/November_10', '2026-12-01')).toBe(
+      'https://en.wikipedia.org/wiki/December_1',
+    )
+    expect(redate('Formula 1 "November 10th" history', '2026-11-14')).toBe(
+      'Formula 1 "November 14" history',
+    )
+  })
+
+  it('leaves years and lines without a day alone', () => {
+    expect(redate('F1 November 2026 news', '2026-11-13')).toBe('F1 November 2026 news')
+    expect(redate('https://www.formula1.com/en/latest', '2026-11-13')).toBe(
+      'https://www.formula1.com/en/latest',
+    )
   })
 })

@@ -1,5 +1,6 @@
 import { convexTest, type TestConvex } from 'convex-test'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { withStreaming } from './lib/ai/testStream'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 import { bufferDidNotAnswer, onePerStoryAndChannel } from './runs'
@@ -68,46 +69,50 @@ function stubServices(opts: {
   const created: string[] = []
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input instanceof Request ? input.url : input)
-      const body = JSON.parse(String(init?.body ?? '{}'))
-      if (url.includes('anthropic')) {
-        if (JSON.stringify(body).includes('research step'))
-          return anthropicReply(
-            opts.research ?? JSON.stringify({ candidates, searchesRun: [], notes: '' }),
+    withStreaming(
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input)
+        const body = JSON.parse(String(init?.body ?? '{}'))
+        if (url.includes('anthropic')) {
+          if (JSON.stringify(body).includes('research step'))
+            return anthropicReply(
+              opts.research ?? JSON.stringify({ candidates, searchesRun: [], notes: '' }),
+            )
+          const posts = candidates.flatMap((c) =>
+            ['c1', 'c2'].map((channelId) => ({
+              storyUrl: c.canonicalUrl,
+              channelId,
+              text: 'A short factual post.',
+              thread: null,
+              linkAttachment: null,
+            })),
           )
-        const posts = candidates.flatMap((c) =>
-          ['c1', 'c2'].map((channelId) => ({
-            storyUrl: c.canonicalUrl,
-            channelId,
-            text: 'A short factual post.',
-            thread: null,
-            linkAttachment: null,
-          })),
-        )
-        return anthropicReply(JSON.stringify({ posts: opts.repeat ? [...posts, ...posts] : posts }))
-      }
-      if (String(body.query).includes('DispatchletLimits'))
-        return Response.json({ data: { dailyPostingLimits: [] } })
-      if (String(body.query).includes('DispatchletCreatePost')) {
-        created.push(body.variables.input.channelId)
-        if (opts.send) return await opts.send(created.length)
-        return Response.json({
-          data: {
-            createPost: {
-              __typename: 'PostActionSuccess',
-              post: {
-                id: `b-${created.length}`,
-                status: 'buffer',
-                dueAt: null,
-                externalLink: null,
+          return anthropicReply(
+            JSON.stringify({ posts: opts.repeat ? [...posts, ...posts] : posts }),
+          )
+        }
+        if (String(body.query).includes('DispatchletLimits'))
+          return Response.json({ data: { dailyPostingLimits: [] } })
+        if (String(body.query).includes('DispatchletCreatePost')) {
+          created.push(body.variables.input.channelId)
+          if (opts.send) return await opts.send(created.length)
+          return Response.json({
+            data: {
+              createPost: {
+                __typename: 'PostActionSuccess',
+                post: {
+                  id: `b-${created.length}`,
+                  status: 'buffer',
+                  dueAt: null,
+                  externalLink: null,
+                },
               },
             },
-          },
-        })
-      }
-      return Response.json({ data: {} })
-    }),
+          })
+        }
+        return Response.json({ data: {} })
+      }),
+    ),
   )
   return { created }
 }

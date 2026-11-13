@@ -333,6 +333,10 @@ export async function getFor(ctx: QueryCtx, userId: Id<'users'>, id: Id<'automat
           problem: c.problem ?? null,
         })),
       allowance: user ? allowanceFor(user) : null,
+      /** Sources that would not open on recent runs, for the page to suggest removing. */
+      failingSources: (a.sourceIssues ?? [])
+        .filter((i) => !i.dismissed && i.failures >= SOURCE_FAILURES_TO_FLAG)
+        .map((i) => ({ host: i.host, failures: i.failures })),
     }
   }
 }
@@ -871,3 +875,83 @@ export async function addExcludeRuleFor(
     return version
   }
 }
+
+/** Runs this many in a row that could not open a source before the app suggests removing it. */
+export const SOURCE_FAILURES_TO_FLAG = 2
+
+/** After research: counts a failure for each source that would not open, and clears any that did. */
+export const noteSourceHealth = internalMutation({
+  args: { automationId: v.id('automations'), failed: v.array(v.string()), ok: v.array(v.string()) },
+  returns: v.null(),
+  handler: async (ctx, { automationId, failed, ok }) => {
+    const automation = await ctx.db.get(automationId)
+    if (!automation || (!failed.length && !automation.sourceIssues?.length)) return null
+    const now = Date.now()
+    const issues = (automation.sourceIssues ?? []).filter((i) => !ok.includes(i.host))
+    for (const host of failed) {
+      const known = issues.find((i) => i.host === host)
+      if (known) {
+        known.failures++
+        known.lastAt = now
+      } else issues.push({ host, failures: 1, lastAt: now })
+    }
+    await ctx.db.patch(automationId, { sourceIssues: issues })
+    return null
+  },
+})
+
+/** Takes every source on this host out of the playbook, as a new version. */
+export const removeSource = mutation({
+  args: { id: v.id('automations'), host: v.string() },
+  returns: v.number(),
+  handler: async (ctx, { id, host }) => {
+    const automation = await automationOf(ctx, await viewerId(ctx), id)
+    const latest = await latestVersion(ctx, id)
+    if (!latest) throw new ConvexError('The playbook is not ready yet')
+    const playbook = Playbook.parse(latest.playbook)
+    const sources = playbook.sources.filter((s) => {
+      try {
+        return !s.url || new URL(s.url).hostname.replace(/^www\./, '') !== host
+      } catch {
+        return true
+      }
+    })
+    const issues = (automation.sourceIssues ?? []).filter((i) => i.host !== host)
+    if (sources.length === playbook.sources.length) {
+      await ctx.db.patch(id, { sourceIssues: issues })
+      return latest.version
+    }
+    const next = { ...playbook, sources }
+    const version = latest.version + 1
+    const versionId = await ctx.db.insert('playbookVersions', {
+      automationId: id,
+      version,
+      playbook: next,
+      text: renderPlaybook(next),
+      createdBy: 'user',
+      createdAt: Date.now(),
+    })
+    await ctx.db.patch(id, {
+      playbookVersionId: versionId,
+      sourceIssues: issues,
+      configurationRevision: (automation.configurationRevision ?? 0) + 1,
+      updatedAt: Date.now(),
+    })
+    return version
+  },
+})
+
+/** Keeps a source that keeps failing, and stops flagging it. */
+export const keepSource = mutation({
+  args: { id: v.id('automations'), host: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { id, host }) => {
+    const automation = await automationOf(ctx, await viewerId(ctx), id)
+    await ctx.db.patch(id, {
+      sourceIssues: (automation.sourceIssues ?? []).map((i) =>
+        i.host === host ? { ...i, dismissed: true } : i,
+      ),
+    })
+    return null
+  },
+})

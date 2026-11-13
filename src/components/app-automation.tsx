@@ -262,11 +262,15 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             ) : (
               <p>
                 <strong>The dry run is done.</strong>{' '}
-                {firstTry.kept
+                {firstTry.kept && firstTry.wouldSend === null
                   ? `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'} and kept ${firstTry.kept}.`
-                  : `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'}, but none were worth posting today. Quiet days are normal.`}{' '}
+                  : firstTry.kept && firstTry.wouldSend
+                    ? `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'}, kept ${firstTry.kept} and wrote ${firstTry.wouldSend} ${firstTry.wouldSend === 1 ? 'post' : 'posts'} it would send.`
+                    : firstTry.kept
+                      ? `It kept ${firstTry.kept} ${firstTry.kept === 1 ? 'story' : 'stories'}, but none of the posts passed the checks.`
+                      : `It found ${firstTry.found} ${firstTry.found === 1 ? 'story' : 'stories'}, but none were worth posting today. Quiet days are normal.`}{' '}
                 <Link to="/app/a/$id/runs/$runId" params={{ id, runId: firstTry._id }}>
-                  {firstTry.kept ? 'See what it would post' : 'See why'}
+                  {(firstTry.wouldSend ?? firstTry.kept) ? 'See what it would post' : 'See why'}
                 </Link>
                 . Happy with it? Turn it on and the first real run is {firstRun}.
               </p>
@@ -286,6 +290,9 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <p className="app-muted">Try a dry run, then turn it on.</p>
         ) : null}
       </div>
+      {a.failingSources.map((f) => (
+        <FailingSource key={f.host} id={id} host={f.host} failures={f.failures} />
+      ))}
       {a.generationError ? (
         <p className="app-connection-error" role="alert">
           The playbook could not be written. {a.generationError}
@@ -1603,5 +1610,62 @@ function PlaybookEditor({
         />
       ) : null}
     </section>
+  )
+}
+
+/** A playbook source that would not open on recent runs, with the two ways to settle it. */
+function FailingSource({
+  id,
+  host,
+  failures,
+}: {
+  id: Id<'automations'>
+  host: string
+  failures: number
+}) {
+  const remove = useMutation(api.automations.removeSource)
+  const keep = useMutation(api.automations.keepSource)
+  const [busy, setBusy] = useState<'remove' | 'keep' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const act = (which: 'remove' | 'keep', work: () => Promise<unknown>) => {
+    setBusy(which)
+    setError(null)
+    work()
+      .catch((reason: unknown) => setError(errorText(reason, 'That did not work. Try again.')))
+      .finally(() => setBusy(null))
+  }
+  return (
+    <div className="app-next">
+      <p>
+        <strong>
+          {host} would not open on the last {failures} runs.
+        </strong>{' '}
+        The site blocks automated readers or keeps failing to load, so research spends a page open
+        on it for nothing. Remove it from the playbook?
+      </p>
+      <div className="app-gate-actions">
+        <button
+          type="button"
+          className="app-gate-secondary"
+          disabled={busy !== null}
+          onClick={() => act('remove', () => remove({ id, host }))}
+        >
+          <BusyLabel busy={busy === 'remove'} idle="Remove source" working="Removing" />
+        </button>
+        <button
+          type="button"
+          className="app-link"
+          disabled={busy !== null}
+          onClick={() => act('keep', () => keep({ id, host }))}
+        >
+          Keep it
+        </button>
+      </div>
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
   )
 }
