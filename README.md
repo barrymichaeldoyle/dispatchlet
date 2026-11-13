@@ -99,7 +99,8 @@ with `saveToDraft`, `addToQueue` and `customScheduled`, plus `metadata` for
 threads on X, Threads, Bluesky and Mastodon and link cards on LinkedIn, Threads
 and Bluesky. `editPost` to change a draft's text and to promote it into the
 queue. `createTag` and `tagsV2` for the Dispatchlet tag. `createIdea` to save a
-story that missed the cut to the Ideas board. `posts` for status once an hour,
+story that missed the cut to the Ideas board. `posts` for status (hourly once a post
+is due, every 6 hours for drafts and posts a day overdue, daily before that),
 asked again with a `tags` filter when a busy account fills the first page, and
 `post` for metrics once a day, read by Buffer's normalized metric names
 (`reactions`, `comments`, `reposts`, `impressions`, `engagementRate` and so on).
@@ -125,7 +126,8 @@ Everything the app does is open to other tools:
   run allowance, Buffer's limits.
 - **Webhooks** signed the [Standard Webhooks](https://www.standardwebhooks.com/)
   way: `run.finished`, `post.created`, `post.approved`, `post.sent`,
-  `automation.paused`, `buffer.reauth_needed`. Retries at 1 min, 10 min and 1 h;
+  `automation.paused`, `buffer.reauth_needed`, sent only to `https` URLs on port 443
+  or 8443. Retries at 1 min, 10 min and 1 h;
   deliveries listed in settings. Buffer has no webhooks, so this is also how to
   know a post went out. [docs/webhooks](https://dispatchlet.com/docs/webhooks)
 - **Inbound hooks**: a URL per automation that starts a run, optionally with a
@@ -147,7 +149,8 @@ TanStack Start on Cloudflare Workers. Convex for data, scheduling and the agent
 runs. Convex Auth for sign-in with Buffer. Claude through the Anthropic API: Haiku 5.5
 researches, Sonnet 5.5 writes the posts and playbooks and runs the assistant.
 Server-side web search and fetch, structured outputs and prompt caching; every
-call's usage and cost is recorded. Resend for email.
+call's usage and cost is recorded. Resend for email. Sentry for errors in the
+Worker and the browser.
 
 ## Run it yourself
 
@@ -169,9 +172,16 @@ Convex environment variables: `BUFFER_CLIENT_ID`, `BUFFER_CLIENT_SECRET`,
 `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` turn on push notifications. `ANTHROPIC_API_KEY` runs the
 free tier; `RESEND_API_KEY` sends the emails. Optional: `FREE_RUNS_PER_USER`
 (10), `FREE_DRY_RUNS_PER_USER` (3), `GLOBAL_DAILY_USD_CAP` (15, the most a day's
-scheduled runs may cost on the shared key) and `ALERT_EMAIL`. To serve sign-in from
+scheduled runs may cost on the shared key), and `ALERT_EMAIL` with `ALERTS_SECRET`
+for the error alert (`POST /alerts/errors` refuses every call until the secret is
+set, and then needs it in `X-Alerts-Secret`). To serve sign-in from
 your own domain, set `CUSTOM_AUTH_SITE_URL` to it; the site passes
 `/api/auth/*` through to Convex.
+
+A few things name Dispatchlet's own deployments and need yours instead: the
+Content Security Policy in `src/lib/security-headers.ts` and `public/_headers`
+(Convex deployments, PostHog's EU host and Sentry), the Sentry DSN in
+`src/server.ts`, and the test deployments in `convex/e2e.ts`.
 
 `pnpm check` runs lint, format, types, knip and unit tests. `pnpm e2e` runs the
 Playwright tests.
@@ -181,8 +191,9 @@ The signed-in tests (`e2e/signed-in.spec.ts`) use a test-only sign-in
 of 32 characters or more in `.env.local` as `E2E_AUTH_SECRET` and on dev with
 `npx convex env set E2E_AUTH_SECRET <value>`. Each sign-in resets one test user
 (`e2e@dispatchlet.test`) to a fixture. Without the secret, or against a deployed
-site, those tests are skipped. Production refuses this sign-in even if the
-variable is set there. Never set it on production.
+site, those tests are skipped. The sign-in only runs on the deployments listed in
+`convex/e2e.ts` (the dev deployment and a local backend), so production refuses
+it even if the variable is set there. Never set it on production.
 
 ### Pre-commit checks
 
