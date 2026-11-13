@@ -156,6 +156,24 @@ export const storeKey = internalMutation({
   },
 })
 
+/**
+ * Gives an account its free allowance back (runs and dry runs). Operator only: run it from the
+ * CLI, `npx convex run --prod users:resetAllowance '{"email":"…"}'`. Returns what was used before.
+ */
+export const resetAllowance = internalMutation({
+  args: { email: v.string() },
+  returns: v.object({ freeRunsUsed: v.number(), freeDryRunsUsed: v.number() }),
+  handler: async (ctx, { email }) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('email', (q) => q.eq('email', email))
+      .unique()
+    if (!user) throw new ConvexError('No account with that email.')
+    await ctx.db.patch(user._id, { freeRunsUsed: 0, freeDryRunsUsed: 0 })
+    return { freeRunsUsed: user.freeRunsUsed ?? 0, freeDryRunsUsed: user.freeDryRunsUsed ?? 0 }
+  },
+})
+
 export const markKeyInvalid = internalMutation({
   args: { userId: v.id('users') },
   returns: v.null(),

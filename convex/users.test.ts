@@ -354,3 +354,23 @@ describe('deleting an account', () => {
     expect(await t.run((ctx) => ctx.db.query('aiSpend').collect())).toHaveLength(many)
   })
 })
+
+describe('resetting the free allowance', () => {
+  it('zeroes runs and dry runs used and reports what was used', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await t.run((ctx) =>
+      ctx.db.insert('users', { email: 'a@example.com', freeRunsUsed: 5, freeDryRunsUsed: 2 }),
+    )
+    expect(await t.mutation(internal.users.resetAllowance, { email: 'a@example.com' })).toEqual({
+      freeRunsUsed: 5,
+      freeDryRunsUsed: 2,
+    })
+    expect(await t.run((ctx) => ctx.db.get(userId))).toMatchObject({
+      freeRunsUsed: 0,
+      freeDryRunsUsed: 0,
+    })
+    await expect(
+      t.mutation(internal.users.resetAllowance, { email: 'nobody@example.com' }),
+    ).rejects.toThrow('No account')
+  })
+})
