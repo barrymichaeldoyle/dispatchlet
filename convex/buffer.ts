@@ -303,12 +303,20 @@ export const connectionFor = internalQuery({
  * exactly one caller may refresh at a time. Returns false if someone else holds the lock.
  */
 export const claimRefresh = internalMutation({
-  args: { connectionId: v.id('bufferConnections') },
+  args: {
+    connectionId: v.id('bufferConnections'),
+    /**
+     * The refresh token the caller read. If another caller refreshed in between, this one is
+     * spent: the claim is refused, and the caller reads the connection again for the new token.
+     */
+    refreshTokenEnc: v.optional(v.string()),
+  },
   /** The claim's timestamp, which the holder gives back to release it; null if someone has it. */
   returns: v.union(v.number(), v.null()),
-  handler: async (ctx, { connectionId }) => {
+  handler: async (ctx, { connectionId, refreshTokenEnc }) => {
     const connection = await ctx.db.get(connectionId)
     if (!connection) return null
+    if (refreshTokenEnc !== undefined && connection.refreshTokenEnc !== refreshTokenEnc) return null
     const now = Date.now()
     if (connection.refreshingAt && now - connection.refreshingAt < REFRESH_LOCK_MS) return null
     await ctx.db.patch(connectionId, { refreshingAt: now })
@@ -401,6 +409,7 @@ async function accessTokenFor(
     }
     const claim = await ctx.runMutation(internal.buffer.claimRefresh, {
       connectionId: connection._id,
+      refreshTokenEnc: connection.refreshTokenEnc,
     })
     if (claim === null) {
       // Another caller is refreshing; wait for its new token rather than spending ours.

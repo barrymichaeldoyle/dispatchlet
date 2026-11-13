@@ -35,6 +35,18 @@ describe('the Buffer refresh lock', () => {
     expect(await t.mutation(internal.buffer.claimRefresh, { connectionId })).toBeNull()
   })
 
+  it('refuses a caller holding a refresh token another caller already spent', async () => {
+    const { t, connectionId } = await setup()
+    const read = await t.run(async (ctx) => (await ctx.db.get(connectionId))!.refreshTokenEnc)
+    await t.run((ctx) => ctx.db.patch(connectionId, { refreshTokenEnc: 'rotated' }))
+    expect(
+      await t.mutation(internal.buffer.claimRefresh, { connectionId, refreshTokenEnc: read }),
+    ).toBeNull()
+    expect(
+      await t.mutation(internal.buffer.claimRefresh, { connectionId, refreshTokenEnc: 'rotated' }),
+    ).toEqual(expect.any(Number))
+  })
+
   it('frees the lock once the new tokens are stored', async () => {
     const { t, connectionId } = await setup()
     const claim = await t.mutation(internal.buffer.claimRefresh, { connectionId })
