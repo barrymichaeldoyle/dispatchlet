@@ -2507,6 +2507,7 @@ html:has(.landing-header) {
   .landing-start {
     flex: 1 1 100%;
   }
+
   .landing-actions .landing-demo-link {
     flex: 1 1 100%;
     justify-content: center;
@@ -3141,6 +3142,16 @@ html:has(.landing-header) {
   text-underline-offset: 4px;
   cursor: pointer;
 }
+/* On a phone the closing button matches the hero's: full width, label centred. */
+@media (max-width: 680px) {
+  .landing-closing-actions {
+    align-items: stretch;
+  }
+  .landing-closing-start,
+  .landing-closing-demo {
+    justify-content: center;
+  }
+}
 
 @media (max-width: 900px) {
   .step,
@@ -3745,6 +3756,13 @@ html:has(.landing-header) {
 .flow-prompt.is-asking {
   display: grid;
   gap: 32px;
+}
+/* Stacked under the question on a narrow screen, the answers list sits half out of view behind
+ * the player controls; the progress bar already says how far along it is. */
+@media (max-width: 899px) {
+  .flow-prompt.is-asking .setup-answers {
+    display: none;
+  }
 }
 @media (min-width: 900px) {
   .flow-prompt.is-asking {

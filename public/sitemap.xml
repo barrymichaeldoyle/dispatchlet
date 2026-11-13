@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://dispatchlet.com/</loc><lastmod>2026-11-11</lastmod></url>
-  <url><loc>https://dispatchlet.com/docs</loc></url>
-  <url><loc>https://dispatchlet.com/docs/api</loc></url>
-  <url><loc>https://dispatchlet.com/docs/webhooks</loc></url>
-  <url><loc>https://dispatchlet.com/docs/hooks</loc></url>
-  <url><loc>https://dispatchlet.com/docs/mcp</loc></url>
+  <url><loc>https://dispatchlet.com/</loc><lastmod>2026-11-13</lastmod></url>
+  <url><loc>https://dispatchlet.com/docs</loc><lastmod>2026-11-13</lastmod></url>
+  <url><loc>https://dispatchlet.com/docs/api</loc><lastmod>2026-11-13</lastmod></url>
+  <url><loc>https://dispatchlet.com/docs/webhooks</loc><lastmod>2026-11-13</lastmod></url>
+  <url><loc>https://dispatchlet.com/docs/hooks</loc><lastmod>2026-11-13</lastmod></url>
+  <url><loc>https://dispatchlet.com/docs/mcp</loc><lastmod>2026-11-13</lastmod></url>
   <url><loc>https://dispatchlet.com/blog</loc><lastmod>2026-10-31</lastmod></url>
   <url><loc>https://dispatchlet.com/blog/cost-per-run</loc><lastmod>2026-10-31</lastmod></url>
-  <url><loc>https://dispatchlet.com/privacy</loc></url>
-  <url><loc>https://dispatchlet.com/terms</loc></url>
+  <url><loc>https://dispatchlet.com/privacy</loc><lastmod>2026-11-11</lastmod></url>
+  <url><loc>https://dispatchlet.com/terms</loc><lastmod>2026-11-11</lastmod></url>
 </urlset>
