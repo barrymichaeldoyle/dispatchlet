@@ -2,8 +2,15 @@ import { getAuthUserId } from '@convex-dev/auth/server'
 import { serviceLabel } from './lib/playbook'
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
-import type { Doc, Id } from './_generated/dataModel'
-import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
+import type { Doc, Id, TableNames } from './_generated/dataModel'
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+} from './_generated/server'
 import { scheduleNext } from './automations'
 import { deleteAutomationConversation } from './automationChat'
 import { deleteFeedbackFor } from './feedback'
@@ -162,15 +169,21 @@ export const emailFor = internalQuery({
   handler: async (ctx, { userId }) => (await ctx.db.get(userId))?.email ?? null,
 })
 
+/** Rows removed per purge call, well inside Convex's per-mutation read and write limits. */
+export const PURGE_BATCH = 200
+
 /**
- * Deletes everything held for a user: the account, its sign-in records and sessions, the Buffer
- * connection and channels, automations, runs, posts and model call records.
+ * Deletes everything held for a user. What the person would notice goes at once, in this
+ * mutation: the account, its sign-in records and sessions, the Buffer connection and channels,
+ * API tokens, webhooks, inbound hooks and push subscriptions, and every automation is stopped.
+ * The bulk (runs, stories, posts, model calls, deliveries) is then removed by purgeUserData in
+ * batches, as a long-lived account holds more rows than one mutation may touch.
  */
 export const deleteUserData = internalMutation({
   args: { userId: v.id('users') },
   returns: v.null(),
   handler: async (ctx, { userId }) => {
-    const deleteAll = async (rows: { _id: Id<any> }[]) => {
+    const deleteAll = async (rows: { _id: Id<TableNames> }[]) => {
       for (const row of rows) await ctx.db.delete(row._id)
     }
     const sessions = await ctx.db
@@ -211,8 +224,8 @@ export const deleteUserData = internalMutation({
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect(),
     )
-    // Automations and everything they made: schedules are cancelled, and deleting the runs also
-    // takes down any shared run links.
+    // Automations stop now: schedules are cancelled and each is marked deleted, as removing one
+    // does, so nothing runs or publishes while the purge works through what they made.
     const automations = await ctx.db
       .query('automations')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -221,75 +234,128 @@ export const deleteUserData = internalMutation({
     for (const a of automations) {
       if (a.scheduledFnId) await ctx.scheduler.cancel(a.scheduledFnId)
       await deleteAutomationConversation(ctx, a._id)
-      await deleteAll(
-        await ctx.db
-          .query('automationEdits')
-          .withIndex('by_automation', (q) => q.eq('automationId', a._id))
-          .collect(),
-      )
-      await deleteAll(
-        await ctx.db
-          .query('playbookVersions')
-          .withIndex('by_automation_version', (q) => q.eq('automationId', a._id))
-          .collect(),
-      )
+      await ctx.db.patch(a._id, {
+        status: 'paused',
+        deletedAt: a.deletedAt ?? Date.now(),
+        scheduledFnId: undefined,
+        nextRunAt: undefined,
+        nextRunSetFor: undefined,
+      })
     }
-    const runs = await ctx.db
-      .query('runs')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .collect()
-    for (const run of runs) {
-      await deleteAll(
-        await ctx.db
-          .query('stories')
-          .withIndex('by_run', (q) => q.eq('runId', run._id))
-          .collect(),
-      )
-      await deleteAll(
-        await ctx.db
-          .query('aiCalls')
-          .withIndex('by_run', (q) => q.eq('runId', run._id))
-          .collect(),
-      )
-    }
-    await deleteAll(
-      await ctx.db
-        .query('posts')
-        .withIndex('by_user_createdAt', (q) => q.eq('userId', userId))
-        .collect(),
-    )
-    await deleteAll(runs)
-    await deleteAll(automations)
-    // Model calls made outside a run, such as writing a playbook, carry only the user.
-    await deleteAll(
-      await ctx.db
-        .query('aiCalls')
-        .withIndex('by_user', (q) => q.eq('userId', userId))
-        .collect(),
-    )
-    // The hourly spend stays, without the person, so deleting an account does not lower the day's cap.
-    const spend = await ctx.db
-      .query('aiSpend')
-      .withIndex('by_user', (q) => q.eq('userId', userId))
-      .collect()
-    for (const row of spend) await ctx.db.patch(row._id, { userId: undefined })
-    for (const table of [
-      'apiTokens',
-      'webhooks',
-      'webhookDeliveries',
-      'inboundHooks',
-      'pushSubscriptions',
-    ] as const)
+    // Anything that lets the outside world in or out goes now; a delivery left for the purge
+    // finds its webhook gone and stops (webhooks.deliver).
+    for (const table of ['apiTokens', 'webhooks', 'inboundHooks', 'pushSubscriptions'] as const)
       await deleteAll(
         await ctx.db
           .query(table)
           .withIndex('by_user', (q) => q.eq('userId', userId))
           .collect(),
       )
+    // Gone at once, so signing in again during the purge makes a fresh account, not this one.
     if (await ctx.db.get(userId)) await ctx.db.delete(userId)
+    await purgeBatch(ctx, userId)
     return null
   },
 })
+
+/** One batch of an account's purge; reschedules itself until nothing is left. */
+export const purgeUserData = internalMutation({
+  args: { userId: v.id('users') },
+  returns: v.null(),
+  handler: async (ctx, { userId }) => {
+    await purgeBatch(ctx, userId)
+    return null
+  },
+})
+
+/**
+ * Removes up to PURGE_BATCH of a deleted user's rows, children before the rows they belong to,
+ * and schedules the next batch if the budget ran out before everything was gone.
+ */
+async function purgeBatch(ctx: MutationCtx, userId: Id<'users'>) {
+  let budget = PURGE_BATCH
+  const drop = async (rows: { _id: Id<TableNames> }[]) => {
+    for (const row of rows) await ctx.db.delete(row._id)
+    return rows.length
+  }
+  budget -= await drop(
+    await ctx.db
+      .query('posts')
+      .withIndex('by_user_createdAt', (q) => q.eq('userId', userId))
+      .take(budget),
+  )
+  // Model calls made outside a run, such as writing a playbook, carry only the user.
+  if (budget > 0)
+    budget -= await drop(
+      await ctx.db
+        .query('aiCalls')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .take(budget),
+    )
+  // A run goes once its stories and model calls are gone; deleting it also ends a shared link.
+  while (budget > 0) {
+    const run = await ctx.db
+      .query('runs')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    if (!run) break
+    budget -= await drop(
+      await ctx.db
+        .query('stories')
+        .withIndex('by_run', (q) => q.eq('runId', run._id))
+        .take(budget),
+    )
+    if (budget > 0)
+      budget -= await drop(
+        await ctx.db
+          .query('aiCalls')
+          .withIndex('by_run', (q) => q.eq('runId', run._id))
+          .take(budget),
+      )
+    if (budget <= 0) break
+    budget -= await drop([run])
+  }
+  while (budget > 0) {
+    const automation = await ctx.db
+      .query('automations')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .first()
+    if (!automation) break
+    budget -= await drop(
+      await ctx.db
+        .query('automationEdits')
+        .withIndex('by_automation', (q) => q.eq('automationId', automation._id))
+        .take(budget),
+    )
+    if (budget > 0)
+      budget -= await drop(
+        await ctx.db
+          .query('playbookVersions')
+          .withIndex('by_automation_version', (q) => q.eq('automationId', automation._id))
+          .take(budget),
+      )
+    if (budget <= 0) break
+    budget -= await drop([automation])
+  }
+  if (budget > 0)
+    budget -= await drop(
+      await ctx.db
+        .query('webhookDeliveries')
+        .withIndex('by_user', (q) => q.eq('userId', userId))
+        .take(budget),
+    )
+  // The hourly spend stays, without the person, so deleting an account does not lower the day's cap.
+  if (budget > 0) {
+    const spend = await ctx.db
+      .query('aiSpend')
+      .withIndex('by_user', (q) => q.eq('userId', userId))
+      .take(budget)
+    for (const row of spend) await ctx.db.patch(row._id, { userId: undefined })
+    budget -= spend.length
+  }
+  // Every query above came back short of its limit only if nothing is left.
+  if (budget <= 0) await ctx.scheduler.runAfter(0, internal.users.purgeUserData, { userId })
+}
 
 /**
  * Delete account, from settings: revokes Dispatchlet's access at Buffer, then deletes everything.
