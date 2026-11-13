@@ -1384,3 +1384,160 @@ describe('an old approve link', () => {
     expect(await res.text()).toContain('expired')
   })
 })
+
+/** Inserts a post for the seeded automation's run, with only what each case sets. */
+async function postsFixture() {
+  const t = convexTest(schema, modules)
+  const { userId, automationId } = await seed(t)
+  const runId = await run(t, userId, automationId, 'now')
+  const storyId = await t.run((ctx) =>
+    ctx.db.insert('stories', {
+      automationId,
+      runId,
+      title: 'T',
+      canonicalUrl: 'https://x.y/z',
+      source: 'x',
+      publishedAt: '',
+      summary: '',
+      whyItMatters: '',
+      keyFacts: [],
+      confidence: 1,
+      decision: 'kept',
+      reason: '',
+      createdAt: Date.now(),
+    }),
+  )
+  const post = (fields: Partial<Doc<'posts'>> & { status: string; createdAt: number }) =>
+    t.run((ctx) =>
+      ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'hello',
+        ...fields,
+      }),
+    )
+  return { t, userId, automationId, runId, storyId, post }
+}
+
+describe('reading posts by index', () => {
+  it('checks every open post in Buffer from the last 8 days, and nothing else', async () => {
+    const { t, userId, post } = await postsFixture()
+    const now = Date.now()
+    const DAY = 86_400_000
+    await t.run((ctx) =>
+      ctx.db.insert('bufferChannels', {
+        userId,
+        organizationId: 'o1',
+        channelId: 'c1',
+        service: 'twitter',
+        name: 'GPP',
+        usable: true,
+        syncedAt: now,
+      }),
+    )
+    // Out of creation order across statuses, to show the order is kept as a createdAt scan's.
+    await post({ status: 'scheduled', bufferPostId: 'b-scheduled', createdAt: now - 3 * DAY })
+    await post({ status: 'draft', bufferPostId: 'b-draft', createdAt: now - 7 * DAY })
+    await post({ status: 'queued', bufferPostId: 'b-queued', createdAt: now - DAY })
+    for (const status of ['sent', 'failed', 'deleted'])
+      await post({ status, bufferPostId: `b-${status}`, createdAt: now - DAY })
+    await post({ status: 'held', createdAt: now - DAY })
+    await post({ status: 'draft', createdAt: now - DAY })
+    await post({ status: 'draft', bufferPostId: 'b-old', createdAt: now - 9 * DAY })
+    const pending = await t.query(internal.status.pending, { now })
+    expect(pending).toHaveLength(1)
+    expect(pending[0]!.orgs[0]!.expected).toEqual(['b-draft', 'b-scheduled', 'b-queued'])
+  })
+
+  it('asks for metrics on sent posts only, from a day to 14 days after they went out', async () => {
+    const { t, post } = await postsFixture()
+    const now = Date.now()
+    const DAY = 86_400_000
+    const want = await post({
+      status: 'sent',
+      bufferPostId: 'b-want',
+      sentAt: now - 2 * DAY,
+      createdAt: now - 3 * DAY,
+    })
+    await post({ status: 'sent', bufferPostId: 'b-new', sentAt: now - 1000, createdAt: now - DAY })
+    await post({
+      status: 'sent',
+      bufferPostId: 'b-fresh',
+      sentAt: now - 2 * DAY,
+      metricsUpdatedAt: now - 1000,
+      createdAt: now - 3 * DAY,
+    })
+    await post({
+      status: 'sent',
+      bufferPostId: 'b-stale',
+      sentAt: now - 20 * DAY,
+      createdAt: now - 20 * DAY,
+    })
+    await post({ status: 'sent', sentAt: now - 2 * DAY, createdAt: now - 3 * DAY })
+    await post({
+      status: 'failed',
+      bufferPostId: 'b-failed',
+      sentAt: now - 2 * DAY,
+      createdAt: now - 3 * DAY,
+    })
+    expect(await t.query(internal.status.wantingMetrics, {})).toEqual([
+      expect.objectContaining({ postId: want, bufferPostId: 'b-want' }),
+    ])
+  })
+
+  it("gives the writer only this automation's measured posts", async () => {
+    const { t, userId, automationId, post } = await postsFixture()
+    const versionId = await t.run((ctx) =>
+      ctx.db.insert('playbookVersions', {
+        automationId,
+        version: 1,
+        playbook: {},
+        text: '',
+        createdBy: 'ai',
+        createdAt: Date.now(),
+      }),
+    )
+    await t.run((ctx) => ctx.db.patch(automationId, { playbookVersionId: versionId }))
+    const runId = await t.run((ctx) =>
+      ctx.db.insert('runs', {
+        userId,
+        automationId,
+        playbookVersionId: versionId,
+        kind: 'now',
+        status: 'researching',
+        startedAt: Date.now(),
+        steps: [],
+        usage: EMPTY,
+        costUsd: 0,
+      }),
+    )
+    const otherId = await t.run(async (ctx) => {
+      const a = (await ctx.db.get(automationId))!
+      const { _id, _creationTime, ...rest } = a
+      return await ctx.db.insert('automations', { ...rest, name: 'Other' })
+    })
+    const metrics = [{ type: 'likes', value: 5, unit: 'count' }]
+    for (const i of [1, 2, 3])
+      await post({ status: 'sent', text: `mine ${i}`, metrics, createdAt: Date.now() - 1000 })
+    await post({
+      status: 'sent',
+      text: 'old',
+      metrics: [{ type: 'likes', value: 99, unit: 'count' }],
+      createdAt: Date.now() - 91 * 86_400_000,
+    })
+    for (const i of [1, 2, 3])
+      await post({
+        status: 'sent',
+        automationId: otherId,
+        text: `theirs ${i}`,
+        metrics: [{ type: 'likes', value: 50, unit: 'count' }],
+        createdAt: Date.now() - 1000,
+      })
+    const loaded = await t.query(internal.runs.load, { runId })
+    expect(loaded?.proven.map((p) => p.text).sort()).toEqual(['mine 1', 'mine 2', 'mine 3'])
+  })
+})

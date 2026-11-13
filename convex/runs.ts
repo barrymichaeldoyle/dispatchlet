@@ -373,11 +373,11 @@ export const load = internalQuery({
     const sentPosts = (
       await ctx.db
         .query('posts')
-        .withIndex('by_user_createdAt', (q) =>
-          q.eq('userId', user._id).gt('createdAt', Date.now() - 90 * 86_400_000),
+        .withIndex('by_automation_createdAt', (q) =>
+          q.eq('automationId', automation._id).gt('createdAt', Date.now() - 90 * 86_400_000),
         )
         .collect()
-    ).filter((p) => p.automationId === automation._id && p.status === 'sent' && p.metrics?.length)
+    ).filter((p) => p.userId === user._id && p.status === 'sent' && p.metrics?.length)
     // The last day's spend, from hourly buckets (ai.addSpend): at most 25 rows, however busy the day.
     const since = Date.now() - 86_400_000
     const today = await ctx.db

@@ -446,7 +446,9 @@ export default defineSchema({
     .index('by_approveToken', ['approveToken'])
     .index('by_bufferPostId', ['bufferPostId'])
     .index('by_status_createdAt', ['status', 'createdAt'])
-    .index('by_automation_plannedFor', ['automationId', 'plannedFor']),
+    .index('by_automation_plannedFor', ['automationId', 'plannedFor'])
+    /** A run's own automation's recent posts, without reading the rest of the user's. */
+    .index('by_automation_createdAt', ['automationId', 'createdAt']),
   /** Every model call, with what it cost, so the cost per run is measured and not guessed. */
   /** AI spend by the hour it happened, so the daily cap reads 24 rows rather than every call. */
   aiSpend: defineTable({

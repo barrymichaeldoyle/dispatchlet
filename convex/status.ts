@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { take } from './api/rate'
 import { internal } from './_generated/api'
-import type { Id } from './_generated/dataModel'
+import type { Doc, Id } from './_generated/dataModel'
 import { internalAction, internalMutation, internalQuery } from './_generated/server'
 import { postMetrics, postStatuses } from './buffer'
 import { emitPostEvent } from './runs'
@@ -9,6 +9,11 @@ import { serverEvent } from './lib/serverEvents'
 
 /** The home page lists a week of drafts, so a week of open posts is checked, with a day spare. */
 const OPEN_WINDOW = 8 * 86_400_000
+/**
+ * The statuses a post in Buffer can hold before it is sent, failed or deleted (runs.markSent,
+ * approvals, apply below); held, publishing, dry and rejected posts never reached Buffer.
+ */
+const OPEN_STATUSES = ['draft', 'queued', 'scheduled'] as const
 /** Buffer's page size for the status query; a full page means there may be more. */
 export const STATUS_PAGE = 50
 
@@ -52,13 +57,17 @@ export const pending = internalQuery({
   handler: async (ctx, args) => {
     const now = args.now ?? Date.now()
     const since = now - OPEN_WINDOW
-    const posts = await ctx.db
-      .query('posts')
-      .withIndex('by_createdAt', (q) => q.gt('createdAt', since))
-      .collect()
-    const open = posts.filter(
-      (p) => p.bufferPostId && !['sent', 'failed', 'deleted'].includes(p.status),
-    )
+    // Read by status, so the week's sent and failed posts across every user are never loaded.
+    const open: Doc<'posts'>[] = []
+    for (const status of OPEN_STATUSES) {
+      const rows = await ctx.db
+        .query('posts')
+        .withIndex('by_status_createdAt', (q) => q.eq('status', status).gt('createdAt', since))
+        .collect()
+      open.push(...rows.filter((p) => p.bufferPostId))
+    }
+    // In creation order across statuses, as one createdAt scan would give them.
+    open.sort((a, b) => a.createdAt - b.createdAt || a._creationTime - b._creationTime)
     const byUser = new Map<Id<'users'>, typeof open>()
     for (const p of open) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), p])
     const out = []
@@ -257,12 +266,13 @@ export const wantingMetrics = internalQuery({
     const now = Date.now()
     const posts = await ctx.db
       .query('posts')
-      .withIndex('by_createdAt', (q) => q.gt('createdAt', now - 30 * DAY))
+      .withIndex('by_status_createdAt', (q) =>
+        q.eq('status', 'sent').gt('createdAt', now - 30 * DAY),
+      )
       .collect()
     return posts
       .filter(
         (p) =>
-          p.status === 'sent' &&
           p.bufferPostId &&
           (p.sentAt ?? p.createdAt) < now - DAY &&
           (!p.metricsUpdatedAt || p.metricsUpdatedAt < now - DAY) &&
