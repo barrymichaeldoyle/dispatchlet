@@ -425,17 +425,17 @@ function Home() {
             </p>
             <figure className="landing-chat" aria-label="An example conversation with Claude">
               <p data-who="you">
-                <span>You</span>What did Good News Today post this week, and is anything waiting?
+                <span>You</span>What did Good News Today post this week?
               </p>
               <p data-who="claude">
-                <span>Claude</span>Four posts went out. One draft is waiting: sea otters are back in
-                the Kent estuary for the first time in 50 years. Approve it?
+                <span>Claude</span>Ten posts about five stories, each on X and LinkedIn. Its second
+                run skipped two stories it had already posted.
               </p>
               <p data-who="you">
-                <span>You</span>Yes.
+                <span>You</span>Skip celebrity charity stories from now on.
               </p>
               <p data-who="claude">
-                <span>Claude</span>Approved. It is in the Good News Today queue for 18:00.
+                <span>Claude</span>Added to its Skip rules. The next run will leave them out.
               </p>
             </figure>
             <ul className="landing-tools">
@@ -462,9 +462,10 @@ function Home() {
           <h2 id="commit-title">Built for Buffer Commit</h2>
           <div>
             <p>
-              Dispatchlet is my entry to Buffer Commit, Buffer’s API hackathon (28 October to 13
-              November 2026). It only uses Buffer’s public API: you sign in with Buffer, and your
-              posts go to your own queue or drafts.
+              Dispatchlet is my entry to Buffer Commit, Buffer’s API hackathon. The build window ran
+              from 28 October to 13 November 2026, and judging runs into December. It only uses
+              Buffer’s public API: you sign in with Buffer, and your posts go to your own queue or
+              drafts.
             </p>
             <p>
               The repository is tagged where the hackathon started, so you can see exactly what was
