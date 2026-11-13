@@ -97,12 +97,15 @@ export const create = mutation({
         .query('apiTokens')
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
-    ).filter((t) => !t.revokedAt)
+    ).filter((t) => !t.revokedAt && t.source !== 'oauth')
     if (live.length >= 20) throw new Error('Twenty tokens is the limit. Revoke one first.')
     const made = await createForUser(ctx, userId, { name, scope, source: 'settings' })
     return { _id: made.id, token: made.token, prefix: made.prefix }
   },
 })
+
+/** How many live tokens one OAuth client may hold for a person, counting the new one. */
+const OAUTH_TOKENS_PER_CLIENT = 5
 
 /**
  * The token behind an OAuth grant, made when the person clicks Allow on the consent page (SPEC
@@ -120,9 +123,14 @@ export const createForOAuth = mutation({
         .withIndex('by_user', (q) => q.eq('userId', userId))
         .collect()
     ).filter((t) => !t.revokedAt)
-    if (live.length >= 20)
-      throw new Error('Twenty tokens is the limit. Revoke one in settings first.')
     const label = clientName.trim().replace(/\s+/g, ' ').slice(0, 40) || 'An assistant'
+    // Each reconnect makes a token and the client forgets the old one, so a client keeps only its
+    // newest few: enough for the same assistant on a few devices, without old ones piling up.
+    const sameClient = live
+      .filter((t) => t.source === 'oauth' && t.oauthClientName === label)
+      .sort((a, b) => b.createdAt - a.createdAt)
+    for (const old of sameClient.slice(OAUTH_TOKENS_PER_CLIENT - 1))
+      await ctx.db.patch(old._id, { revokedAt: Date.now() })
     const made = await createForUser(ctx, userId, {
       name: label,
       scope: write ? 'write' : 'read',

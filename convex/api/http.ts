@@ -95,7 +95,9 @@ export function fromAppError(error: unknown): ApiError {
     return new ApiError(404, 'not_found', 'No such id.')
   if (/already going|already being|is paused/i.test(text))
     return new ApiError(409, 'conflict', text)
-  if (/is the limit|Too many/i.test(text)) return new ApiError(429, 'rate_limited', text)
+  // A cap on how many you may have is a conflict to resolve, not a rate limit to wait out.
+  if (/is the limit/i.test(text)) return new ApiError(409, 'conflict', text)
+  if (/Too many/i.test(text)) return new ApiError(429, 'rate_limited', text)
   if (/No playbook generations left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/No (free |dry )?runs left/i.test(text)) return new ApiError(402, 'allowance', text)
   if (/Buffer/.test(text) && /did not|refused|lost|ended|Sign in with Buffer/i.test(text))

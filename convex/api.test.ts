@@ -690,7 +690,7 @@ describe('rules from the security review', () => {
       await t.run((ctx) => ctx.db.patch(userId, { generationsToday: 0 }))
       process.env.AUTOMATIONS_PER_USER = '2'
       const capped = await call('/automations', { method: 'POST', body })
-      expect(capped.status).toBe(429)
+      expect(capped.status).toBe(409)
     } finally {
       delete process.env.GENERATIONS_PER_DAY
       delete process.env.AUTOMATIONS_PER_USER
@@ -939,5 +939,34 @@ describe('a run whose only channel is locked in Buffer', () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe('tokens behind OAuth connections', () => {
+  it('keep only a client’s newest few, and do not count toward the settings cap', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await t.run((ctx) =>
+      ctx.db.insert('users', { email: 'a@example.com', timezone: 'UTC', emailPrefs: 'never' }),
+    )
+    const user = t.withIdentity({ subject: `${userId}|session` })
+    for (let i = 0; i < 7; i++)
+      await user.mutation(api.tokens.createForOAuth, { clientName: 'Claude', write: true })
+    await user.mutation(api.tokens.createForOAuth, { clientName: 'Other', write: false })
+    const rows = await t.run((ctx) => ctx.db.query('apiTokens').collect())
+    const live = rows.filter((r) => !r.revokedAt)
+    expect(live.filter((r) => r.oauthClientName === 'Claude')).toHaveLength(5)
+    expect(live.filter((r) => r.oauthClientName === 'Other')).toHaveLength(1)
+    for (let i = 0; i < 20; i++)
+      await user.mutation(api.tokens.create, { name: `T${i}`, scope: 'read' })
+    await expect(
+      user.mutation(api.tokens.create, { name: 'one more', scope: 'read' }),
+    ).rejects.toThrow('Twenty tokens is the limit')
+  })
+
+  it('reports a cap on how many you may have as a conflict, not a rate limit', async () => {
+    const { fromAppError } = await import('./api/http')
+    expect(
+      fromAppError(new Error('Twenty webhooks is the limit. Delete one first.')),
+    ).toMatchObject({ status: 409, code: 'conflict' })
   })
 })

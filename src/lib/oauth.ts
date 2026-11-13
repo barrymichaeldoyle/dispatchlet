@@ -66,6 +66,27 @@ export function grantScope(requested: string[], write: boolean): string[] {
 }
 
 /** Checks an API token with the API: whose it is and whether it can write, or null if invalid. */
+/**
+ * Whether the API has refused a token for good: true on 401 or 403, false when it is accepted,
+ * and null when the answer says nothing either way (rate limited, the API down, no network).
+ * A connection is only ever revoked on true.
+ */
+export async function apiTokenRefused(
+  apiBase: string,
+  token: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean | null> {
+  try {
+    const response = await fetchImpl(`${apiBase}/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (response.status === 401 || response.status === 403) return true
+    return response.ok ? false : null
+  } catch {
+    return null
+  }
+}
+
 export async function apiTokenOwner(
   apiBase: string,
   token: string,

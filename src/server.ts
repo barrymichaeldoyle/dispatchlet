@@ -4,6 +4,7 @@ import handler from '@tanstack/react-start/server-entry'
 import { bearerApiToken, handleMcp, mcpUnauthorized } from './lib/mcp/handler'
 import {
   apiTokenOwner,
+  apiTokenRefused,
   consentUrl,
   grantScope,
   OAUTH_SCOPES,
@@ -149,7 +150,11 @@ const CHECK_FOR_MS = 60_000
 async function tokenStillWorks(token: string): Promise<boolean> {
   const hit = checked.get(token)
   if (hit && Date.now() - hit.at < CHECK_FOR_MS) return hit.ok
-  const ok = (await apiTokenOwner(API_BASE, token)) !== null
+  const refused = await apiTokenRefused(API_BASE, token)
+  // Rate limited or the API down: let the request through (the API will check the token itself)
+  // and ask again next time. Only a real refusal may revoke the connection.
+  if (refused === null) return true
+  const ok = !refused
   checked.set(token, { ok, at: Date.now() })
   if (checked.size > 500) checked.delete(checked.keys().next().value!)
   return ok
@@ -270,7 +275,11 @@ export default Sentry.withSentry(
         delete event.request.cookies
         delete event.request.data
         delete event.request.query_string
-        if (event.request.url) event.request.url = event.request.url.split(/[?#]/)[0]
+        // A hook's URL is its secret: keep the path's shape, drop the token.
+        if (event.request.url)
+          event.request.url = event.request.url
+            .split(/[?#]/)[0]
+            .replace(/\/hooks\/dlh_[^/]+/, '/hooks/[token]')
       }
       return event
     },

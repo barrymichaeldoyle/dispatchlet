@@ -21,7 +21,11 @@ const ERRORS: [string, string, string][] = [
     'invalid',
     'The body or query is wrong; `field` names which part, `line` for a playbook.',
   ],
-  ['409', 'conflict', 'A run is already going for that automation.'],
+  [
+    '409',
+    'conflict',
+    'A run is already going for that automation, or you are at a limit on how many you may have.',
+  ],
   ['402', 'allowance', 'No free runs left. Add your own Anthropic key in settings.'],
   [
     '429',
@@ -34,7 +38,7 @@ const ERRORS: [string, string, string][] = [
 
 function ApiDocs() {
   return (
-    <LegalPage title="The Dispatchlet API" updated="29 Oct 2026">
+    <LegalPage title="The Dispatchlet API" updated="13 Nov 2026">
       <p>
         Everything you can do in the app, over HTTPS with JSON. Base URL{' '}
         <code>https://dispatchlet.com/api/v1</code>. The machine-readable version is{' '}

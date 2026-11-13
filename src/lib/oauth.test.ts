@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
   apiTokenOwner,
+  apiTokenRefused,
   consentUrl,
   grantScope,
   grantedScopes,
   providerOrigin,
   requestedWrite,
 } from './oauth'
+
+const status = (s: number) =>
+  (async () => new Response('{}', { status: s })) as unknown as typeof fetch
 
 describe('OAuth helpers', () => {
   it('runs the provider only on dispatchlet.com and localhost', () => {
@@ -58,5 +62,17 @@ describe('OAuth helpers', () => {
     const no = (async () => new Response('{}', { status: 401 })) as unknown as typeof fetch
     expect(await apiTokenOwner('https://x/v1', 'dl_a', ok)).toEqual({ userId: 'u1', write: false })
     expect(await apiTokenOwner('https://x/v1', 'dl_a', no)).toBeNull()
+  })
+
+  it('only calls a token refused when the API says so, not when it is busy or down', async () => {
+    const down = (async () => {
+      throw new TypeError('fetch failed')
+    }) as unknown as typeof fetch
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', status(200))).toBe(false)
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', status(401))).toBe(true)
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', status(403))).toBe(true)
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', status(429))).toBeNull()
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', status(503))).toBeNull()
+    expect(await apiTokenRefused('https://x/v1', 'dl_a', down)).toBeNull()
   })
 })
