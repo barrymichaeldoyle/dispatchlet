@@ -433,38 +433,21 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
         </section>
       ) : null}
       <div className="app-delete">
-        {confirmDelete ? (
-          <>
-            <p>
-              Delete this automation? It stops the schedule and removes it from your list. Posts
-              already in Buffer stay there.
-            </p>
-            <div className="app-gate-actions">
-              <button
-                type="button"
-                className="app-gate-danger"
-                disabled={busy !== null}
-                onClick={() =>
-                  act('delete', () => remove({ id }).then(() => navigate({ to: '/app' })))
-                }
-              >
-                Delete it
-              </button>
-              <button
-                type="button"
-                className="app-gate-secondary"
-                onClick={() => setConfirmDelete(false)}
-              >
-                Keep it
-              </button>
-            </div>
-          </>
-        ) : (
-          <button type="button" className="app-link" onClick={() => setConfirmDelete(true)}>
-            Delete automation
-          </button>
-        )}
+        <button type="button" className="app-link" onClick={() => setConfirmDelete(true)}>
+          Delete automation
+        </button>
       </div>
+      {confirmDelete ? (
+        <DeleteAutomationDialog
+          deleting={busy === 'delete'}
+          error={error}
+          onKeep={() => {
+            setConfirmDelete(false)
+            setError(null)
+          }}
+          onDelete={() => act('delete', () => remove({ id }).then(() => navigate({ to: '/app' })))}
+        />
+      ) : null}
     </>
   )
 }
@@ -873,6 +856,70 @@ function PlaybookSection({
       </summary>
       <div className="app-playbook-section-fields">{children}</div>
     </details>
+  )
+}
+
+/** Confirms a delete in a modal, so the choice sits in view wherever the page was scrolled. */
+function DeleteAutomationDialog({
+  deleting,
+  error,
+  onKeep,
+  onDelete,
+}: {
+  deleting: boolean
+  error: string | null
+  onKeep: () => void
+  onDelete: () => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  const titleId = useId()
+  const descriptionId = useId()
+  useEffect(() => {
+    const element = dialog.current!
+    element.showModal()
+    return () => element.close()
+  }, [])
+  return (
+    <dialog
+      ref={dialog}
+      className="app-leave-dialog"
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      onCancel={(event) => {
+        event.preventDefault()
+        if (!deleting) onKeep()
+      }}
+    >
+      <h2 id={titleId}>Delete this automation?</h2>
+      <p id={descriptionId}>
+        It stops the schedule and removes it from your list. Posts already in Buffer stay there.
+      </p>
+      {error ? (
+        <p className="app-connection-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="app-gate-actions">
+        <button
+          type="button"
+          className="app-gate-secondary"
+          autoFocus
+          disabled={deleting}
+          onClick={onKeep}
+        >
+          Keep it
+        </button>
+        <button
+          type="button"
+          className="app-gate-danger"
+          disabled={deleting}
+          aria-busy={deleting}
+          onClick={onDelete}
+        >
+          <BusyLabel busy={deleting} idle="Delete it" working="Deleting" />
+        </button>
+      </div>
+    </dialog>
   )
 }
 

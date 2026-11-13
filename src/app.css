@@ -967,17 +967,13 @@
   max-width: 64ch;
 }
 
-/* Deleting is rare: a quiet link at the foot of the page, with the warning only once asked. */
+/* Deleting is rare: a quiet link at the foot of the page, confirmed in a modal. */
 .app-delete {
   display: grid;
   gap: 12px;
   margin-top: 48px;
   padding-top: 20px;
   border-top: 1px solid var(--color-rule);
-}
-
-.app-delete p {
-  margin: 0;
 }
 
 .app-delete > .app-link {
@@ -1463,6 +1459,12 @@
   justify-content: flex-end;
 }
 
+.app-leave-dialog .app-connection-error {
+  margin-top: -12px;
+  font-size: 14px;
+  color: var(--color-danger);
+}
+
 /* The setup examples: wider than a confirm, scrolling inside when the list is long. */
 .setup-ideas {
   width: min(680px, calc(100% - 32px));
@@ -1473,7 +1475,8 @@
 }
 
 .app-leave-dialog .app-gate-primary,
-.app-leave-dialog .app-gate-secondary {
+.app-leave-dialog .app-gate-secondary,
+.app-leave-dialog .app-gate-danger {
   border-radius: var(--radius-control);
   padding-inline: 12px;
 }
