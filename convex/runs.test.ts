@@ -559,6 +559,18 @@ describe('when the status poll asks Buffer about a post', () => {
     expect(dueForCheck(checked, due + 66 * MIN).check).toBe(true)
   })
 
+  it('backs off to every 6 hours once a post is a day past due and still not sent', async () => {
+    const { dueForCheck } = await import('./status')
+    const due = Date.parse('2026-11-10T08:00:00Z')
+    const now = due + 30 * HOUR
+    const post = { status: 'scheduled', dueAt: due }
+    expect(dueForCheck({ ...post, statusCheckedAt: now - 2 * HOUR }, now).check).toBe(false)
+    expect(dueForCheck({ ...post, statusCheckedAt: now - 6 * HOUR }, now)).toEqual({
+      check: true,
+      urgent: false,
+    })
+  })
+
   it('checks a draft every 6 hours and a post not yet due once a day', async () => {
     const { dueForCheck } = await import('./status')
     const now = Date.parse('2026-11-10T12:00:00Z')

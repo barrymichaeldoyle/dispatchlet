@@ -39,6 +39,10 @@ export function dueForCheck(
     return { check: now - last >= 24 * HOUR, urgent: false }
   // Due, or in the queue without a known time: the first check after it is due, then hourly.
   const firstAfterDue = due !== undefined && last < due + AFTER_DUE
+  // A day past due and still not sent (a paused queue, a post stuck in Buffer): every 6 hours, so
+  // one stuck post does not spend most of the person's daily share of Buffer calls.
+  if (!firstAfterDue && due !== undefined && now > due + 24 * HOUR)
+    return { check: now - last >= 6 * HOUR - MINUTE, urgent: false }
   return { check: firstAfterDue || now - last >= HOUR - MINUTE, urgent: true }
 }
 
