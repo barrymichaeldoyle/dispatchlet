@@ -976,4 +976,13 @@ describe('tokens behind OAuth connections', () => {
       fromAppError(new Error('Twenty webhooks is the limit. Delete one first.')),
     ).toMatchObject({ status: 409, code: 'conflict' })
   })
+
+  it('an account off the allowlist is forbidden, not a server error', async () => {
+    const { fromAppError } = await import('./api/http')
+    expect(
+      fromAppError(
+        new Error('This account is not allowed into Dispatchlet yet, so it cannot run.'),
+      ),
+    ).toMatchObject({ status: 403, code: 'forbidden' })
+  })
 })

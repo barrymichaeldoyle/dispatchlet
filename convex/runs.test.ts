@@ -905,7 +905,7 @@ describe('the approve link in the digest email', () => {
     const res = await t.fetch(`/approve?token=${encodeURIComponent(link)}`)
     expect(res.status).toBe(200)
     const html = await res.text()
-    expect(html).toContain('Approve and add to the queue')
+    expect(html).toContain('Approve and schedule')
     expect(html).toContain('Lions &lt;b&gt;back&lt;/b&gt; in Kunene')
     expect(html).toContain('method="post"')
     expect(html).toContain('b.disabled=true')
@@ -1418,6 +1418,32 @@ describe('posts a run left behind', () => {
     expect(await t.run((ctx) => ctx.db.get(postId))).toMatchObject({
       status: 'skipped',
       reason: expect.stringMatching(/paused/),
+    })
+  })
+
+  it('held posts for a story skipped on the run page stay out of Buffer', async () => {
+    const t = convexTest(schema, modules)
+    const { userId, automationId } = await seed(t)
+    const runId = await run(t, userId, automationId, 'now')
+    const storyId = await storyFor(t, automationId, runId)
+    const postId = await t.run((ctx) =>
+      ctx.db.insert('posts', {
+        userId,
+        automationId,
+        runId,
+        storyId,
+        channelId: 'c1',
+        service: 'twitter',
+        text: 'x',
+        status: 'held',
+        reviewSkipped: true,
+        createdAt: Date.now(),
+      }),
+    )
+    await t.action(internal.runs.sendHeld, { runId })
+    expect(await t.run((ctx) => ctx.db.get(postId))).toMatchObject({
+      status: 'skipped',
+      reason: expect.stringMatching(/skipped this story/),
     })
   })
 })

@@ -1581,12 +1581,21 @@ export const sendHeld = internalAction({
         })
       return null
     }
+    // A story skipped on the run page while its posts waited: they stay out of Buffer too.
+    for (const post of held.filter((p) => p.reviewSkipped))
+      await ctx.runMutation(internal.runs.markSent, {
+        postId: post._id,
+        status: 'skipped',
+        reason: 'You skipped this story before Buffer could take this post.',
+      })
+    const toSend = held.filter((p) => !p.reviewSkipped)
+    if (!toSend.length) return null
     const tagByOrg = new Map<string, string | null>()
     const atLimit = await channelsAtLimit(ctx, automation.userId, [
-      ...new Set(held.map((p) => p.channelId)),
+      ...new Set(toSend.map((p) => p.channelId)),
     ])
     let dueAt = Date.now() + SPREAD_FIRST_MS
-    for (const post of held) {
+    for (const post of toSend) {
       const row = channels.find((c) => c.channelId === post.channelId)
       if (!row) continue
       if (atLimit.has(post.channelId)) {
