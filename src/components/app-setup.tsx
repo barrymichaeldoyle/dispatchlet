@@ -7,6 +7,7 @@ import { ChannelMark } from './brand-icons'
 import { Avatar } from './nav-icons'
 import { TEMPLATES } from '../../convex/lib/templates'
 import { channelHint, channelProblem, errorText, serviceName } from '../lib/format'
+import { isBackdropClick, useDialogExit } from '../lib/use-dialog-exit'
 import { BusyLabel } from './busy-label'
 
 const WEEKDAYS = [
@@ -603,6 +604,7 @@ type Template = (typeof TEMPLATES)[number]
 function IdeasDialog({ onClose, onPick }: { onClose: () => void; onPick: (t: Template) => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
+  const [closing, close] = useDialogExit()
   useEffect(() => {
     const element = dialog.current!
     element.showModal()
@@ -613,27 +615,37 @@ function IdeasDialog({ onClose, onPick }: { onClose: () => void; onPick: (t: Tem
       ref={dialog}
       className="app-leave-dialog setup-ideas"
       aria-labelledby={titleId}
+      data-closing={closing || undefined}
       onCancel={(event) => {
         event.preventDefault()
-        onClose()
+        close(onClose)
       }}
       onClick={(event) => {
-        // A click on the backdrop lands on the dialog itself.
-        if (event.target === event.currentTarget) onClose()
+        if (isBackdropClick(event)) close(onClose)
       }}
     >
       <h2 id={titleId}>Ideas to start from</h2>
       <p>Pick one to fill in the answers. You can change any of them after.</p>
       <div className="setup-templates">
         {TEMPLATES.map((t) => (
-          <button key={t.id} type="button" className="setup-template" onClick={() => onPick(t)}>
+          <button
+            key={t.id}
+            type="button"
+            className="setup-template"
+            onClick={() => close(() => onPick(t))}
+          >
             <strong>{t.name}</strong>
             <span>{t.line}</span>
           </button>
         ))}
       </div>
       <div className="app-gate-actions">
-        <button type="button" className="app-gate-secondary" autoFocus onClick={onClose}>
+        <button
+          type="button"
+          className="app-gate-secondary"
+          autoFocus
+          onClick={() => close(onClose)}
+        >
           Close
         </button>
       </div>

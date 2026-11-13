@@ -14,6 +14,7 @@ import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 import { errorText } from '../lib/format'
 import { BusyLabel } from './busy-label'
+import { useDialogExit } from '../lib/use-dialog-exit'
 
 type Category = 'bug' | 'idea' | 'general'
 
@@ -89,6 +90,8 @@ function FeedbackDialog({ prefill, onClose }: { prefill: FeedbackPrefill; onClos
   const titleId = useId()
   const messageId = useId()
   const countId = useId()
+  const [closing, exit] = useDialogExit()
+  const close = () => exit(onClose)
   const [category, setCategory] = useState<Category>(prefill.category ?? 'general')
   const [message, setMessage] = useState(prefill.message ?? '')
   const [includeAutomation, setIncludeAutomation] = useState(Boolean(prefill.assistant))
@@ -133,10 +136,11 @@ function FeedbackDialog({ prefill, onClose }: { prefill: FeedbackPrefill; onClos
     <dialog
       ref={dialog}
       className="app-leave-dialog app-feedback-dialog"
+      data-closing={closing || undefined}
       aria-labelledby={titleId}
       onCancel={(event) => {
         event.preventDefault()
-        if (state !== 'sending') onClose()
+        if (state !== 'sending') close()
       }}
     >
       {state === 'sent' && receipt ? (
@@ -149,7 +153,7 @@ function FeedbackDialog({ prefill, onClose }: { prefill: FeedbackPrefill; onClos
             Reference <span className="tabular">{receipt.id.slice(-8)}</span>.
           </p>
           <div className="app-gate-actions">
-            <button type="button" className="app-gate-primary" autoFocus onClick={onClose}>
+            <button type="button" className="app-gate-primary" autoFocus onClick={close}>
               Close
             </button>
           </div>
@@ -239,7 +243,7 @@ function FeedbackDialog({ prefill, onClose }: { prefill: FeedbackPrefill; onClos
               type="button"
               className="app-gate-secondary"
               disabled={state === 'sending'}
-              onClick={onClose}
+              onClick={close}
             >
               Cancel
             </button>

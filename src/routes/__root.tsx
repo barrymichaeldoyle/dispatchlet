@@ -125,7 +125,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
         {/* Written here, not in head(): the router keeps one meta per name, which dropped one. */}
         <meta name="theme-color" content="#f4f4f1" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#161616" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#121614" media="(prefers-color-scheme: dark)" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Dispatchlet" />
         <meta name="mobile-web-app-capable" content="yes" />

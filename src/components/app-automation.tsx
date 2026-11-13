@@ -23,6 +23,7 @@ import {
 import { AutomationAssistant } from './automation-chat'
 import { BusyLabel } from './busy-label'
 import { ConfirmDialog } from './confirm-dialog'
+import { useDialogExit } from '../lib/use-dialog-exit'
 import {
   playbookFieldAtLine,
   validatePlaybookForm,
@@ -882,6 +883,7 @@ function PlaybookLeaveDialog({
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const descriptionId = useId()
+  const [closing, close] = useDialogExit()
   useEffect(() => {
     const element = dialog.current!
     element.showModal()
@@ -893,9 +895,10 @@ function PlaybookLeaveDialog({
       className="app-leave-dialog"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      data-closing={closing || undefined}
       onCancel={(event) => {
         event.preventDefault()
-        onKeepEditing()
+        close(onKeepEditing)
       }}
     >
       <h2 id={titleId}>Save your changes?</h2>
@@ -903,7 +906,12 @@ function PlaybookLeaveDialog({
         You have unsaved playbook edits. Save them before continuing, or discard them.
       </p>
       <div className="app-gate-actions">
-        <button type="button" className="app-gate-secondary" autoFocus onClick={onKeepEditing}>
+        <button
+          type="button"
+          className="app-gate-secondary"
+          autoFocus
+          onClick={() => close(onKeepEditing)}
+        >
           Keep editing
         </button>
         <button type="button" className="app-gate-secondary" disabled={saving} onClick={onDiscard}>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { isBackdropClick, useDialogExit } from '../lib/use-dialog-exit'
 import { BusyLabel } from './busy-label'
 
 /**
@@ -32,6 +33,10 @@ export function ConfirmDialog({
   const dialog = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   const descriptionId = useId()
+  const [closing, close] = useDialogExit()
+  const cancel = () => {
+    if (!busy) close(onCancel)
+  }
   useEffect(() => {
     const element = dialog.current!
     element.showModal()
@@ -43,9 +48,13 @@ export function ConfirmDialog({
       className="app-leave-dialog"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      data-closing={closing || undefined}
       onCancel={(event) => {
         event.preventDefault()
-        if (!busy) onCancel()
+        cancel()
+      }}
+      onClick={(event) => {
+        if (isBackdropClick(event)) cancel()
       }}
     >
       <h2 id={titleId}>{title}</h2>
@@ -61,7 +70,7 @@ export function ConfirmDialog({
           className="app-gate-secondary"
           autoFocus
           disabled={busy}
-          onClick={onCancel}
+          onClick={cancel}
         >
           {cancelLabel}
         </button>

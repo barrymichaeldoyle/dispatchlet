@@ -11,7 +11,7 @@ export const THEME_SCRIPT = `(() => {
     if (theme === 'light' || theme === 'dark') {
       document.documentElement.dataset.theme = theme;
       document.querySelectorAll('meta[name="theme-color"]').forEach(meta => {
-        meta.content = theme === 'dark' ? '#161616' : '#f4f4f1';
+        meta.content = theme === 'dark' ? '#121614' : '#f4f4f1';
       });
     }
   } catch {}
@@ -66,7 +66,7 @@ export function subscribeTheme(onChange: () => void): () => void {
 }
 
 function updateBrowserTheme() {
-  const color = getTheme() === 'dark' ? '#161616' : '#f4f4f1'
+  const color = getTheme() === 'dark' ? '#121614' : '#f4f4f1'
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
     meta.content = color
   }

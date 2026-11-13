@@ -42,16 +42,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-paper: #161616;
-    --color-ink: #ededea;
-    --color-muted: #9a9a94;
-    --color-rule: #2b2b29;
+    --color-paper: #121614;
+    --color-ink: #ecefec;
+    --color-muted: #98a29d;
+    --color-rule: #28302c;
     --color-pine: #5cc9a8;
-    --color-tint: #1a2a25;
-    --color-on-pine: #161616;
-    --color-card: #1f1f1e;
+    --color-tint: #16302a;
+    --color-on-pine: #121614;
+    --color-card: #1a201d;
     --color-danger: #ff8a7f;
-    --color-on-danger: #161616;
+    --color-on-danger: #121614;
     color-scheme: dark;
   }
 }
@@ -61,16 +61,16 @@
 }
 
 :root[data-theme='dark'] {
-  --color-paper: #161616;
-  --color-ink: #ededea;
-  --color-muted: #9a9a94;
-  --color-rule: #2b2b29;
+  --color-paper: #121614;
+  --color-ink: #ecefec;
+  --color-muted: #98a29d;
+  --color-rule: #28302c;
   --color-pine: #5cc9a8;
-  --color-tint: #1a2a25;
-  --color-on-pine: #161616;
-  --color-card: #1f1f1e;
+  --color-tint: #16302a;
+  --color-on-pine: #121614;
+  --color-card: #1a201d;
   --color-danger: #ff8a7f;
-  --color-on-danger: #161616;
+  --color-on-danger: #121614;
   color-scheme: dark;
 }
 

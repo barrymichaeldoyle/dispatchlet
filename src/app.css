@@ -319,7 +319,17 @@
 
 .app-gate-danger:disabled {
   opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Working keeps the full colour, like the primary button; only the label changes. */
+.app-gate-danger:disabled:has(.busy-label[data-busy='true']) {
+  opacity: 1;
   cursor: progress;
+}
+
+.app-gate-danger:hover:not(:disabled) {
+  filter: brightness(1.08);
 }
 
 /* App screens: automations, setup, the playbook editor and the run log (SPEC §23). */
@@ -1440,6 +1450,49 @@
 
 .app-leave-dialog::backdrop {
   background: rgb(0 0 0 / 0.45);
+}
+
+/* Dialogs rise in and fade out, quicker out than in; useDialogExit waits out the 120ms exit. */
+@media (prefers-reduced-motion: no-preference) {
+  .app-leave-dialog[open] {
+    animation: app-dialog-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .app-leave-dialog[open]::backdrop {
+    animation: app-dialog-fade-in 180ms ease-out;
+  }
+  .app-leave-dialog[data-closing] {
+    animation: app-dialog-out 120ms ease-in forwards;
+    pointer-events: none;
+  }
+  .app-leave-dialog[data-closing]::backdrop {
+    animation: app-dialog-fade-out 120ms ease-in forwards;
+  }
+}
+
+@keyframes app-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes app-dialog-out {
+  to {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+
+@keyframes app-dialog-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes app-dialog-fade-out {
+  to {
+    opacity: 0;
+  }
 }
 
 .app-leave-dialog h2 {
