@@ -1,7 +1,8 @@
 import { BrandText, BufferWordmarkSymbol } from '../components/brand-text'
+import { SigningInLoader } from '../components/signing-in'
 import { Wordmark } from '../components/wordmark'
 import { HeadContent, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
@@ -50,22 +51,42 @@ export const Route = createRootRoute({
   ),
 })
 
+const APP_PATH = /^\/app(\/|$)/
+
 /** Pages that render only in the browser, and what the server shows until their script runs. */
 const CLIENT_ONLY: [RegExp, string][] = [
-  // The server can't tell a signed-in visitor from a signed-out one, so it claims neither.
-  [/^\/app(\/|$)/, 'Opening Dispatchlet'],
+  // The app opens on its signing-in loader for anyone signed in or on their way to Buffer, so
+  // the server sends that loader; only a signed-out visitor sees the sign-in page come in after.
+  [APP_PATH, 'Signing you in'],
   [/^\/oauth\/consent/, 'One moment'],
   [/^\/r\//, 'Opening the run'],
 ]
 
 /**
  * A client-only page sends an empty body from the server, a blank screen until the script runs.
- * This sends a placeholder instead and removes it once the page has mounted in the browser. It
- * is rendered the same on the server and on the first browser render, so hydration matches.
+ * This sends a placeholder instead and removes it once the page has mounted in the browser and
+ * the router has loaded it; between the two the page is still empty, so dropping the placeholder
+ * on mount alone left a blank flash. It is rendered the same on the server and on the first
+ * browser render, so hydration matches, and once gone it stays gone, so later page changes,
+ * which also wait on the router, don't bring it back.
  * (A route pendingComponent did this before, and could leave the router pending for good when
  * several pages loaded at once.)
  */
 const noSubscription = () => () => {}
+
+/** Whether the first page has loaded in this tab, kept outside React so it outlives remounts. */
+let booted = false
+const bootListeners = new Set<() => void>()
+const isBooted = () => booted
+const subscribeBoot = (listener: () => void) => {
+  bootListeners.add(listener)
+  return () => bootListeners.delete(listener)
+}
+function markBooted() {
+  if (booted) return
+  booted = true
+  for (const listener of bootListeners) listener()
+}
 
 function BootPlaceholder() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
@@ -75,7 +96,13 @@ function BootPlaceholder() {
     () => true,
     () => false,
   )
-  if (mounted) return null
+  const loading = useRouterState({ select: (s) => s.status === 'pending' })
+  const done = useSyncExternalStore(subscribeBoot, isBooted, () => false)
+  const showing = !done && (!mounted || loading)
+  useEffect(() => {
+    if (!showing) markBooted()
+  }, [showing])
+  if (!showing) return null
   const title = CLIENT_ONLY.find(([pattern]) => pattern.test(pathname))?.[1]
   if (!title) return null
   return (
@@ -85,6 +112,7 @@ function BootPlaceholder() {
           <Wordmark size="md" />
         </span>
         <h1>{title}</h1>
+        {APP_PATH.test(pathname) ? <SigningInLoader /> : null}
       </div>
     </div>
   )

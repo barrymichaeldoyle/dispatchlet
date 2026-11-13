@@ -12,6 +12,7 @@ import { registerServiceWorker } from '../lib/service-worker'
 import { BusyLabel } from './busy-label'
 import { setLeaving, useLeaving } from '../lib/leaving'
 import { FeedbackProvider, SendFeedbackButton } from './feedback'
+import { SigningInLoader } from './signing-in'
 
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string | undefined
 const convex = CONVEX_URL ? new ConvexReactClient(CONVEX_URL) : null
@@ -103,82 +104,11 @@ function Screen({ title, children }: { title: string; children?: React.ReactNode
 const ARRIVING = ['Checking with Buffer.', 'Reading your account.', 'Opening Dispatchlet.']
 const LEAVING = ['Opening Buffer.']
 
-/**
- * The mark dispatches small arrows while sign-in finishes, and the line under it says which part
- * is running. Clicking the mark sends one more. With reduced motion the arrows stay put.
- */
 function SigningIn({ steps = ARRIVING }: { steps?: string[] }) {
-  const [step, setStep] = useState(0)
-  const [shots, setShots] = useState<number[]>([])
-  const nextShot = useRef(0)
-  useEffect(() => {
-    const timer = window.setInterval(
-      () => setStep((value) => Math.min(value + 1, steps.length - 1)),
-      1100,
-    )
-    return () => window.clearInterval(timer)
-  }, [steps])
-  const dispatch = () => {
-    const id = nextShot.current++
-    setShots((value) => [...value, id])
-  }
   return (
     <Screen title="Signing you in">
-      <div className="signin-dispatch" aria-hidden="true" onPointerDown={dispatch}>
-        <svg className="signin-mark" width="56" height="56" viewBox="0 0 24 24">
-          <path
-            fillRule="evenodd"
-            d="M3 3h11l7 9-7 9H3zM6.5 6.5v11h5.8l4.3-5.5-4.3-5.5z"
-            fill="var(--color-pine)"
-          />
-        </svg>
-        <div className="signin-lane">
-          {[0, 1, 2].map((index) => (
-            <Arrow key={index} className="is-loop" delay={index * 0.5} />
-          ))}
-          {shots.map((id) => (
-            <Arrow
-              key={`shot-${id}`}
-              className="is-shot"
-              onDone={() => setShots((value) => value.filter((shot) => shot !== id))}
-            />
-          ))}
-        </div>
-        <span className="signin-buffer">
-          <BufferMark size={22} />
-        </span>
-      </div>
-      <p className="signin-steps" aria-live="polite">
-        {steps.map((text, index) => (
-          <span key={text} data-active={index === step} aria-hidden={index !== step}>
-            {text}
-          </span>
-        ))}
-      </p>
+      <SigningInLoader steps={steps} pickUp />
     </Screen>
-  )
-}
-
-function Arrow({
-  className,
-  delay = 0,
-  onDone,
-}: {
-  className: string
-  delay?: number
-  onDone?: () => void
-}) {
-  return (
-    <svg
-      className={`signin-arrow ${className}`}
-      width="14"
-      height="16"
-      viewBox="0 0 14 16"
-      style={{ animationDelay: `${delay}s` }}
-      onAnimationEnd={onDone}
-    >
-      <path d="M1 1h6l5 7-5 7H1z" fill="var(--color-pine)" />
-    </svg>
   )
 }
 

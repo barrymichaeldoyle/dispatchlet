@@ -101,6 +101,13 @@
   opacity: 1;
 }
 
+/* The server's placeholder shows the loader without a step, so the first one fades in. */
+@starting-style {
+  .signin-steps > span[data-active='true'] {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .signin-arrow,
   .signin-arrow.is-shot {
