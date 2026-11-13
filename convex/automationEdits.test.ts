@@ -303,6 +303,10 @@ describe('reviewed automation changes', () => {
       id: editId,
       baseRevision: 2,
     })
+    // Asking again, as after closing and reopening the panel, gives the same proposal.
+    expect(
+      await user.mutation(api.automationEdits.proposeUndo, { id: editId, baseRevision: 2 }),
+    ).toBe(undo)
     await user.mutation(api.automationEdits.apply, { id: undo })
     const restored = (await t.run((ctx) => ctx.db.get(id)))!
     expect(restored).toMatchObject({ cadence, status: 'active', configurationRevision: 3 })

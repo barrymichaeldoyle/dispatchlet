@@ -341,6 +341,17 @@ export const proposeUndo = mutation({
     if (edit.status !== 'applied') throw new Error('Only applied changes can be undone.')
     if (a.timezone !== edit.before.timezone)
       throw new Error('The time zone changed. Create a new proposal in the current time zone.')
+    // Asking twice (the panel was closed and opened again) returns the undo already waiting,
+    // rather than a second proposal for the same change.
+    const waiting = (
+      await ctx.db
+        .query('automationEdits')
+        .withIndex('by_automation', (q) => q.eq('automationId', a._id))
+        .collect()
+    ).find(
+      (e) => e.restoresEditId === id && e.status === 'proposed' && e.baseRevision === baseRevision,
+    )
+    if (waiting) return waiting._id
     const { text, timezone: _, ...changes } = edit.before
     return await prepareAutomationEdit(ctx, a, baseRevision, changes, text, id)
   },
