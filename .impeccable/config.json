@@ -1,0 +1,15 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "tight-leading",
+        "value": "*",
+        "files": ["scripts/og/og.html"],
+        "createdAt": "2026-11-13T18:18:51.956Z",
+        "reason": "Claude decided: OG image has only display type (56px headline at 1.06, matching the site hero) and a single nowrap 13px strip; no wrapping body text"
+      }
+    ]
+  }
+}
