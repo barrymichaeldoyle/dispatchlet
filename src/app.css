@@ -4469,3 +4469,50 @@ a.app-week-count:hover {
     display: none;
   }
 }
+
+/*
+ * Automation page audit, 14 Nov: fewer rules. The figures sit between one rule above and one
+ * below, separated by space rather than vertical lines; the tabs' own rule opens the tab, so the
+ * section under it draws none; a saved playbook has no bar to stick; Delete reads left like text.
+ */
+.app-gate .app-stats {
+  column-gap: 32px;
+}
+.app-gate .app-stats > div,
+.app-gate .app-stats > div + div {
+  padding: 16px 0;
+  border-right: 0;
+}
+@container app-main (max-width: 700px) {
+  .app-gate .app-stats {
+    column-gap: 24px;
+    padding-block: 4px;
+  }
+  .app-gate .app-stats > div,
+  .app-gate .app-stats > div + div,
+  .app-gate .app-stats > div:nth-child(odd):not(:last-child) {
+    padding: 12px 0;
+    border-right: 0;
+    border-bottom: 0;
+  }
+}
+.app-gate .app-stats-note a {
+  white-space: nowrap;
+}
+.app-gate .app-allowance {
+  max-width: 64ch;
+  text-wrap: pretty;
+}
+.app-gate .app-tabs + .app-section {
+  padding-top: 8px;
+  border-top: 0;
+}
+.app-playbook > .app-playbook-save[data-dirty='false'] {
+  position: static;
+  padding-block: 8px 0;
+  border-top: 0;
+}
+.app-delete {
+  justify-items: start;
+  margin-top: 32px;
+}

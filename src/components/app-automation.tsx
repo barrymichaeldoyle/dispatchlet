@@ -202,7 +202,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             <dd className="is-when" data-text={!(a.status === 'active' && a.nextRunAt)}>
               {a.status === 'active' && a.nextRunAt
                 ? relativeWhen(a.nextRunAt, a.timezone)
-                : status}
+                : status.charAt(0).toUpperCase() + status.slice(1)}
             </dd>
           </div>
           <div>
@@ -225,6 +225,15 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
                 </>
               )}
             </dd>
+            {allowance && !allowance.ownKey ? (
+              <dd className="app-stats-note">
+                {allowance.dryRunsLeft} dry {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
+                <Link to="/app/settings" hash="anthropic">
+                  Add your key
+                </Link>{' '}
+                for no limit.
+              </dd>
+            ) : null}
           </div>
         </dl>
       ) : null}
@@ -311,8 +320,6 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
               </button>
             </div>
           </div>
-        ) : a.status === 'ready' ? (
-          <p className="app-muted">Try a dry run, or turn it on.</p>
         ) : null}
       </div>
       {a.failingSources.map((f) => (
@@ -323,12 +330,15 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           The playbook could not be written. {a.generationError}
         </p>
       ) : null}
-      {allowance && !allowance.ownKey ? (
-        <p className="app-muted">
+      {allowance && !allowance.ownKey && !showStats ? (
+        <p className="app-muted app-allowance">
           Dispatchlet covers your free runs. {allowance.runsLeft} free{' '}
           {allowance.runsLeft === 1 ? 'run' : 'runs'} and {allowance.dryRunsLeft} dry{' '}
           {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
-          <Link to="/app/settings">Add your own Anthropic key</Link> to lift the limit.
+          <Link to="/app/settings" hash="anthropic">
+            Add your own Anthropic key
+          </Link>{' '}
+          to lift the limit.
         </p>
       ) : null}
       {error ? (
@@ -374,6 +384,8 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             params={{ id }}
             search={t === 'playbook' ? {} : { tab: t }}
             aria-current={tab === t ? 'page' : undefined}
+            // Exact, search included: the playbook's empty search is otherwise a subset of ?tab=runs.
+            activeOptions={{ exact: true }}
             activeProps={{}}
             onClick={(event) => {
               if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
