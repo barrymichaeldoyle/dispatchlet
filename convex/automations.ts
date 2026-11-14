@@ -781,7 +781,10 @@ export const dashboard = query({
     return {
       automations,
       drafts,
-      postsThisWeek: recentPosts.filter((p) => p.bufferPostId).length,
+      // Same posts as Recent posts lists: none from a deleted automation, so the two agree.
+      postsThisWeek: recentPosts.filter(
+        (p) => p.bufferPostId && automationNames.has(p.automationId),
+      ).length,
       nextRunAt: active.length ? Math.min(...active.map((a) => a.nextRunAt!)) : null,
       nextRunName: active.length
         ? active.reduce((a, b) => (b.nextRunAt! < a.nextRunAt! ? b : a)).name

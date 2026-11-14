@@ -238,6 +238,8 @@ describe('the home page’s Up next and recent posts', () => {
     expect(data?.recent).toHaveLength(5)
     expect(data?.recent.every((p) => p.automationName === 'F1')).toBe(true)
     expect(data?.recent[0]?.createdAt).toBe(NOW - HOUR)
+    // The count agrees with the list: the deleted automation's post is in neither.
+    expect(data?.postsThisWeek).toBe(7)
   })
 })
 
