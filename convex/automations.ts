@@ -640,10 +640,14 @@ export const dashboard = query({
       .withIndex('by_user', (q) => q.eq('userId', userId))
       .order('desc')
       .collect()
-    const recentPosts = await ctx.db
-      .query('posts')
-      .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', weekAgo))
-      .collect()
+    // A post the person deleted in Buffer is gone from their feed, so home neither counts nor
+    // lists it; the run page still shows what happened to it.
+    const recentPosts = (
+      await ctx.db
+        .query('posts')
+        .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', weekAgo))
+        .collect()
+    ).filter((p) => p.status !== 'deleted')
     const channels = await ctx.db
       .query('bufferChannels')
       .withIndex('by_user', (q) => q.eq('userId', userId))
@@ -803,7 +807,7 @@ export const performance = query({
         .query('posts')
         .withIndex('by_user_createdAt', (q) => q.eq('userId', userId).gt('createdAt', since))
         .collect()
-    ).filter((p) => p.automationId === id && p.bufferPostId)
+    ).filter((p) => p.automationId === id && p.bufferPostId && p.status !== 'deleted')
     const sent = posts.filter((p) => p.status === 'sent')
     const totals = new Map<string, number>()
     let best: { title: string; value: number; type: string; runId: Id<'runs'> } | null = null

@@ -64,7 +64,7 @@ import {
   writeUserMessage,
 } from './lib/ai/write'
 import { canonicalUrl, duplicateOf } from './lib/dedupe'
-import { hostOfUrl, SOURCE_FAILURES, toolNote, type ToolEvent } from './lib/runLog'
+import { hostOfUrl, limitReason, SOURCE_FAILURES, toolNote, type ToolEvent } from './lib/runLog'
 import { allowanceFor, globalDailyCapUsd } from './lib/limits'
 import {
   datedSlots,
@@ -1033,7 +1033,7 @@ export const execute = internalAction({
             reason:
               plan && storyLimit < automation.maxPostsPerRun
                 ? `Over the ${storyLimit} open posting ${storyLimit === 1 ? 'day' : 'days'} in this week's plan.`
-                : `Over the ${storyLimit} a run you asked for.`,
+                : limitReason(storyLimit),
           })
           continue
         }

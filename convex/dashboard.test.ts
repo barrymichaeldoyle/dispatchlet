@@ -188,6 +188,23 @@ describe('the home page’s Up next and recent posts', () => {
     expect(data?.recent[0]).toMatchObject({ status: 'sent', at: NOW - HOUR })
   })
 
+  it('leaves posts deleted in Buffer out of the count and the recent posts', async () => {
+    const t = convexTest(schema, modules)
+    const userId = await seedUser(t)
+    const automationId = await seedAutomation(t, userId)
+    const runId = await seedRun(t, userId, automationId, { startedAt: NOW - 2 * HOUR })
+    const sent = await seedPost(t, userId, automationId, runId, {
+      status: 'sent',
+      createdAt: NOW - HOUR,
+      sentAt: NOW - HOUR,
+    })
+    await seedPost(t, userId, automationId, runId, { status: 'deleted', createdAt: NOW - HOUR })
+
+    const data = await as(t, userId).query(api.automations.dashboard, {})
+    expect(data?.recent.map((p) => p._id)).toEqual([sent])
+    expect(data?.postsThisWeek).toBe(1)
+  })
+
   it('has no Up next when nothing in Buffer has a time still to come', async () => {
     const t = convexTest(schema, modules)
     const userId = await seedUser(t)

@@ -69,3 +69,8 @@ export function toolNote(e: ToolEvent): string | null {
       return `A ${e.tool === 'web_search' ? 'search' : 'page open'} did not work, so it moved on.`
   }
 }
+
+/** Why a good story was left out because the run already had as many as the person set. */
+export function limitReason(limit: number): string {
+  return `Over your limit of ${limit} ${limit === 1 ? 'story' : 'stories'} a run.`
+}

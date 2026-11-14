@@ -9,7 +9,7 @@ import { BufferMark, ChannelMark } from './brand-icons'
 import { PostText } from './post-text'
 import { Wordmark } from './wordmark'
 import { measuredLength } from '../../convex/lib/ai/write'
-import { toolInput, toolNote } from '../../convex/lib/runLog'
+import { limitReason, toolInput, toolNote } from '../../convex/lib/runLog'
 import type { Service } from '../../convex/lib/ai/setup'
 import {
   bufferChannelUrl,
@@ -422,6 +422,7 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
   const booked = count('queued', 'scheduled', 'publishing')
   const held = count('held')
   const wouldSend = count('dry')
+  const deleted = count('deleted')
   const lastNote = run.steps.at(-1)?.note ?? ''
 
   let headline: string
@@ -450,10 +451,14 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
       .join(', ')
       .concat('.')
   else if (held) headline = `${plural(held, 'post')} waiting for Buffer.`
+  else if (deleted)
+    headline = `${plural(deleted, 'post')} reached Buffer, then ${deleted === 1 ? 'was' : 'were'} deleted there.`
   else if (kept) headline = 'No posts reached Buffer.'
   else headline = found ? 'Nothing new worth posting this time.' : 'No stories found this time.'
   if (!live && run.status === 'done' && held && (drafts || booked || sent))
     detail = `${plural(held, 'more post')} waiting for Buffer to accept them.`
+  else if (!live && run.status === 'done' && deleted && (drafts || booked || sent || held))
+    detail = `${plural(deleted, 'more post')} ${deleted === 1 ? 'was' : 'were'} deleted in Buffer.`
 
   const facts = [
     found
@@ -559,6 +564,8 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
 function postWhen(post: RunData['posts'][number], tz: string): string {
   const words = POST_WORDS[post.status] ?? post.status
   const status = words.charAt(0).toUpperCase() + words.slice(1)
+  // Its old time ("for today, 08:01") no longer means anything once it is gone from Buffer.
+  if (post.status === 'deleted') return status
   if (post.status === 'sent') {
     const at = post.dueAt ?? post.sentAt
     return at ? `${status} ${relativeWhenInline(at, tz)}` : status
@@ -618,7 +625,9 @@ function PostCard({
             .join(', ')}
         </p>
       ) : null}
-      {post.reason ? <p className="run-post-reason">{post.reason}</p> : null}
+      {post.reason && !(post.status === 'deleted' && /^Deleted in Buffer\.?$/.test(post.reason)) ? (
+        <p className="run-post-reason">{post.reason}</p>
+      ) : null}
       {story?.review && post.bufferPostId ? (
         <p className="app-muted">Skipped in Dispatchlet. Its status in Buffer is unchanged.</p>
       ) : null}
@@ -658,7 +667,7 @@ function PostCard({
             See it live
           </a>
         ) : null}
-        {post.bufferPostId && !shared ? (
+        {post.bufferPostId && !shared && post.status !== 'deleted' ? (
           <a
             href={bufferChannelUrl(post.channelId, post.status, post.bufferPostId)}
             target="_blank"
@@ -866,7 +875,9 @@ function RunView({
                   </a>{' '}
                   <span className="app-muted">{s.source}</span>
                   <p className="app-muted">
-                    {s.repeatOf?.title ? `Same story as “${s.repeatOf.title}”. ` : `${s.reason} `}
+                    {s.repeatOf?.title
+                      ? `Same story as “${s.repeatOf.title}”. `
+                      : `${leftOutReason(s.reason)} `}
                     {s.repeatOf?.runId && id && !shared ? (
                       <Link
                         to="/app/a/$id/runs/$runId"
@@ -890,6 +901,12 @@ function RunView({
       {live ? null : <RunLog run={run} live={false} />}
     </article>
   )
+}
+
+/** Runs before 14 Nov stored "Over the 3 a run you asked for."; they read the way new runs do. */
+function leftOutReason(reason: string): string {
+  const m = /^Over the (\d+) a run you asked for\.$/.exec(reason)
+  return m ? limitReason(Number(m[1])) : reason
 }
 
 /** Log lines about single searches and page reads: shown smaller, as the run's working. */
