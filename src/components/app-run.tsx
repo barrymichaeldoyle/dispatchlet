@@ -19,6 +19,7 @@ import {
   serviceName,
   timeIn,
   relativeWhenInline,
+  runOutcome,
   usd,
   webHref,
 } from '../lib/format'
@@ -434,27 +435,15 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
   } else if (run.status === 'skipped') {
     headline = 'This run was skipped.'
     detail = lastNote
-  } else if (run.kind === 'dry')
-    headline = wouldSend
-      ? `It would send ${plural(wouldSend, 'post')} for ${plural(kept, 'story', 'stories')}.`
-      : kept
-        ? `It kept ${plural(kept, 'story', 'stories')}, but none of the posts passed the checks.`
-        : 'Nothing worth posting this time.'
-  else if (drafts)
-    headline = `${plural(drafts, 'draft')} ${drafts === 1 ? 'is' : 'are'} waiting for your approval.`
-  else if (booked || sent)
-    headline = [
-      booked ? `${plural(booked, 'post')} scheduled in Buffer` : null,
-      sent ? `${plural(sent, 'post')} ${booked ? 'already sent' : 'sent'}` : null,
-    ]
-      .filter(Boolean)
-      .join(', ')
-      .concat('.')
-  else if (held) headline = `${plural(held, 'post')} waiting for Buffer.`
-  else if (deleted)
-    headline = `${plural(deleted, 'post')} reached Buffer, then ${deleted === 1 ? 'was' : 'were'} deleted there.`
-  else if (kept) headline = 'No posts reached Buffer.'
-  else headline = found ? 'Nothing new worth posting this time.' : 'No stories found this time.'
+  } else
+    headline = runOutcome(run.kind, kept, found, {
+      sent,
+      booked,
+      drafts,
+      held,
+      deleted,
+      dry: wouldSend,
+    })
   if (!live && run.status === 'done' && held && (drafts || booked || sent))
     detail = `${plural(held, 'more post')} waiting for Buffer to accept them.`
   else if (!live && run.status === 'done' && deleted && (drafts || booked || sent || held))

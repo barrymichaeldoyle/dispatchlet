@@ -680,7 +680,28 @@ export const dashboard = query({
             .withIndex('by_automation_startedAt', (q) => q.eq('automationId', a._id))
             .order('desc')
             .first())
-        return { a, runsThisWeek, last }
+        // Where the last run's posts are now, so the row says what came of it rather than its
+        // last log line, which goes stale once a post is approved, sent or deleted in Buffer.
+        const lastPosts =
+          last?.finishedAt && last.status === 'done'
+            ? (
+                await ctx.db
+                  .query('posts')
+                  .withIndex('by_run', (q) => q.eq('runId', last._id))
+                  .collect()
+              ).filter((p) => !p.reviewSkipped)
+            : []
+        const has = (...statuses: string[]) =>
+          lastPosts.filter((p) => statuses.includes(p.status)).length
+        const outcome = {
+          sent: has('sent'),
+          booked: has('queued', 'scheduled', 'publishing'),
+          drafts: has('draft'),
+          held: has('held'),
+          deleted: has('deleted'),
+          dry: has('dry'),
+        }
+        return { a, runsThisWeek, last, outcome }
       }),
     )
     const sentBy = new Map<Id<'automations'>, Doc<'posts'>[]>()
@@ -691,7 +712,7 @@ export const dashboard = query({
       else sentBy.set(p.automationId, [p])
     }
     const automations = []
-    for (const { a, runsThisWeek, last } of perAutomation) {
+    for (const { a, runsThisWeek, last, outcome } of perAutomation) {
       const sent = sentBy.get(a._id) ?? []
       automations.push({
         _id: a._id,
@@ -710,6 +731,8 @@ export const dashboard = query({
               note: last.steps.at(-1)?.note ?? '',
               posted: last.posted ?? 0,
               kept: last.kept ?? 0,
+              found: last.found ?? 0,
+              outcome,
             }
           : null,
         postsThisWeek: sent.length,

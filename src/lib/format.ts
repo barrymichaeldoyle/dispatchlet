@@ -219,3 +219,45 @@ export function ideaLinkState(
   if (ideas === 'off') return 'hidden'
   return ideas === 'reconnect' ? 'reconnect' : 'save'
 }
+
+/** What a finished run's posts became, by where they are now. Drafts and posts the person
+ * skipped in Dispatchlet are left out by whoever counts them. */
+export type PostCounts = {
+  sent: number
+  booked: number
+  drafts: number
+  held: number
+  deleted: number
+  dry: number
+}
+
+const counted = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * A finished run in one sentence, from where its posts are now rather than from its last log
+ * line, which goes stale once a post is approved, published or deleted in Buffer. The run page
+ * headline and the Home row both say this.
+ */
+export function runOutcome(kind: string, kept: number, found: number, c: PostCounts): string {
+  if (kind === 'dry')
+    return c.dry
+      ? `It would send ${counted(c.dry, 'post')} for ${counted(kept, 'story', 'stories')}.`
+      : kept
+        ? `It kept ${counted(kept, 'story', 'stories')}, but none of the posts passed the checks.`
+        : 'Nothing worth posting this time.'
+  if (c.drafts)
+    return `${counted(c.drafts, 'draft')} ${c.drafts === 1 ? 'is' : 'are'} waiting for your approval.`
+  if (c.booked || c.sent)
+    return [
+      c.booked ? `${counted(c.booked, 'post')} scheduled in Buffer` : null,
+      c.sent ? `${counted(c.sent, 'post')} ${c.booked ? 'already sent' : 'sent'}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ')
+      .concat('.')
+  if (c.held) return `${counted(c.held, 'post')} waiting for Buffer.`
+  if (c.deleted)
+    return `${counted(c.deleted, 'post')} reached Buffer, then ${c.deleted === 1 ? 'was' : 'were'} deleted there.`
+  if (kept) return 'No posts reached Buffer.'
+  return found ? 'Nothing new worth posting this time.' : 'No stories found this time.'
+}

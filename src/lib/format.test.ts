@@ -10,6 +10,7 @@ import {
   draftEmailNote,
   metricLabel,
   relativeWhen,
+  runOutcome,
   serviceList,
   zoneName,
 } from './format'
@@ -190,5 +191,29 @@ describe('a link from outside data', () => {
     expect(webHref('javascript:alert(1)')).toBeUndefined()
     expect(webHref('data:text/html,hi')).toBeUndefined()
     expect(webHref(null)).toBeUndefined()
+  })
+})
+
+describe('a finished run in one sentence', () => {
+  const noPosts = { sent: 0, booked: 0, drafts: 0, held: 0, deleted: 0, dry: 0 }
+  it('says where the posts are now, drafts first', () => {
+    expect(runOutcome('scheduled', 2, 4, { ...noPosts, drafts: 1, sent: 1 })).toBe(
+      '1 draft is waiting for your approval.',
+    )
+    expect(runOutcome('now', 2, 4, { ...noPosts, booked: 1, sent: 1 })).toBe(
+      '1 post scheduled in Buffer, 1 post already sent.',
+    )
+  })
+  it('says posts deleted in Buffer did reach it', () => {
+    expect(runOutcome('now', 3, 5, { ...noPosts, deleted: 3 })).toBe(
+      '3 posts reached Buffer, then were deleted there.',
+    )
+  })
+  it('tells a quiet run from an empty one, and a dry run by what it would send', () => {
+    expect(runOutcome('scheduled', 0, 4, noPosts)).toBe('Nothing new worth posting this time.')
+    expect(runOutcome('scheduled', 0, 0, noPosts)).toBe('No stories found this time.')
+    expect(runOutcome('dry', 2, 4, { ...noPosts, dry: 2 })).toBe(
+      'It would send 2 posts for 2 stories.',
+    )
   })
 })

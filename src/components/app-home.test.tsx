@@ -100,6 +100,8 @@ function automation(over: Record<string, unknown> = {}) {
       note: 'Done. 1 post in Buffer.',
       posted: 1,
       kept: 1,
+      found: 1,
+      outcome: { sent: 1, booked: 0, drafts: 0, held: 0, deleted: 0, dry: 0 },
     },
     postsThisWeek: 1,
     postTimes: [NOW - 9 * HOUR],
@@ -407,5 +409,42 @@ describe('an automation row', () => {
     expect(screen.getByRole('link', { name: 'Today, 09:00' }).getAttribute('href')).toBe(
       '/app/a/a1/runs/r-today',
     )
+  })
+
+  it('says what came of the last run now, not its last log line', () => {
+    show({
+      data: dashboard({
+        automations: [
+          automation({
+            lastRun: {
+              ...automation().lastRun,
+              note: 'GrandPrixPicks: approved from the run page and added to the queue.',
+              kept: 3,
+              found: 5,
+              outcome: { sent: 0, booked: 0, drafts: 0, held: 0, deleted: 3, dry: 0 },
+            },
+          }),
+        ],
+      }),
+    })
+    expect(screen.getByText('3 posts reached Buffer, then were deleted there.')).toBeTruthy()
+    expect(screen.queryByText(/added to the queue/)).toBeNull()
+  })
+
+  it('keeps a failed run’s reason on the row', () => {
+    show({
+      data: dashboard({
+        automations: [
+          automation({
+            lastRun: {
+              ...automation().lastRun,
+              status: 'failed',
+              note: 'Research returned nothing usable.',
+            },
+          }),
+        ],
+      }),
+    })
+    expect(screen.getByText('Research returned nothing usable.')).toBeTruthy()
   })
 })

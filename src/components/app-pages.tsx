@@ -26,6 +26,7 @@ import {
   serviceName,
   relativeWhen,
   relativeWhenInline,
+  runOutcome,
   usd,
 } from '../lib/format'
 import { BusyLabel } from './busy-label'
@@ -632,7 +633,11 @@ function AutomationRow({ a, timezone }: { a: Dashboard['automations'][number]; t
               </Link>
             </span>
             <span data-status={a.lastRun.status}>
-              {a.lastRun.finished ? a.lastRun.note : 'Running now.'}
+              {!a.lastRun.finished
+                ? 'Running now.'
+                : a.lastRun.status === 'done'
+                  ? runOutcome(a.lastRun.kind, a.lastRun.kept, a.lastRun.found, a.lastRun.outcome)
+                  : a.lastRun.note}
             </span>
           </>
         ) : (
