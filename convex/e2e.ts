@@ -153,6 +153,12 @@ async function clear(ctx: MutationCtx, userId: Id<'users'>) {
       await ctx.db.delete(version._id)
     await ctx.db.delete(a._id)
   }
+  // Posts whose run is already gone would otherwise outlive every reset and show up on Home.
+  for (const post of await ctx.db
+    .query('posts')
+    .withIndex('by_user_createdAt', (q) => q.eq('userId', userId))
+    .collect())
+    await ctx.db.delete(post._id)
 }
 
 /**

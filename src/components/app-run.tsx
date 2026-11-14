@@ -1,6 +1,6 @@
 import { PageSkeleton } from './page-skeleton'
 import { MissingItem } from './route-error'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { ConvexProvider, ConvexReactClient, useAction, useMutation, useQuery } from 'convex/react'
 import { useState } from 'react'
 import { api } from '../../convex/_generated/api'
@@ -405,6 +405,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 /** What the run came to, in one line, and what the person can do about it. */
 function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; shared: boolean }) {
   const setStatus = useMutation(api.automations.setStatus)
+  const trigger = useMutation(api.runs.trigger)
+  const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const live = !run.finishedAt
@@ -467,6 +469,17 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
   const canTurnOn =
     !shared && id && run.kind === 'dry' && !live && run.automation?.status === 'ready'
   const next = run.automation?.nextRunAt ?? null
+  // A failed run's next step is right here: try again (a dry run stays dry), or change the playbook.
+  const canRetry = !shared && id && !live && run.status === 'failed'
+  const retryDry = run.kind === 'dry'
+  const retry = () => {
+    setBusy(true)
+    setError(null)
+    trigger({ automationId: id!, dry: retryDry })
+      .then((runId) => navigate({ to: '/app/a/$id/runs/$runId', params: { id: id!, runId } }))
+      .catch((reason: unknown) => setError(errorText(reason, 'It did not start. Try again.')))
+      .finally(() => setBusy(false))
+  }
   return (
     <div className="run-outcome" data-live={live} data-status={run.status} role="status">
       {live ? (
@@ -515,8 +528,28 @@ function Outcome({ run, id, shared }: { run: RunData; id?: Id<'automations'>; sh
             </span>
           ) : null}
         </div>
-      ) : !live && !shared && next ? (
+      ) : null}
+      {!canTurnOn && !live && !shared && next ? (
         <p className="run-detail">Next run {relativeWhenInline(next, tz)}.</p>
+      ) : null}
+      {canRetry ? (
+        <div className="run-next">
+          <button type="button" className="app-gate-primary" disabled={busy} onClick={retry}>
+            <BusyLabel
+              busy={busy}
+              idle={retryDry ? 'Dry run again' : 'Run again'}
+              working="Starting"
+            />
+          </button>
+          <Link to="/app/a/$id" params={{ id: id! }} className="app-link">
+            Change the playbook
+          </Link>
+          {error ? (
+            <span className="app-connection-error" role="alert">
+              {error}
+            </span>
+          ) : null}
+        </div>
       ) : null}
     </div>
   )

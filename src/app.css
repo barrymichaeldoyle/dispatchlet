@@ -4589,3 +4589,19 @@ a.app-week-count:hover {
 .app-playbook-section-fields {
   max-width: 760px;
 }
+
+/* Failed run, 14 Nov: Run again and Change the playbook share a line, centred on each other. */
+.run-next > .app-link {
+  align-self: center;
+}
+/* The working line under the title keeps a reading measure. */
+.app-working > span:last-child {
+  max-width: 72ch;
+}
+/* When the working line wraps, the spinner stays with its first line rather than the middle. */
+.app-working {
+  align-items: flex-start;
+}
+.app-working .flow-spinner {
+  margin-top: calc((1lh - 16px) / 2);
+}

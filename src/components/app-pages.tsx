@@ -443,7 +443,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
             <ChannelMark channel={serviceName(draft.service)} size={14} />
           </span>
           <strong>{draft.channelName}</strong>
-          <span className="app-muted">editing the draft</span>
+          <span className="app-muted">Editing the draft</span>
         </p>
         <DraftEditor
           postId={draft._id}
@@ -461,7 +461,7 @@ function DraftCard({ draft }: { draft: Dashboard['drafts'][number] }) {
           <ChannelMark channel={serviceName(draft.service)} size={14} />
         </span>
         <strong>{draft.channelName}</strong>
-        <span className="app-muted">draft</span>
+        <span className="app-muted">Draft</span>
       </p>
       <PostText text={draft.text} />
       <div className="app-gate-actions">

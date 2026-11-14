@@ -98,6 +98,10 @@ test('the week strip opens a day’s run, including the failed one', async ({ pa
   await failed.click()
   await expect(page).toHaveURL(/\/app\/a\/[^/]+\/runs\/[^/]+$/)
   await expect(page.getByText('Research returned nothing usable.').first()).toBeVisible()
+  // A failed run offers its next step on the spot. Not pressed: it would start a real run.
+  await expect(page.getByRole('button', { name: 'Run again' })).toBeEnabled()
+  await page.getByRole('link', { name: 'Change the playbook' }).click()
+  await expect(page).toHaveURL(/\/app\/a\/[^/?]+$/)
 })
 
 test('pausing from the row stops the schedule, and resuming starts it again', async ({ page }) => {
