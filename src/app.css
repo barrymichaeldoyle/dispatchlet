@@ -4577,3 +4577,15 @@ a.app-week-count:hover {
 .app-gate .app-stats > div[data-out='true'] dd.tabular {
   color: var(--color-danger);
 }
+
+/* A run with no stories: the outcome's closing rule opens the log, instead of two lines 40px apart. */
+.app-gate .run-outcome:has(+ .run-log) {
+  margin-bottom: 0;
+}
+.run-outcome + .run-log > summary {
+  border-top: 0;
+}
+/* Playbook fields keep a readable width; a one-line name doesn't need the whole column. */
+.app-playbook-section-fields {
+  max-width: 760px;
+}
