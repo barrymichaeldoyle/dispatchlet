@@ -965,6 +965,8 @@ export function AppSettings() {
           to="/app/settings"
           search={{}}
           aria-current={tab === 'general' ? 'page' : undefined}
+          // Exact, search included: General's empty search is otherwise a subset of ?tab=developers.
+          activeOptions={{ exact: true }}
           activeProps={{}}
         >
           General
@@ -973,6 +975,7 @@ export function AppSettings() {
           to="/app/settings"
           search={{ tab: 'developers' }}
           aria-current={tab === 'developers' ? 'page' : undefined}
+          activeOptions={{ exact: true }}
           activeProps={{}}
         >
           Developers

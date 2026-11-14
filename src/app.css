@@ -4516,3 +4516,28 @@ a.app-week-count:hover {
   justify-items: start;
   margin-top: 32px;
 }
+
+/*
+ * Signed-in pages audit, 14 Nov. The first settings section sits inside its anchor, so the
+ * first-child rule above never reached it and the tabs drew a second line. Option lists keep a
+ * readable measure on a wide screen instead of running a description across the whole column.
+ */
+.app-gate .settings-main > .settings-anchor:first-child > .app-section {
+  padding-top: 8px;
+  border-top: 0;
+}
+.app-gate .app-schedule .app-choices {
+  max-width: 820px;
+}
+/* Schedule options carry long descriptions: title over description at every width, as on a phone,
+   so one row doesn't sit inline while its neighbour wraps. */
+.app-gate .app-schedule .app-choices label:has(> :nth-child(3).app-muted:last-child) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+.app-gate .app-schedule .app-choices label:has(> :nth-child(3).app-muted:last-child) > .app-muted {
+  grid-column: 2;
+}
