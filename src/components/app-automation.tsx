@@ -122,6 +122,8 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
     a.status === 'ready' && latest?.finishedAt && runs?.every((r) => r.kind === 'dry')
       ? latest
       : null
+  // A next-step panel brings its own primary button; the header's Run now steps back for it.
+  const nextStep = !live && Boolean(firstTry || (a.status === 'ready' && runs?.length === 0))
   const firstRun = whenInSentence(nextRunAt(a.cadence, a.timezone), a.timezone)
   // A brand-new automation has nothing to count yet; the stats arrive with its first run.
   const showStats = Boolean(runs?.length) || a.status === 'active' || a.status === 'paused'
@@ -144,7 +146,7 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <div className="app-gate-actions">
             <button
               type="button"
-              className="app-gate-primary"
+              className={nextStep ? 'app-gate-secondary' : 'app-gate-primary'}
               disabled={busy !== null || running || noRuns}
               onClick={() => run(false)}
             >
@@ -208,12 +210,13 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
           <div>
             <dt>Posts, last 30 days</dt>
             <dd className="tabular">{perf ? perf.posts : 0}</dd>
+            {perf?.posts ? <dd className="app-stats-note">{perf.sent} published</dd> : null}
           </div>
-          <div data-attention={Boolean(perf?.drafts)}>
-            <dt>Sent / drafts</dt>
-            <dd className="tabular">{perf ? `${perf.sent} / ${perf.drafts}` : '0 / 0'}</dd>
+          <div data-attention={Boolean(perf?.drafts)} data-zero={!perf?.drafts}>
+            <dt>Drafts waiting</dt>
+            <dd className="tabular">{perf ? perf.drafts : 0}</dd>
           </div>
-          <div>
+          <div data-out={noRuns}>
             <dt>{allowance?.ownKey ? 'AI usage' : 'Free runs left'}</dt>
             <dd className="tabular" data-text={Boolean(allowance?.ownKey)}>
               {allowance?.ownKey ? (
@@ -227,11 +230,23 @@ export function AutomationPage({ id }: { id: Id<'automations'> }) {
             </dd>
             {allowance && !allowance.ownKey ? (
               <dd className="app-stats-note">
-                {allowance.dryRunsLeft} dry {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
-                <Link to="/app/settings" hash="anthropic">
-                  Add your key
-                </Link>{' '}
-                for no limit.
+                {noRuns ? (
+                  <>
+                    Real runs stop here.{' '}
+                    <Link to="/app/settings" hash="anthropic">
+                      Add your key
+                    </Link>{' '}
+                    to keep going.
+                  </>
+                ) : (
+                  <>
+                    {allowance.dryRunsLeft} dry {allowance.dryRunsLeft === 1 ? 'run' : 'runs'} left.{' '}
+                    <Link to="/app/settings" hash="anthropic">
+                      Add your key
+                    </Link>{' '}
+                    for no limit.
+                  </>
+                )}
               </dd>
             ) : null}
           </div>

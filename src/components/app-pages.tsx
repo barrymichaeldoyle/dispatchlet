@@ -1063,12 +1063,13 @@ function BufferConnection() {
   const [disconnecting, setDisconnecting] = useState(false)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { pending: reconnecting, reconnect } = useReconnect()
   if (connection === undefined) return null
   const canPost = connection?.scope.includes('posts:write') ?? false
   const status = !connection
     ? 'Not connected.'
     : connection.needsReauth
-      ? 'Buffer stopped accepting Dispatchlet’s access. Reconnect it above.'
+      ? 'Buffer stopped accepting Dispatchlet’s access. Reconnect it to keep posting.'
       : !canPost
         ? 'Connected without posting access. Reconnect to grant it.'
         : connection.canRefresh
@@ -1094,6 +1095,23 @@ function BufferConnection() {
         </ul>
       ) : connection ? (
         <p className="app-muted">No text channels synced yet.</p>
+      ) : null}
+      {!connection || connection.needsReauth ? (
+        <div className="app-gate-actions">
+          <button
+            type="button"
+            className="app-gate-primary"
+            disabled={reconnecting}
+            onClick={reconnect}
+          >
+            <BufferMark size={16} />
+            <BusyLabel
+              busy={reconnecting}
+              idle={connection ? 'Reconnect Buffer' : 'Connect Buffer'}
+              working="Opening Buffer"
+            />
+          </button>
+        </div>
       ) : null}
       {connection ? (
         <div className="app-gate-actions">
@@ -1186,11 +1204,12 @@ function Usage() {
           ))}
         </tbody>
       </table>
-      <p className="app-muted">
-        {usage.ownKey
-          ? 'Recorded AI usage, not a Dispatchlet bill. Runs on your own key are billed directly by Anthropic.'
-          : `Dispatchlet covers your free runs. ${usage.runsLeft} free ${usage.runsLeft === 1 ? 'run' : 'runs'} and ${usage.dryRunsLeft} dry ${usage.dryRunsLeft === 1 ? 'run' : 'runs'} left.`}
-      </p>
+      {usage.ownKey ? (
+        <p className="app-muted">
+          Recorded AI usage, not a Dispatchlet bill. Runs on your own key are billed directly by
+          Anthropic.
+        </p>
+      ) : null}
     </section>
   )
 }
@@ -1355,44 +1374,57 @@ function EmailPrefs() {
   return (
     <section className="app-section" aria-labelledby="notify-title">
       <h2 id="notify-title">Notifications</h2>
-      <p className="app-muted">When to be told.</p>
-      <ul className="app-choices">
-        {PREFS.map(([value, title, detail]) => (
-          <li key={value} data-checked={usage.emailPrefs === value}>
+      <p className="app-muted" id="notify-when">
+        When to tell you
+      </p>
+      <div role="radiogroup" aria-labelledby="notify-when">
+        <ul className="app-choices">
+          {PREFS.map(([value, title, detail]) => (
+            <li key={value} data-checked={usage.emailPrefs === value}>
+              <label>
+                <input
+                  type="radio"
+                  name="emailPrefs"
+                  checked={usage.emailPrefs === value}
+                  onChange={() => run({ prefs: value })}
+                />
+                <span>{title}</span>
+                <span className="app-muted">{detail}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="app-muted" id="notify-how">
+        How to tell you
+      </p>
+      <div role="group" aria-labelledby="notify-how">
+        <ul className="app-choices">
+          <li
+            data-checked={usage.emailEnabled && usage.emailPrefs !== 'never'}
+            data-off={usage.emailPrefs === 'never' || undefined}
+          >
             <label>
               <input
-                type="radio"
-                name="emailPrefs"
-                checked={usage.emailPrefs === value}
-                onChange={() => run({ prefs: value })}
+                type="checkbox"
+                // Under Never no run email goes out, so a tick here would promise one.
+                disabled={usage.emailPrefs === 'never'}
+                checked={usage.emailEnabled && usage.emailPrefs !== 'never'}
+                onChange={(e) => run({ emailEnabled: e.target.checked })}
               />
-              <span>{title}</span>
-              <span className="app-muted">{detail}</span>
+              <span>Email</span>
+              <span className="app-muted">
+                {usage.emailPrefs === 'never'
+                  ? 'Off while you chose Never above.'
+                  : usage.emailPrefs === 'problems'
+                    ? 'Only when something goes wrong; drafts are not emailed.'
+                    : 'With approve links for drafts.'}
+              </span>
             </label>
           </li>
-        ))}
-      </ul>
-      <p className="app-muted">How.</p>
-      <ul className="app-choices">
-        <li data-checked={usage.emailEnabled}>
-          <label>
-            <input
-              type="checkbox"
-              checked={usage.emailEnabled}
-              onChange={(e) => run({ emailEnabled: e.target.checked })}
-            />
-            <span>Email</span>
-            <span className="app-muted">
-              {usage.emailPrefs === 'never'
-                ? 'No run emails while “When” is Never.'
-                : usage.emailPrefs === 'problems'
-                  ? 'Only when something goes wrong; drafts are not emailed.'
-                  : 'With approve links for drafts.'}
-            </span>
-          </label>
-        </li>
-        <PushChoice />
-      </ul>
+          <PushChoice />
+        </ul>
+      </div>
       <p className="app-muted" role="status">
         {state === 'saving'
           ? 'Saving'

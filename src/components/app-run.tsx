@@ -18,7 +18,6 @@ import {
   metricLabel,
   serviceName,
   timeIn,
-  relativeWhen,
   relativeWhenInline,
   usd,
   webHref,
@@ -664,7 +663,7 @@ function RunView({
   shared?: boolean
 }) {
   const runId = run._id
-  const runName = `${run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'}, ${relativeWhen(run.startedAt, run.timezone)}`
+  const runName = `${run.kind === 'dry' ? 'Dry run' : run.kind === 'now' ? 'Run' : 'Scheduled run'}, ${relativeWhenInline(run.startedAt, run.timezone)}`
   usePageTitle(shared ? null : `${runName} · ${run.automationName}`)
   const share = useMutation(api.runs.share)
   const unshare = useMutation(api.runs.unshare)

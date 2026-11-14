@@ -31,14 +31,15 @@
 }
 
 /* Buffer's own button: white in both themes, like the mark's inner arrow, so it reads as theirs. */
+/* Theme colours, like every other secondary button: fixed white glared in dark mode. */
 .app-buffer-link {
-  border-color: #dad9d3;
-  background: #fff;
-  color: #1a1a1a;
+  border-color: var(--color-rule);
+  background: var(--color-card);
+  color: var(--color-ink);
 }
 
 .app-buffer-link:hover {
-  border-color: #1a1a1a;
+  border-color: var(--color-ink);
 }
 
 .app-buffer-link svg {
@@ -4540,4 +4541,39 @@ a.app-week-count:hover {
 }
 .app-gate .app-schedule .app-choices label:has(> :nth-child(3).app-muted:last-child) > .app-muted {
   grid-column: 2;
+}
+
+/* A number figure keeps its size on a phone; only worded figures ("Tomorrow, 09:00") step down. */
+@media (max-width: 720px) {
+  .app-gate .app-stats > div dd.tabular:not([data-text='true']) {
+    font-size: 28px;
+  }
+}
+/* An option that cannot apply right now reads as off, not as a live choice. */
+.app-choices li[data-off='true'] label {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+/*
+ * Automation page states, 14 Nov. The figures lose their closing rule here: the next thing on
+ * the page (a notice, an error, or the tabs) draws its own, so two lines never stack.
+ */
+.app-gate .app-stats:has(+ div[role='status']) {
+  margin-bottom: 24px;
+  border-bottom: 0;
+}
+.app-gate .app-allowance a {
+  white-space: nowrap;
+}
+.app-gate-actions > .app-link {
+  align-self: center;
+}
+.app-gate .app-connection-error[role='alert'] {
+  margin-block: 12px;
+  color: var(--color-danger);
+}
+/* Out of free runs is a stop, not good news: the figure and its note take the danger colour. */
+.app-gate .app-stats > div[data-out='true'] dd.tabular {
+  color: var(--color-danger);
 }
