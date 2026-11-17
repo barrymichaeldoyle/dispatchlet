@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { environmentFor, isLocalHost, isStaleBuildError, withoutQuery } from './errors'
+import {
+  environmentFor,
+  isLocalHost,
+  isOfflineSessionRenewal,
+  isStaleBuildError,
+  withoutQuery,
+} from './errors'
+
+/** A fetch that failed below HTTP, thrown from the given call site. */
+const offline = (message: string, stack: string) =>
+  Object.assign(new TypeError(message), { stack: `TypeError: ${message}\n${stack}` })
 
 describe('browser error reports', () => {
   test('tell production from everything else', () => {
@@ -36,5 +46,20 @@ describe('browser error reports', () => {
       isStaleBuildError(new TypeError("Cannot read properties of undefined (reading 'some')")),
     ).toBe(false)
     expect(isStaleBuildError(undefined)).toBe(false)
+  })
+
+  test('skip a session renewal that could not reach the network', () => {
+    const renewal = '    at Object.unauthenticatedCall (/assets/react-hMGrvkly.js:1:100)'
+    expect(isOfflineSessionRenewal(offline('Failed to fetch', renewal))).toBe(true)
+    expect(
+      isOfflineSessionRenewal(offline('NetworkError when attempting to fetch resource.', renewal)),
+    ).toBe(true)
+    expect(isOfflineSessionRenewal(offline('Load failed', renewal))).toBe(true)
+    // Our own fetches failing still report, and so does anything else the renewal throws.
+    expect(
+      isOfflineSessionRenewal(offline('Failed to fetch', '    at submit (/assets/app.js:1:5)')),
+    ).toBe(false)
+    expect(isOfflineSessionRenewal(new Error('InvalidRefreshToken'))).toBe(false)
+    expect(isOfflineSessionRenewal(undefined)).toBe(false)
   })
 })

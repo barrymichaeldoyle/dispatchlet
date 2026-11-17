@@ -53,6 +53,22 @@ export function isStaleBuildError(error: unknown): boolean {
   )
 }
 
+/**
+ * Convex Auth renews the session in the background over plain HTTP, retries twice within about
+ * three seconds, then rejects with nobody to catch it. A laptop waking from sleep or a dropped
+ * connection fails all three; the next renewal succeeds, so a report would only be noise. Only
+ * the browser's own network failure from that call counts; a server error from it still reports.
+ * Browsers word it differently: Chrome, Firefox, Safari.
+ */
+export function isOfflineSessionRenewal(error: unknown): boolean {
+  if (!(error instanceof TypeError)) return false
+  return (
+    /^(Failed to fetch|NetworkError when attempting to fetch resource\.?|Load failed)$/.test(
+      error.message,
+    ) && /unauthenticatedCall/.test(error.stack ?? '')
+  )
+}
+
 export function initializeErrorReporting(): Promise<void> {
   if (!allowed()) return Promise.resolve()
   loading ??= import('./sdk')
@@ -85,7 +101,7 @@ export function initializeErrorReporting(): Promise<void> {
 }
 
 export function reportToSentry(error: unknown) {
-  if (!allowed() || isStaleBuildError(error)) return
+  if (!allowed() || isStaleBuildError(error) || isOfflineSessionRenewal(error)) return
   // A tab behind a deploy that trips over data in a newer shape is not a bug in the live code;
   // the error page reloads it onto the new build (components/route-error.tsx).
   void checkForNewBuild(true).then((behind) => {
